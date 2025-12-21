@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户管理 - Common Login Service 管理后台</title>
+    <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="/static/css/admin.css" rel="stylesheet">
+</head>
+<body>
+    <div class="admin-wrapper">
+        <!-- Sidebar -->
+        <nav class="admin-sidebar">
+            <div class="sidebar-header">
+                <i class="bi bi-shield-lock-fill me-2"></i>
+                <span>管理后台</span>
+            </div>
+            <ul class="sidebar-nav">
+                <li class="nav-item {{if eq .activeMenu "dashboard"}}active{{end}}">
+                    <a href="/admin/dashboard" class="nav-link">
+                        <i class="bi bi-speedometer2"></i>
+                        <span>控制面板</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "users"}}active{{end}}">
+                    <a href="/admin/users" class="nav-link">
+                        <i class="bi bi-people"></i>
+                        <span>用户管理</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "balance-logs"}}active{{end}}">
+                    <a href="/admin/balance-logs" class="nav-link">
+                        <i class="bi bi-journal-text"></i>
+                        <span>余额日志</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "vip"}}active{{end}}">
+                    <a href="/admin/vip" class="nav-link">
+                        <i class="bi bi-gem"></i>
+                        <span>VIP配置</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "profile-navigation"}}active{{end}}">
+                    <a href="/admin/profile-navigation" class="nav-link">
+                        <i class="bi bi-grid-3x3-gap"></i>
+                        <span>个人中心导航</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "api-tokens"}}active{{end}}">
+                    <a href="/admin/api-tokens" class="nav-link">
+                        <i class="bi bi-key"></i>
+                        <span>API令牌</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "gift-cards"}}active{{end}}">
+                    <a href="/admin/gift-cards" class="nav-link">
+                        <i class="bi bi-gift"></i>
+                        <span>礼品卡</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "settings"}}active{{end}}">
+                    <a href="/admin/settings" class="nav-link">
+                        <i class="bi bi-gear"></i>
+                        <span>系统设置</span>
+                    </a>
+                </li>
+            </ul>
+            <div class="sidebar-footer">
+                <a href="/admin/logout" class="nav-link">
+                    <i class="bi bi-box-arrow-right"></i>
+                    <span>退出登录</span>
+                </a>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="admin-main">
+            <header class="admin-header">
+                <h1 class="page-title"><i class="bi bi-people me-2"></i>用户管理</h1>
+            </header>
+
+            <div class="admin-content">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <h5 class="mb-0">用户列表 <span class="badge bg-primary" id="totalBadge">加载中...</span></h5>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="searchKeyword" placeholder="搜索用户名、邮箱、显示名称...">
+                                    <button class="btn btn-primary" type="button" onclick="loadUsers()">
+                                        <i class="bi bi-search"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>用户名</th>
+                                        <th>邮箱</th>
+                                        <th>显示名称</th>
+                                        <th>余额</th>
+                                        <th>VIP等级</th>
+                                        <th>状态</th>
+                                        <th>注册时间</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersTableBody">
+                                    <tr>
+                                        <td colspan="9" class="text-center text-muted py-4">
+                                            <i class="bi bi-hourglass-split fs-1 d-block mb-2"></i>
+                                            加载中...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                共 <span id="totalCount">0</span> 人
+                            </div>
+                            <nav>
+                                <ul class="pagination pagination-sm mb-0" id="pagination"></ul>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editUserModalLabel"><i class="bi bi-pencil me-2"></i>编辑用户</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editUserId">
+                    
+                    <!-- Balance Section -->
+                    <div class="mb-3">
+                        <label for="editBalance" class="form-label">余额</label>
+                        <div class="input-group">
+                            <span class="input-group-text">¥</span>
+                            <input type="number" step="0.01" class="form-control" id="editBalance" placeholder="输入余额">
+                        </div>
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-sm btn-outline-success" onclick="adjustBalance(100)">+100</button>
+                            <button type="button" class="btn btn-sm btn-outline-success" onclick="adjustBalance(50)">+50</button>
+                            <button type="button" class="btn btn-sm btn-outline-success" onclick="adjustBalance(10)">+10</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="adjustBalance(-10)">-10</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="adjustBalance(-50)">-50</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="adjustBalance(-100)">-100</button>
+                        </div>
+                    </div>
+                    
+                    <!-- VIP Level Section -->
+                    <div class="mb-3">
+                        <label for="editVIPLevel" class="form-label">VIP等级</label>
+                        <select class="form-select" id="editVIPLevel">
+                            <option value="0">普通用户</option>
+                            <option value="1">VIP 1</option>
+                            <option value="2">VIP 2</option>
+                            <option value="3">VIP 3</option>
+                            <option value="4">VIP 4</option>
+                            <option value="5">VIP 5</option>
+                            <option value="6">VIP 6</option>
+                            <option value="7">VIP 7</option>
+                            <option value="8">VIP 8</option>
+                            <option value="9">VIP 9</option>
+                            <option value="10">VIP 10</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Status Section -->
+                    <div class="mb-3">
+                        <label class="form-label">用户状态</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="editIsActive">
+                            <label class="form-check-label" for="editIsActive">启用账户（关闭后用户将无法登录）</label>
+                        </div>
+                    </div>
+
+                    <!-- Password Reset Section -->
+                    <div class="mb-3">
+                        <label class="form-label">密码管理</label>
+                        <div class="d-grid">
+                            <button type="button" class="btn btn-warning" onclick="resetUserPassword()">
+                                <i class="bi bi-key me-2"></i>重置为随机密码
+                            </button>
+                        </div>
+                        <small class="text-muted mt-1 d-block">点击后将生成一个新的随机密码，请妥善保存</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="saveUserChanges()">保存更改</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Password Reset Result Modal -->
+    <div class="modal fade" id="passwordResetModal" tabindex="-1" aria-labelledby="passwordResetModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="passwordResetModalLabel"><i class="bi bi-key me-2"></i>密码重置成功</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center py-4">
+                    <i class="bi bi-shield-check display-1 text-success mb-3"></i>
+                    <h4 class="mb-3">用户密码已重置</h4>
+                    <p class="text-muted mb-2">新密码：</p>
+                    <div class="input-group mb-3">
+                        <input type="text" class="form-control form-control-lg text-center font-monospace" id="newPasswordDisplay" readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="copyPassword()">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                    </div>
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        请将此密码告知用户，此密码只显示一次！
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast for notifications -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="notificationToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <i class="bi bi-bell me-2"></i>
+                <strong class="me-auto">通知</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body" id="toastMessage"></div>
+        </div>
+    </div>
+
+    <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+    <script>
+        let editModal;
+        let notificationToast;
+        let currentPage = 1;
+        const pageSize = 20;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            editModal = new bootstrap.Modal(document.getElementById('editUserModal'));
+            notificationToast = new bootstrap.Toast(document.getElementById('notificationToast'));
+            
+            // Search on Enter key
+            document.getElementById('searchKeyword').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    loadUsers();
+                }
+            });
+            
+            // Check for keyword parameter in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const keywordParam = urlParams.get('keyword');
+            if (keywordParam) {
+                document.getElementById('searchKeyword').value = keywordParam;
+            }
+            
+            // Load users initially
+            loadUsers();
+        });
+
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        async function loadUsers(page = 1) {
+            currentPage = page;
+            const keyword = document.getElementById('searchKeyword').value;
+
+            let url = `/api/admin/users?page=${page}&page_size=${pageSize}`;
+            if (keyword) url += `&keyword=${encodeURIComponent(keyword)}`;
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.success) {
+                    renderUsers(data.data.users);
+                    renderPagination(data.data.total, data.data.page);
+                    document.getElementById('totalCount').textContent = data.data.total;
+                    document.getElementById('totalBadge').textContent = '共 ' + data.data.total + ' 人';
+                } else {
+                    document.getElementById('usersTableBody').innerHTML = `
+                        <tr>
+                            <td colspan="9" class="text-center text-danger py-4">
+                                <i class="bi bi-exclamation-circle fs-1 d-block mb-2"></i>
+                                加载失败: ${data.message}
+                            </td>
+                        </tr>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('usersTableBody').innerHTML = `
+                    <tr>
+                        <td colspan="9" class="text-center text-danger py-4">
+                            <i class="bi bi-exclamation-circle fs-1 d-block mb-2"></i>
+                            加载失败: ${error.message}
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        function renderUsers(users) {
+            const tbody = document.getElementById('usersTableBody');
+            
+            if (!users || users.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                            暂无用户数据
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = users.map(user => `
+                <tr data-user-id="${user.id}">
+                    <td>${user.id}</td>
+                    <td>
+                        ${user.avatar ? `<img src="${user.avatar}" class="rounded-circle me-2" width="24" height="24">` : ''}
+                        @${user.username}
+                    </td>
+                    <td>${user.email}</td>
+                    <td>${user.display_name || '-'}</td>
+                    <td class="user-balance">¥${user.balance.toFixed(2)}</td>
+                    <td class="user-vip-level">
+                        ${user.vip_level === 0 
+                            ? '<span class="badge bg-secondary">普通用户</span>' 
+                            : `<span class="badge bg-warning">VIP ${user.vip_level}</span>`}
+                    </td>
+                    <td>
+                        ${user.is_active 
+                            ? '<span class="badge bg-success user-status">正常</span>' 
+                            : '<span class="badge bg-danger user-status">冻结</span>'}
+                        ${user.is_admin ? '<span class="badge bg-warning ms-1">管理员</span>' : ''}
+                    </td>
+                    <td>${formatDate(user.created_at)}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" onclick="openEditModal(${user.id}, ${user.balance.toFixed(2)}, ${user.vip_level}, ${user.is_active})">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderPagination(total, currentPage) {
+            const pagination = document.getElementById('pagination');
+            const totalPages = Math.ceil(total / pageSize);
+            
+            if (totalPages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+
+            let html = '';
+            
+            // Previous button
+            html += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="loadUsers(${currentPage - 1}); return false;">上一页</a>
+            </li>`;
+
+            // Page numbers
+            const startPage = Math.max(1, currentPage - 2);
+            const endPage = Math.min(totalPages, currentPage + 2);
+
+            if (startPage > 1) {
+                html += `<li class="page-item"><a class="page-link" href="#" onclick="loadUsers(1); return false;">1</a></li>`;
+                if (startPage > 2) {
+                    html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                }
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                html += `<li class="page-item ${i === currentPage ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="loadUsers(${i}); return false;">${i}</a>
+                </li>`;
+            }
+
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                }
+                html += `<li class="page-item"><a class="page-link" href="#" onclick="loadUsers(${totalPages}); return false;">${totalPages}</a></li>`;
+            }
+
+            // Next button
+            html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="loadUsers(${currentPage + 1}); return false;">下一页</a>
+            </li>`;
+
+            pagination.innerHTML = html;
+        }
+
+        function openEditModal(userId, balance, vipLevel, isActive) {
+            document.getElementById('editUserId').value = userId;
+            document.getElementById('editBalance').value = balance;
+            document.getElementById('editVIPLevel').value = vipLevel;
+            document.getElementById('editIsActive').checked = isActive;
+            editModal.show();
+        }
+
+        function adjustBalance(amount) {
+            const balanceInput = document.getElementById('editBalance');
+            const currentBalance = parseFloat(balanceInput.value) || 0;
+            balanceInput.value = (currentBalance + amount).toFixed(2);
+        }
+
+        function showToast(message, isError = false) {
+            const toastEl = document.getElementById('notificationToast');
+            const toastBody = document.getElementById('toastMessage');
+            toastBody.textContent = message;
+            toastEl.classList.remove('bg-success', 'bg-danger');
+            toastEl.classList.add(isError ? 'bg-danger' : 'bg-success');
+            toastEl.classList.add('text-white');
+            notificationToast.show();
+        }
+
+        async function saveUserChanges() {
+            const userId = document.getElementById('editUserId').value;
+            const balance = parseFloat(document.getElementById('editBalance').value);
+            const vipLevel = parseInt(document.getElementById('editVIPLevel').value);
+            const isActive = document.getElementById('editIsActive').checked;
+
+            // Client-side validation
+            if (isNaN(balance)) {
+                showToast('请输入有效的余额数值', true);
+                return;
+            }
+            if (balance < 0) {
+                showToast('余额不能为负数', true);
+                return;
+            }
+            if (isNaN(vipLevel) || vipLevel < 0 || vipLevel > 10) {
+                showToast('VIP等级必须在0-10之间', true);
+                return;
+            }
+
+            try {
+                // Update balance
+                const balanceRes = await fetch(`/api/admin/users/${userId}/balance`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ balance: balance })
+                });
+                const balanceData = await balanceRes.json();
+                if (!balanceData.success) {
+                    showToast('余额更新失败: ' + balanceData.message, true);
+                    return;
+                }
+
+                // Update VIP level
+                const vipRes = await fetch(`/api/admin/users/${userId}/vip-level`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vip_level: vipLevel })
+                });
+                const vipData = await vipRes.json();
+                if (!vipData.success) {
+                    showToast('VIP等级更新失败: ' + vipData.message, true);
+                    return;
+                }
+
+                // Update status
+                const statusRes = await fetch(`/api/admin/users/${userId}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_active: isActive })
+                });
+                const statusData = await statusRes.json();
+                if (!statusData.success) {
+                    showToast('状态更新失败: ' + statusData.message, true);
+                    return;
+                }
+
+                editModal.hide();
+                showToast('用户信息更新成功');
+                // Reload users to reflect changes
+                loadUsers(currentPage);
+            } catch (error) {
+                showToast('操作失败: ' + error.message, true);
+            }
+        }
+
+        async function resetUserPassword() {
+            const userId = document.getElementById('editUserId').value;
+            if (!userId) {
+                showToast('请先选择用户', true);
+                return;
+            }
+
+            if (!confirm('确定要重置此用户的密码吗？此操作不可撤销！')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/admin/users/${userId}/reset-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Show the new password in a modal
+                    document.getElementById('newPasswordDisplay').value = data.new_password;
+                    editModal.hide();
+                    const passwordResetModal = new bootstrap.Modal(document.getElementById('passwordResetModal'));
+                    passwordResetModal.show();
+                } else {
+                    showToast('密码重置失败: ' + data.message, true);
+                }
+            } catch (error) {
+                showToast('操作失败: ' + error.message, true);
+            }
+        }
+
+        function copyPassword() {
+            const passwordInput = document.getElementById('newPasswordDisplay');
+            passwordInput.select();
+            document.execCommand('copy');
+            showToast('密码已复制到剪贴板');
+        }
+    </script>
+</body>
+</html>

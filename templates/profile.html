@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="{{.lang}}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{if .siteTitle}}{{.siteTitle}}{{else}}{{t .lang "app.name"}}{{end}} - 个人中心</title>
+    <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+    <style>
+        .profile-hero {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 0 120px;
+        }
+        .profile-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-top: -80px;
+            overflow: hidden;
+        }
+        .avatar-container {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 4px solid white;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            overflow: hidden;
+            margin: -60px auto 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .avatar-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .avatar-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 3rem;
+        }
+        .user-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .user-email {
+            color: #888;
+            font-size: 0.95rem;
+        }
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            padding: 30px;
+            border-top: 1px solid #f0f0f0;
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #333;
+        }
+        .stat-label {
+            color: #888;
+            font-size: 0.85rem;
+            margin-top: 5px;
+        }
+        .balance-value {
+            color: #28a745;
+        }
+        .vip-badge {
+            display: inline-flex;
+            align-items: center;
+            background: linear-gradient(135deg, #ffd700 0%, #ffb300 100%);
+            color: #333;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .vip-badge.normal {
+            background: linear-gradient(135deg, #e0e0e0 0%, #bdbdbd 100%);
+            color: #666;
+        }
+        .vip-badge i {
+            margin-right: 6px;
+        }
+        .info-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            padding: 24px;
+            margin-bottom: 24px;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .info-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+        }
+        .info-card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .info-card-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-right: 15px;
+        }
+        .info-card-icon.balance {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+        .info-card-icon.vip {
+            background: linear-gradient(135deg, #ffd700 0%, #ffb300 100%);
+            color: #333;
+        }
+        .info-card-icon.account {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .info-card-icon.security {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+        }
+        .info-card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 3px;
+        }
+        .info-card-subtitle {
+            font-size: 0.85rem;
+            color: #888;
+        }
+        .info-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .info-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f5f5f5;
+        }
+        .info-list li:last-child {
+            border-bottom: none;
+        }
+        .info-label {
+            color: #666;
+            font-size: 0.95rem;
+        }
+        .info-value {
+            font-weight: 500;
+            color: #333;
+        }
+        .action-btn {
+            border-radius: 12px;
+            padding: 12px 24px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        .action-btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+        }
+        .action-btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+            color: white;
+        }
+        .action-btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            border: none;
+            color: white;
+        }
+        .action-btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(40, 167, 69, 0.4);
+            color: white;
+        }
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .quick-action-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            border-radius: 12px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s;
+            color: white;
+            cursor: pointer;
+        }
+        .quick-action-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+            color: white;
+        }
+        .quick-action-btn i {
+            margin-right: 8px;
+            font-size: 1.2rem;
+        }
+        /* Button Effects */
+        .effect-pulse {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(255, 215, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
+        }
+        .effect-glow {
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+        @keyframes glow {
+            from { box-shadow: 0 0 5px rgba(40, 167, 69, 0.5); }
+            to { box-shadow: 0 0 20px rgba(40, 167, 69, 0.8), 0 0 30px rgba(40, 167, 69, 0.6); }
+        }
+        .effect-bounce {
+            animation: bounce 2s infinite;
+        }
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-8px); }
+            60% { transform: translateY(-4px); }
+        }
+        .vip-status-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 16px;
+            padding: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+        .vip-status-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        }
+        .vip-status-title {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+        .vip-status-level {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+        .vip-status-expire {
+            font-size: 0.85rem;
+            opacity: 0.8;
+        }
+        .vip-upgrade-btn {
+            margin-top: 15px;
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s;
+        }
+        .vip-upgrade-btn:hover {
+            background: rgba(255,255,255,0.3);
+            color: white;
+        }
+        @media (max-width: 768px) {
+            .stats-container {
+                grid-template-columns: repeat(1, 1fr);
+            }
+            .quick-actions {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-shield-lock-fill me-2"></i>{{if .siteTitle}}{{.siteTitle}}{{else}}{{t .lang "app.name"}}{{end}}
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/"><i class="bi bi-house me-1"></i>首页</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/profile"><i class="bi bi-person me-1"></i>个人中心</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/recharge"><i class="bi bi-wallet2 me-1"></i>充值</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/recharge#vip"><i class="bi bi-gem me-1"></i>VIP</a>
+                    </li>
+                    {{if .logged}}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                            {{if .user.Avatar}}
+                            <img src="{{.user.Avatar}}" alt="Avatar" class="rounded-circle me-1" width="24" height="24">
+                            {{else}}
+                            <i class="bi bi-person-circle me-1"></i>
+                            {{end}}
+                            {{.user.DisplayName}}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="/profile"><i class="bi bi-person me-2"></i>个人中心</a></li>
+                            <li><a class="dropdown-item" href="/recharge"><i class="bi bi-wallet2 me-2"></i>充值中心</a></li>
+                            <li><a class="dropdown-item" href="/recharge#vip"><i class="bi bi-gem me-2"></i>VIP会员</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" onclick="logout()"><i class="bi bi-box-arrow-right me-2"></i>退出登录</a></li>
+                        </ul>
+                    </li>
+                    {{else}}
+                    <li class="nav-item">
+                        <a class="nav-link" href="/auth/login"><i class="bi bi-box-arrow-in-right me-1"></i>{{t .lang "nav.login"}}</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/auth/register"><i class="bi bi-person-plus me-1"></i>{{t .lang "nav.register"}}</a>
+                    </li>
+                    {{end}}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    {{if .logged}}
+    <!-- Profile Hero -->
+    <section class="profile-hero">
+        <div class="container text-center">
+            <h1 class="mb-3">个人中心</h1>
+            <p class="opacity-75">管理您的账户信息和会员权益</p>
+        </div>
+    </section>
+
+    <!-- Profile Content -->
+    <div class="container pb-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <!-- Profile Card -->
+                <div class="profile-card">
+                    <div class="text-center pt-4">
+                        <div class="avatar-container">
+                            {{if .user.Avatar}}
+                            <img src="{{.user.Avatar}}" alt="Avatar">
+                            {{else}}
+                            <div class="avatar-placeholder">
+                                <i class="bi bi-person-fill"></i>
+                            </div>
+                            {{end}}
+                        </div>
+                        <h2 class="user-name">{{.user.DisplayName}}</h2>
+                        <p class="user-email">{{.user.Email}}</p>
+                        <div class="mb-3">
+                            {{if gt .user.VIPLevel 0}}
+                            <span class="vip-badge" id="vip-badge">
+                                <i class="bi bi-gem"></i>
+                                <span id="vip-name">VIP {{.user.VIPLevel}}</span>
+                            </span>
+                            {{else}}
+                            <span class="vip-badge normal">
+                                <i class="bi bi-person"></i>
+                                普通用户
+                            </span>
+                            {{end}}
+                        </div>
+                    </div>
+                    <div class="stats-container">
+                        <div class="stat-item">
+                            <div class="stat-value balance-value">¥<span id="user-balance">{{printf "%.2f" .user.Balance}}</span></div>
+                            <div class="stat-label">账户余额</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="vip-level-display">{{if gt .user.VIPLevel 0}}VIP {{.user.VIPLevel}}{{else}}普通{{end}}</div>
+                            <div class="stat-label">会员等级</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="member-days">-</div>
+                            <div class="stat-label">会员天数</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mt-4">
+                    <!-- Left Column -->
+                    <div class="col-lg-8">
+                        <!-- VIP Status Card -->
+                        <div class="info-card">
+                            <div class="info-card-header">
+                                <div class="info-card-icon vip">
+                                    <i class="bi bi-gem"></i>
+                                </div>
+                                <div>
+                                    <div class="info-card-title">VIP会员</div>
+                                    <div class="info-card-subtitle">查看您的会员权益和状态</div>
+                                </div>
+                            </div>
+                            <div id="vip-info-content">
+                                {{if gt .user.VIPLevel 0}}
+                                <div class="vip-status-card mb-3">
+                                    <div class="vip-status-title">当前会员等级</div>
+                                    <div class="vip-status-level" id="vip-level-name">VIP {{.user.VIPLevel}}</div>
+                                    <div class="vip-status-expire" id="vip-expire-info">会员有效期计算中...</div>
+                                    <a href="/recharge" class="vip-upgrade-btn">
+                                        <i class="bi bi-arrow-up-circle me-1"></i>续费/升级
+                                    </a>
+                                </div>
+                                {{else}}
+                                <div class="text-center py-4">
+                                    <i class="bi bi-gem display-4 text-muted mb-3"></i>
+                                    <p class="text-muted mb-3">您还不是VIP会员</p>
+                                    <a href="/recharge" class="btn action-btn action-btn-primary">
+                                        <i class="bi bi-gem me-2"></i>立即开通VIP
+                                    </a>
+                                </div>
+                                {{end}}
+                            </div>
+                        </div>
+
+                        <!-- Balance Card -->
+                        <div class="info-card">
+                            <div class="info-card-header">
+                                <div class="info-card-icon balance">
+                                    <i class="bi bi-wallet2"></i>
+                                </div>
+                                <div>
+                                    <div class="info-card-title">账户余额</div>
+                                    <div class="info-card-subtitle">管理您的账户资金</div>
+                                </div>
+                            </div>
+                            <ul class="info-list">
+                                <li>
+                                    <span class="info-label">可用余额</span>
+                                    <span class="info-value text-success fs-4">¥<span id="available-balance">{{printf "%.2f" .user.Balance}}</span></span>
+                                </li>
+                            </ul>
+                            <div class="d-flex gap-2 mt-3">
+                                <a href="/recharge" class="btn action-btn action-btn-success flex-grow-1">
+                                    <i class="bi bi-plus-circle me-2"></i>充值
+                                </a>
+                                <button class="btn action-btn action-btn-primary flex-grow-1" data-bs-toggle="modal" data-bs-target="#giftCardModal">
+                                    <i class="bi bi-gift me-2"></i>兑换礼品卡
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Account Info Card -->
+                        <div class="info-card">
+                            <div class="info-card-header">
+                                <div class="info-card-icon account">
+                                    <i class="bi bi-person-badge"></i>
+                                </div>
+                                <div>
+                                    <div class="info-card-title">账户信息</div>
+                                    <div class="info-card-subtitle">您的基本账户信息</div>
+                                </div>
+                            </div>
+                            <ul class="info-list">
+                                <li>
+                                    <span class="info-label">用户名</span>
+                                    <span class="info-value">{{.user.Username}}</span>
+                                </li>
+                                <li>
+                                    <span class="info-label">邮箱</span>
+                                    <span class="info-value">{{.user.Email}}</span>
+                                </li>
+                                <li>
+                                    <span class="info-label">显示名称</span>
+                                    <span class="info-value">{{.user.DisplayName}}</span>
+                                </li>
+                                <li>
+                                    <span class="info-label">注册时间</span>
+                                    <span class="info-value" id="created-at">{{.user.CreatedAt}}</span>
+                                </li>
+                                <li>
+                                    <span class="info-label">账户状态</span>
+                                    <span class="info-value">
+                                        {{if .user.IsActive}}
+                                        <span class="badge bg-success">正常</span>
+                                        {{else}}
+                                        <span class="badge bg-danger">已禁用</span>
+                                        {{end}}
+                                    </span>
+                                </li>
+                            </ul>
+                            <button class="btn action-btn action-btn-primary w-100 mt-3" data-bs-toggle="modal" data-bs-target="#editProfileModal">
+                                <i class="bi bi-pencil me-2"></i>编辑个人资料
+                            </button>
+                            <button class="btn btn-outline-danger w-100 mt-2" data-bs-toggle="modal" data-bs-target="#changePasswordModal">
+                                <i class="bi bi-key me-2"></i>修改密码
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Right Column -->
+                    <div class="col-lg-4">
+                        <!-- Quick Actions -->
+                        <div class="info-card">
+                            <div class="info-card-header">
+                                <div class="info-card-icon security">
+                                    <i class="bi bi-lightning"></i>
+                                </div>
+                                <div>
+                                    <div class="info-card-title">快捷操作</div>
+                                    <div class="info-card-subtitle">常用功能入口</div>
+                                </div>
+                            </div>
+                            <div class="quick-actions" id="quick-actions-container">
+                                <!-- Dynamic navigation items will be rendered here -->
+                                <a href="/recharge" class="quick-action-btn" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
+                                    <i class="bi bi-wallet2"></i>充值中心
+                                </a>
+                                <a href="/recharge#vip" class="quick-action-btn" style="background: linear-gradient(135deg, #ffd700 0%, #ffb300 100%); color: #333;">
+                                    <i class="bi bi-gem"></i>VIP会员
+                                </a>
+                                <a href="#" class="quick-action-btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);" data-bs-toggle="modal" data-bs-target="#editProfileModal">
+                                    <i class="bi bi-gear"></i>账号设置
+                                </a>
+                                <a href="#" onclick="logout()" class="quick-action-btn" style="background: linear-gradient(135deg, #6c757d 0%, #495057 100%);">
+                                    <i class="bi bi-box-arrow-right"></i>退出登录
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- VIP Benefits Preview -->
+                        <div class="info-card">
+                            <div class="info-card-header">
+                                <div class="info-card-icon vip">
+                                    <i class="bi bi-star"></i>
+                                </div>
+                                <div>
+                                    <div class="info-card-title">VIP特权</div>
+                                    <div class="info-card-subtitle">会员专属权益</div>
+                                </div>
+                            </div>
+                            <ul class="info-list" id="vip-benefits-list">
+                                <li>
+                                    <span class="info-label"><i class="bi bi-check-circle text-success me-2"></i>专属客服</span>
+                                </li>
+                                <li>
+                                    <span class="info-label"><i class="bi bi-check-circle text-success me-2"></i>优先支持</span>
+                                </li>
+                                <li>
+                                    <span class="info-label"><i class="bi bi-check-circle text-success me-2"></i>更多特权</span>
+                                </li>
+                            </ul>
+                            <a href="/recharge" class="btn btn-outline-primary w-100 mt-3">
+                                <i class="bi bi-arrow-right me-2"></i>查看全部VIP特权
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Profile Modal -->
+    <div class="modal fade" id="editProfileModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>编辑个人资料</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="edit-profile-form">
+                        <div class="mb-3">
+                            <label for="display-name" class="form-label">显示名称</label>
+                            <input type="text" class="form-control" id="display-name" value="{{.user.DisplayName}}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="avatar-url" class="form-label">头像URL</label>
+                            <input type="url" class="form-control" id="avatar-url" value="{{.user.Avatar}}" placeholder="https://example.com/avatar.jpg">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="saveProfile()">
+                        <i class="bi bi-check-lg me-1"></i>保存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gift Card Modal -->
+    <div class="modal fade" id="giftCardModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-gift me-2"></i>兑换礼品卡</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">输入礼品卡码，余额将自动添加到您的账户</p>
+                    <div class="input-group input-group-lg">
+                        <span class="input-group-text"><i class="bi bi-gift"></i></span>
+                        <input type="text" class="form-control font-monospace" id="gift-card-code" placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="19">
+                    </div>
+                    <small class="text-muted mt-2 d-block">请输入16位礼品卡码（格式：XXXX-XXXX-XXXX-XXXX）</small>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-success" onclick="redeemGiftCard()">
+                        <i class="bi bi-check-lg me-1"></i>兑换
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div class="modal fade" id="changePasswordModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-key me-2"></i>修改密码</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="change-password-form">
+                        <div class="mb-3">
+                            <label for="old-password" class="form-label">原密码</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                                <input type="password" class="form-control" id="old-password" placeholder="请输入原密码" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="new-password" class="form-label">新密码</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
+                                <input type="password" class="form-control" id="new-password" placeholder="请输入新密码（至少6位）" required minlength="6">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="confirm-password" class="form-label">确认新密码</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
+                                <input type="password" class="form-control" id="confirm-password" placeholder="请再次输入新密码" required minlength="6">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-danger" onclick="changePassword()">
+                        <i class="bi bi-check-lg me-1"></i>确认修改
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{else}}
+    <!-- Not Logged In -->
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6 text-center">
+                <i class="bi bi-person-lock display-1 text-muted mb-4"></i>
+                <h2>请先登录</h2>
+                <p class="text-muted mb-4">您需要登录后才能访问个人中心</p>
+                <a href="/auth/login" class="btn btn-primary btn-lg">
+                    <i class="bi bi-box-arrow-in-right me-2"></i>立即登录
+                </a>
+            </div>
+        </div>
+    </div>
+    {{end}}
+
+    <!-- Footer -->
+    <footer class="bg-dark text-white py-4 mt-auto">
+        <div class="container text-center">
+            <p class="mb-0">&copy; 2024 {{if .siteTitle}}{{.siteTitle}}{{else}}{{t .lang "app.name"}}{{end}}. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+    <script>
+        let vipLevels = [];
+        let navItems = [];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadVIPLevels();
+            loadUserBalance();
+            loadProfileNavigation();
+            formatCreatedAt();
+            initGiftCardInput();
+        });
+
+        async function loadProfileNavigation() {
+            try {
+                const response = await fetch('/api/profile-navigation');
+                const result = await response.json();
+                if (result.success && result.data) {
+                    navItems = result.data;
+                    renderQuickActions();
+                }
+            } catch (error) {
+                console.error('Failed to load profile navigation:', error);
+            }
+        }
+
+        function renderQuickActions() {
+            const container = document.getElementById('quick-actions-container');
+            if (!container || navItems.length === 0) return;
+            
+            container.innerHTML = '';
+            
+            // Sort by order
+            const sortedItems = [...navItems].sort((a, b) => a.order - b.order);
+            
+            sortedItems.forEach(item => {
+                const effectClass = item.effect ? `effect-${item.effect}` : '';
+                // Sanitize color values to prevent CSS injection
+                const safeColor = sanitizeColor(item.color) || '#667eea';
+                const safeGradientEnd = sanitizeColor(item.gradient_end) || '#764ba2';
+                const gradient = `linear-gradient(135deg, ${safeColor} 0%, ${safeGradientEnd} 100%)`;
+                const target = item.new_tab ? 'target="_blank" rel="noopener"' : '';
+                // Sanitize icon class to prevent injection
+                const safeIcon = sanitizeIconClass(item.icon) || 'bi-link';
+                // Escape HTML in title
+                const safeTitle = escapeHtml(item.title);
+                
+                let element;
+                if (item.type === 'action') {
+                    // Special actions
+                    if (item.id === 'logout') {
+                        element = `<a href="#" onclick="logout()" class="quick-action-btn ${effectClass}" style="background: ${gradient};">
+                            <i class="${safeIcon}"></i>${safeTitle}
+                        </a>`;
+                    } else if (item.id === 'settings') {
+                        element = `<a href="#" class="quick-action-btn ${effectClass}" style="background: ${gradient};" data-bs-toggle="modal" data-bs-target="#editProfileModal">
+                            <i class="${safeIcon}"></i>${safeTitle}
+                        </a>`;
+                    } else {
+                        const safeUrl = sanitizeUrl(item.url) || '#';
+                        element = `<a href="${safeUrl}" class="quick-action-btn ${effectClass}" style="background: ${gradient};" ${target}>
+                            <i class="${safeIcon}"></i>${safeTitle}
+                        </a>`;
+                    }
+                } else {
+                    // Regular links
+                    const safeUrl = sanitizeUrl(item.url) || '#';
+                    element = `<a href="${safeUrl}" class="quick-action-btn ${effectClass}" style="background: ${gradient};" ${target}>
+                        <i class="${safeIcon}"></i>${safeTitle}
+                    </a>`;
+                }
+                container.innerHTML += element;
+            });
+        }
+
+        // Sanitize color values to prevent CSS injection
+        function sanitizeColor(color) {
+            if (!color) return null;
+            // Only allow valid hex colors
+            const hexPattern = /^#[0-9A-Fa-f]{6}$/;
+            if (hexPattern.test(color)) return color;
+            // Also allow common color names
+            const validColors = ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink', 'white', 'black', 'gray', 'grey'];
+            if (validColors.includes(color.toLowerCase())) return color;
+            return null;
+        }
+
+        // Sanitize icon class to prevent injection
+        function sanitizeIconClass(iconClass) {
+            if (!iconClass) return null;
+            // Only allow alphanumeric, hyphens, and spaces (for multiple classes)
+            const pattern = /^[a-zA-Z0-9\s-]+$/;
+            if (pattern.test(iconClass)) return iconClass;
+            return null;
+        }
+
+        // Sanitize URL to prevent javascript: injection
+        function sanitizeUrl(url) {
+            if (!url) return null;
+            // Block javascript: and data: URLs
+            const lowerUrl = url.toLowerCase().trim();
+            if (lowerUrl.startsWith('javascript:') || lowerUrl.startsWith('data:')) return '#';
+            return url;
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async function loadVIPLevels() {
+            try {
+                const response = await fetch('/api/vip-levels');
+                const result = await response.json();
+                if (result.success) {
+                    vipLevels = result.data || [];
+                    updateVIPDisplay();
+                }
+            } catch (error) {
+                console.error('Failed to load VIP levels:', error);
+            }
+        }
+
+        async function loadUserBalance() {
+            try {
+                const response = await fetch('/api/auth/balance');
+                const result = await response.json();
+                if (result.success && result.data) {
+                    document.getElementById('user-balance').textContent = result.data.balance.toFixed(2);
+                    document.getElementById('available-balance').textContent = result.data.balance.toFixed(2);
+                    
+                    if (result.data.vip_name) {
+                        const vipNameEl = document.getElementById('vip-name');
+                        const vipLevelName = document.getElementById('vip-level-name');
+                        if (vipNameEl) vipNameEl.textContent = result.data.vip_name;
+                        if (vipLevelName) vipLevelName.textContent = result.data.vip_name;
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load user balance:', error);
+            }
+        }
+
+        function updateVIPDisplay() {
+            const vipLevel = {{if .user}}{{.user.VIPLevel}}{{else}}0{{end}};
+            const vipConfig = vipLevels.find(v => v.level === vipLevel);
+            
+            if (vipConfig) {
+                const vipBadge = document.getElementById('vip-badge');
+                const vipLevelName = document.getElementById('vip-level-name');
+                const vipLevelDisplay = document.getElementById('vip-level-display');
+                const vipExpireInfo = document.getElementById('vip-expire-info');
+                const memberDays = document.getElementById('member-days');
+                
+                if (vipBadge) {
+                    vipBadge.style.background = `linear-gradient(135deg, ${vipConfig.color || '#ffd700'} 0%, ${adjustColor(vipConfig.color || '#ffd700', -30)} 100%)`;
+                }
+                if (vipLevelName) vipLevelName.textContent = vipConfig.name;
+                if (vipLevelDisplay) vipLevelDisplay.textContent = vipConfig.name;
+                if (vipExpireInfo) {
+                    if (vipConfig.duration > 0) {
+                        vipExpireInfo.textContent = `有效期：${vipConfig.duration} 天`;
+                    } else {
+                        vipExpireInfo.textContent = '有效期：永久';
+                    }
+                }
+                if (memberDays) {
+                    if (vipConfig.duration > 0) {
+                        memberDays.textContent = vipConfig.duration;
+                    } else {
+                        memberDays.textContent = '永久';
+                    }
+                }
+            } else {
+                const memberDays = document.getElementById('member-days');
+                if (memberDays) memberDays.textContent = '-';
+            }
+        }
+
+        function adjustColor(color, amount) {
+            const clamp = (val) => Math.min(255, Math.max(0, val));
+            let hex = color.replace('#', '');
+            if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+            const num = parseInt(hex, 16);
+            const r = clamp(((num >> 16) & 0xFF) + amount);
+            const g = clamp(((num >> 8) & 0xFF) + amount);
+            const b = clamp((num & 0xFF) + amount);
+            return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+        }
+
+        function formatCreatedAt() {
+            const el = document.getElementById('created-at');
+            if (el) {
+                const date = new Date(el.textContent);
+                el.textContent = date.toLocaleDateString('zh-CN', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+            }
+        }
+
+        function initGiftCardInput() {
+            const codeInput = document.getElementById('gift-card-code');
+            if (codeInput) {
+                codeInput.addEventListener('input', function(e) {
+                    let value = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+                    if (value.length > 16) value = value.substring(0, 16);
+                    let formatted = '';
+                    for (let i = 0; i < value.length; i++) {
+                        if (i > 0 && i % 4 === 0) formatted += '-';
+                        formatted += value[i];
+                    }
+                    e.target.value = formatted;
+                });
+            }
+        }
+
+        async function saveProfile() {
+            const displayName = document.getElementById('display-name').value;
+            const avatar = document.getElementById('avatar-url').value;
+
+            try {
+                const response = await fetch('/api/auth/profile', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        display_name: displayName,
+                        avatar: avatar
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('editProfileModal')).hide();
+                    showToast('个人资料已更新', false);
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast(result.message || '保存失败', true);
+                }
+            } catch (error) {
+                showToast('保存失败，请稍后重试', true);
+            }
+        }
+
+        async function redeemGiftCard() {
+            const codeInput = document.getElementById('gift-card-code');
+            const code = codeInput.value.trim().toUpperCase();
+            
+            if (!code) {
+                showToast('请输入礼品卡码', true);
+                return;
+            }
+
+            if (code.replace(/-/g, '').length !== 16) {
+                showToast('请输入有效的16位礼品卡码', true);
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/redeem-gift-card', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: code })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    codeInput.value = '';
+                    bootstrap.Modal.getInstance(document.getElementById('giftCardModal')).hide();
+                    
+                    // Update balance display
+                    if (result.data) {
+                        document.getElementById('user-balance').textContent = result.data.balance.toFixed(2);
+                        document.getElementById('available-balance').textContent = result.data.balance.toFixed(2);
+                    }
+                    
+                    showRedeemSuccessModal(result.data?.amount || 0, result.data?.balance || 0);
+                } else {
+                    showToast(result.message || '兑换失败', true);
+                }
+            } catch (error) {
+                showToast('兑换失败，请稍后重试', true);
+            }
+        }
+
+        function showRedeemSuccessModal(amount, newBalance) {
+            const modalHtml = `
+                <div class="modal fade" id="redeemSuccessModal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header bg-success text-white">
+                                <h5 class="modal-title"><i class="bi bi-gift me-2"></i>兑换成功</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body text-center py-4">
+                                <i class="bi bi-gift display-1 text-success mb-3"></i>
+                                <h4>礼品卡兑换成功！</h4>
+                                <p class="mb-2">已添加余额：<strong class="text-success fs-4">¥${amount.toFixed(2)}</strong></p>
+                                <p class="text-muted">当前余额：¥${newBalance.toFixed(2)}</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-success" data-bs-dismiss="modal">
+                                    <i class="bi bi-check-lg me-2"></i>确定
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const existing = document.getElementById('redeemSuccessModal');
+            if (existing) existing.remove();
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            new bootstrap.Modal(document.getElementById('redeemSuccessModal')).show();
+        }
+
+        function showToast(message, isError = false) {
+            // Create toast container if not exists
+            let container = document.querySelector('.toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+                document.body.appendChild(container);
+            }
+
+            const toastId = 'toast-' + Date.now();
+            const toastHtml = `
+                <div id="${toastId}" class="toast ${isError ? 'bg-danger' : 'bg-success'} text-white" role="alert">
+                    <div class="toast-body d-flex align-items-center">
+                        <i class="bi ${isError ? 'bi-exclamation-circle' : 'bi-check-circle'} me-2"></i>
+                        ${message}
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', toastHtml);
+            
+            const toastEl = document.getElementById(toastId);
+            const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+            toast.show();
+            
+            toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+        }
+
+        async function changePassword() {
+            const oldPassword = document.getElementById('old-password').value;
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+
+            if (!oldPassword || !newPassword || !confirmPassword) {
+                showToast('请填写所有密码字段', true);
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                showToast('新密码长度至少6个字符', true);
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                showToast('两次输入的新密码不一致', true);
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        old_password: oldPassword,
+                        new_password: newPassword
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    // Clear form
+                    document.getElementById('old-password').value = '';
+                    document.getElementById('new-password').value = '';
+                    document.getElementById('confirm-password').value = '';
+                    bootstrap.Modal.getInstance(document.getElementById('changePasswordModal')).hide();
+                    showToast('密码修改成功', false);
+                } else {
+                    showToast(result.message || '密码修改失败', true);
+                }
+            } catch (error) {
+                showToast('密码修改失败，请稍后重试', true);
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+                window.location.href = '/auth/login';
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

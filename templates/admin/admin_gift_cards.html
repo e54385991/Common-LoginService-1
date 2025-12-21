@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>礼品卡管理 - {{.config.Site.Title}} 管理后台</title>
+    <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="/static/css/admin.css" rel="stylesheet">
+    <style>
+        .gift-card-preview {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .gift-code {
+            font-family: monospace;
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 8px;
+            display: inline-block;
+        }
+        .code-copy-btn {
+            cursor: pointer;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.2);
+        }
+        .code-copy-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-wrapper">
+        <!-- Sidebar -->
+        <nav class="admin-sidebar">
+            <div class="sidebar-header">
+                <i class="bi bi-shield-lock-fill me-2"></i>
+                <span>管理后台</span>
+            </div>
+            <ul class="sidebar-nav">
+                <li class="nav-item {{if eq .activeMenu "dashboard"}}active{{end}}">
+                    <a href="/admin/dashboard" class="nav-link">
+                        <i class="bi bi-speedometer2"></i>
+                        <span>控制面板</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "users"}}active{{end}}">
+                    <a href="/admin/users" class="nav-link">
+                        <i class="bi bi-people"></i>
+                        <span>用户管理</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "vip"}}active{{end}}">
+                    <a href="/admin/vip" class="nav-link">
+                        <i class="bi bi-gem"></i>
+                        <span>VIP配置</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "profile-navigation"}}active{{end}}">
+                    <a href="/admin/profile-navigation" class="nav-link">
+                        <i class="bi bi-grid-3x3-gap"></i>
+                        <span>个人中心导航</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "api-tokens"}}active{{end}}">
+                    <a href="/admin/api-tokens" class="nav-link">
+                        <i class="bi bi-key"></i>
+                        <span>API令牌</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "gift-cards"}}active{{end}}">
+                    <a href="/admin/gift-cards" class="nav-link">
+                        <i class="bi bi-gift"></i>
+                        <span>礼品卡</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "settings"}}active{{end}}">
+                    <a href="/admin/settings" class="nav-link">
+                        <i class="bi bi-gear"></i>
+                        <span>系统设置</span>
+                    </a>
+                </li>
+            </ul>
+            <div class="sidebar-footer">
+                <a href="/admin/logout" class="nav-link">
+                    <i class="bi bi-box-arrow-right"></i>
+                    <span>退出登录</span>
+                </a>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="admin-main">
+            <header class="admin-header">
+                <h1 class="page-title"><i class="bi bi-gift me-2"></i>礼品卡管理</h1>
+            </header>
+
+            <div class="admin-content">
+                <div id="alert-container"></div>
+
+                <!-- Create Gift Cards Card -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>生成礼品卡</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="create-cards-form">
+                            <div class="row">
+                                <div class="col-md-3 mb-3">
+                                    <label for="card-amount" class="form-label">面值 (¥)</label>
+                                    <input type="number" class="form-control" id="card-amount" value="" min="0" step="0.01" placeholder="如100">
+                                    <small class="text-muted">充值余额金额（0或空 = 不充值）</small>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label for="card-vip-level" class="form-label">VIP等级</label>
+                                    <input type="number" class="form-control" id="card-vip-level" value="" min="0" max="10" placeholder="如1">
+                                    <small class="text-muted">0或空 = 不赠送VIP</small>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label for="card-vip-days" class="form-label">VIP天数</label>
+                                    <input type="number" class="form-control" id="card-vip-days" value="" min="0" placeholder="如30">
+                                    <small class="text-muted">0或空 = 永久VIP</small>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label for="card-count" class="form-label">数量</label>
+                                    <input type="number" class="form-control" id="card-count" value="1" min="1" max="100" required>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-3 mb-3">
+                                    <label for="card-expires" class="form-label">有效期（天）</label>
+                                    <input type="number" class="form-control" id="card-expires" value="" min="0" placeholder="0或空 = 永不过期">
+                                    <small class="text-muted">礼品卡有效期</small>
+                                </div>
+                                <div class="col-md-9 mb-3">
+                                    <label for="card-description" class="form-label">描述</label>
+                                    <input type="text" class="form-control" id="card-description" placeholder="可选">
+                                </div>
+                            </div>
+                            <div class="alert alert-info mb-3">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <strong>提示：</strong>礼品卡可以同时赠送余额和VIP。如只需赠送余额，VIP等级设为0；如只需赠送VIP，面值设为0。
+                            </div>
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-plus-lg me-2"></i>生成礼品卡
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- New Cards Display (Hidden by default) -->
+                <div class="card mb-4 border-success" id="new-cards-card" style="display: none;">
+                    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-check-circle me-2"></i>礼品卡生成成功</h5>
+                        <button class="btn btn-light btn-sm" onclick="copyAllCodes()">
+                            <i class="bi bi-clipboard me-1"></i>复制全部
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-warning mb-3">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            <strong>请保存这些礼品卡码！</strong> 用户可在充值页面使用这些卡码兑换余额或VIP。
+                        </div>
+                        <div id="new-cards-list" class="row g-3">
+                            <!-- Cards will be rendered here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gift Cards List -->
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-list me-2"></i>礼品卡列表 <span class="badge bg-secondary" id="cards-total">0</span></h5>
+                        <div>
+                            <select class="form-select form-select-sm d-inline-block w-auto me-2" id="filter-status">
+                                <option value="">全部状态</option>
+                                <option value="unused">未使用</option>
+                                <option value="used">已使用</option>
+                            </select>
+                            <button class="btn btn-outline-primary btn-sm" onclick="loadCards()">
+                                <i class="bi bi-arrow-clockwise"></i> 刷新
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>卡码</th>
+                                        <th>面值</th>
+                                        <th>VIP</th>
+                                        <th>状态</th>
+                                        <th>使用者</th>
+                                        <th>使用时间</th>
+                                        <th>有效期</th>
+                                        <th>创建时间</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cards-table-body">
+                                    <!-- Card rows will be rendered here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Usage Instructions -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>使用说明</h5>
+                    </div>
+                    <div class="card-body">
+                        <h6>礼品卡类型</h6>
+                        <ul>
+                            <li><strong>余额礼品卡：</strong>设置面值（金额），VIP等级设为0</li>
+                            <li><strong>VIP礼品卡：</strong>设置VIP等级和天数，面值设为0</li>
+                            <li><strong>混合礼品卡：</strong>同时设置面值和VIP等级，用户可一次性获得余额和VIP</li>
+                        </ul>
+                        
+                        <h6 class="mt-4">用户兑换方式</h6>
+                        <ol>
+                            <li>登录账户后访问充值页面 <code>/recharge</code></li>
+                            <li>在礼品卡兑换区域输入卡码</li>
+                            <li>点击兑换，余额和/或VIP将自动添加到账户</li>
+                        </ol>
+                        
+                        <h6 class="mt-4">API兑换方式</h6>
+                        <pre class="bg-dark text-light p-3 rounded"><code>POST /api/auth/redeem-gift-card
+Content-Type: application/json
+Authorization: Bearer user-jwt-token
+
+{
+  "code": "XXXX-XXXX-XXXX-XXXX"
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast for notifications -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="notificationToast" class="toast" role="alert">
+            <div class="toast-header">
+                <i class="bi bi-bell me-2"></i>
+                <strong class="me-auto">通知</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="toastMessage"></div>
+        </div>
+    </div>
+
+    <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+    <script>
+        let notificationToast;
+        let newCardCodes = [];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            notificationToast = new bootstrap.Toast(document.getElementById('notificationToast'));
+            loadCards();
+
+            document.getElementById('filter-status').addEventListener('change', loadCards);
+        });
+
+        function showAlert(type, message) {
+            const container = document.getElementById('alert-container');
+            container.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>`;
+        }
+
+        function showToast(message, isError = false) {
+            const toastEl = document.getElementById('notificationToast');
+            const toastBody = document.getElementById('toastMessage');
+            toastBody.textContent = message;
+            toastEl.classList.remove('bg-success', 'bg-danger');
+            toastEl.classList.add(isError ? 'bg-danger' : 'bg-success');
+            toastEl.classList.add('text-white');
+            notificationToast.show();
+        }
+
+        async function loadCards() {
+            try {
+                const response = await fetch('/api/admin/gift-cards');
+                const result = await response.json();
+                if (result.success) {
+                    let cards = result.data.cards || [];
+                    document.getElementById('cards-total').textContent = result.data.total || 0;
+                    
+                    // Apply filter
+                    const filter = document.getElementById('filter-status').value;
+                    if (filter === 'unused') {
+                        cards = cards.filter(c => !c.is_used);
+                    } else if (filter === 'used') {
+                        cards = cards.filter(c => c.is_used);
+                    }
+                    
+                    renderCards(cards);
+                }
+            } catch (error) {
+                console.error('Failed to load cards:', error);
+            }
+        }
+
+        function renderCards(cards) {
+            const tbody = document.getElementById('cards-table-body');
+            if (cards.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">暂无礼品卡</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = cards.map(card => `
+                <tr>
+                    <td>
+                        <code class="gift-code">${escapeHtml(card.code)}</code>
+                        <button class="btn btn-sm btn-link p-0 ms-2" onclick="copyCode('${escapeHtml(card.code)}')" title="复制">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                    </td>
+                    <td>${card.amount > 0 ? `<strong class="text-success">¥${card.amount.toFixed(2)}</strong>` : '-'}</td>
+                    <td>
+                        ${card.vip_level > 0 
+                            ? `<span class="badge bg-warning text-dark"><i class="bi bi-gem me-1"></i>VIP${card.vip_level}${card.vip_days > 0 ? ` / ${card.vip_days}天` : ' / 永久'}</span>`
+                            : '-'}
+                    </td>
+                    <td>
+                        ${card.is_used 
+                            ? '<span class="badge bg-secondary">已使用</span>' 
+                            : '<span class="badge bg-success">未使用</span>'}
+                    </td>
+                    <td>${card.used_by_id ? `用户 #${card.used_by_id}` : '-'}</td>
+                    <td>${card.used_at ? new Date(card.used_at).toLocaleString() : '-'}</td>
+                    <td>${card.expires_at ? new Date(card.expires_at).toLocaleDateString() : '永久'}</td>
+                    <td>${new Date(card.created_at).toLocaleString()}</td>
+                    <td>
+                        ${!card.is_used ? `
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteCard(${card.id})">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        ` : ''}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function copyCode(code) {
+            navigator.clipboard.writeText(code).then(() => {
+                showToast('卡码已复制');
+            });
+        }
+
+        function copyAllCodes() {
+            const codesText = newCardCodes.join('\n');
+            navigator.clipboard.writeText(codesText).then(() => {
+                showToast('所有卡码已复制');
+            });
+        }
+
+        document.getElementById('create-cards-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const amount = parseFloat(document.getElementById('card-amount').value) || 0;
+            const vipLevel = parseInt(document.getElementById('card-vip-level').value) || 0;
+            const vipDays = parseInt(document.getElementById('card-vip-days').value) || 0;
+            const count = parseInt(document.getElementById('card-count').value);
+            const expiresIn = parseInt(document.getElementById('card-expires').value) || 0;
+            const description = document.getElementById('card-description').value;
+
+            // Validate: at least amount or VIP level must be set
+            if (amount <= 0 && vipLevel <= 0) {
+                showAlert('warning', '请设置面值或VIP等级（至少需要设置一项）');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/admin/gift-cards', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        amount: amount,
+                        vip_level: vipLevel,
+                        vip_days: vipDays,
+                        count: count,
+                        expires_in: expiresIn,
+                        description: description
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    // Show the new cards
+                    const cards = result.data || [];
+                    newCardCodes = cards.map(c => c.code);
+                    
+                    const container = document.getElementById('new-cards-list');
+                    container.innerHTML = cards.map(card => `
+                        <div class="col-md-6 col-lg-4">
+                            <div class="gift-card-preview">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <span><i class="bi bi-gift me-2"></i>礼品卡</span>
+                                    <div class="text-end">
+                                        ${card.amount > 0 ? `<div><strong>¥${card.amount.toFixed(2)}</strong></div>` : ''}
+                                        ${card.vip_level > 0 ? `<div><small><i class="bi bi-gem me-1"></i>VIP${card.vip_level}${card.vip_days > 0 ? ` / ${card.vip_days}天` : ' / 永久'}</small></div>` : ''}
+                                    </div>
+                                </div>
+                                <div class="gift-code mb-2">${card.code}</div>
+                                <button class="btn btn-sm btn-light" onclick="copyCode('${card.code}')">
+                                    <i class="bi bi-clipboard me-1"></i>复制
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                    
+                    document.getElementById('new-cards-card').style.display = 'block';
+                    loadCards();
+                    showAlert('success', `成功生成 ${cards.length} 张礼品卡！`);
+                } else {
+                    showAlert('danger', result.message);
+                }
+            } catch (error) {
+                showAlert('danger', '创建失败，请稍后重试');
+            }
+        });
+
+        async function deleteCard(id) {
+            if (!confirm('确定要删除此礼品卡吗？此操作不可恢复。')) return;
+
+            try {
+                const response = await fetch(`/api/admin/gift-cards/${id}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+                if (result.success) {
+                    loadCards();
+                    showToast('礼品卡已删除');
+                } else {
+                    showAlert('danger', result.message);
+                }
+            } catch (error) {
+                showAlert('danger', '删除失败，请稍后重试');
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API令牌管理 - {{.config.Site.Title}} 管理后台</title>
+    <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="/static/css/admin.css" rel="stylesheet">
+</head>
+<body>
+    <div class="admin-wrapper">
+        <!-- Sidebar -->
+        <nav class="admin-sidebar">
+            <div class="sidebar-header">
+                <i class="bi bi-shield-lock-fill me-2"></i>
+                <span>管理后台</span>
+            </div>
+            <ul class="sidebar-nav">
+                <li class="nav-item {{if eq .activeMenu "dashboard"}}active{{end}}">
+                    <a href="/admin/dashboard" class="nav-link">
+                        <i class="bi bi-speedometer2"></i>
+                        <span>控制面板</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "users"}}active{{end}}">
+                    <a href="/admin/users" class="nav-link">
+                        <i class="bi bi-people"></i>
+                        <span>用户管理</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "vip"}}active{{end}}">
+                    <a href="/admin/vip" class="nav-link">
+                        <i class="bi bi-gem"></i>
+                        <span>VIP配置</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "profile-navigation"}}active{{end}}">
+                    <a href="/admin/profile-navigation" class="nav-link">
+                        <i class="bi bi-grid-3x3-gap"></i>
+                        <span>个人中心导航</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "api-tokens"}}active{{end}}">
+                    <a href="/admin/api-tokens" class="nav-link">
+                        <i class="bi bi-key"></i>
+                        <span>API令牌</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "gift-cards"}}active{{end}}">
+                    <a href="/admin/gift-cards" class="nav-link">
+                        <i class="bi bi-gift"></i>
+                        <span>礼品卡</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "settings"}}active{{end}}">
+                    <a href="/admin/settings" class="nav-link">
+                        <i class="bi bi-gear"></i>
+                        <span>系统设置</span>
+                    </a>
+                </li>
+            </ul>
+            <div class="sidebar-footer">
+                <a href="/admin/logout" class="nav-link">
+                    <i class="bi bi-box-arrow-right"></i>
+                    <span>退出登录</span>
+                </a>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="admin-main">
+            <header class="admin-header">
+                <h1 class="page-title"><i class="bi bi-key me-2"></i>API令牌管理</h1>
+            </header>
+
+            <div class="admin-content">
+                <div id="alert-container"></div>
+
+                <!-- Info Card -->
+                <div class="alert alert-info mb-4">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>使用说明：</strong> API令牌用于外部系统通过API修改用户余额和VIP等级。
+                    在请求头中添加 <code>X-API-Key: your-token</code> 或 <code>Authorization: Bearer your-token</code>。
+                </div>
+
+                <!-- Create Token Card -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>创建新令牌</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="create-token-form">
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="token-name" class="form-label">令牌名称</label>
+                                    <input type="text" class="form-control" id="token-name" placeholder="例如：外部系统API" required>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="token-permissions" class="form-label">权限</label>
+                                    <select class="form-select" id="token-permissions" multiple>
+                                        <option value="balance" selected>余额管理</option>
+                                        <option value="vip" selected>VIP管理</option>
+                                        <option value="all">所有权限</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="token-expires" class="form-label">有效期（天）</label>
+                                    <input type="number" class="form-control" id="token-expires" value="0" min="0" placeholder="0 = 永不过期">
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-plus-lg me-2"></i>创建令牌
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- New Token Display (Hidden by default) -->
+                <div class="card mb-4 border-success" id="new-token-card" style="display: none;">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="bi bi-check-circle me-2"></i>令牌创建成功</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-warning mb-3">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            <strong>请立即复制并保存此令牌！</strong> 关闭此窗口后将无法再次查看完整令牌。
+                        </div>
+                        <div class="input-group mb-3">
+                            <input type="text" class="form-control font-monospace" id="new-token-value" readonly>
+                            <button class="btn btn-outline-primary" onclick="copyToken()">
+                                <i class="bi bi-clipboard"></i> 复制
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tokens List -->
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-list me-2"></i>令牌列表</h5>
+                        <button class="btn btn-outline-primary btn-sm" onclick="loadTokens()">
+                            <i class="bi bi-arrow-clockwise"></i> 刷新
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>名称</th>
+                                        <th>令牌</th>
+                                        <th>权限</th>
+                                        <th>状态</th>
+                                        <th>有效期</th>
+                                        <th>最后使用</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tokens-table-body">
+                                    <!-- Token rows will be rendered here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- API Documentation -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-book me-2"></i>API接口文档</h5>
+                    </div>
+                    <div class="card-body">
+                        <h6>1. 更新用户余额</h6>
+                        <pre class="bg-dark text-light p-3 rounded"><code>POST /api/external/balance
+Content-Type: application/json
+X-API-Key: your-token
+
+{
+  "user_id": 1,
+  "amount": 100.00  // 正数增加，负数减少
+}</code></pre>
+
+                        <h6 class="mt-4">2. 设置用户VIP等级</h6>
+                        <pre class="bg-dark text-light p-3 rounded"><code>POST /api/external/vip-level
+Content-Type: application/json
+X-API-Key: your-token
+
+{
+  "user_id": 1,
+  "vip_level": 3
+}</code></pre>
+
+                        <h6 class="mt-4">3. 查询用户信息</h6>
+                        <pre class="bg-dark text-light p-3 rounded"><code>GET /api/external/user?user_id=1
+X-API-Key: your-token</code></pre>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast for notifications -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="notificationToast" class="toast" role="alert">
+            <div class="toast-header">
+                <i class="bi bi-bell me-2"></i>
+                <strong class="me-auto">通知</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="toastMessage"></div>
+        </div>
+    </div>
+
+    <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+    <script>
+        let notificationToast;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            notificationToast = new bootstrap.Toast(document.getElementById('notificationToast'));
+            loadTokens();
+        });
+
+        function showAlert(type, message) {
+            const container = document.getElementById('alert-container');
+            container.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>`;
+        }
+
+        function showToast(message, isError = false) {
+            const toastEl = document.getElementById('notificationToast');
+            const toastBody = document.getElementById('toastMessage');
+            toastBody.textContent = message;
+            toastEl.classList.remove('bg-success', 'bg-danger');
+            toastEl.classList.add(isError ? 'bg-danger' : 'bg-success');
+            toastEl.classList.add('text-white');
+            notificationToast.show();
+        }
+
+        async function loadTokens() {
+            try {
+                const response = await fetch('/api/admin/api-tokens');
+                const result = await response.json();
+                if (result.success) {
+                    renderTokens(result.data || []);
+                }
+            } catch (error) {
+                console.error('Failed to load tokens:', error);
+            }
+        }
+
+        function renderTokens(tokens) {
+            const tbody = document.getElementById('tokens-table-body');
+            if (tokens.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">暂无API令牌</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = tokens.map(token => `
+                <tr>
+                    <td>${escapeHtml(token.name)}</td>
+                    <td><code class="text-muted">${escapeHtml(token.token)}</code></td>
+                    <td><span class="badge bg-info">${escapeHtml(token.permissions || 'balance,vip')}</span></td>
+                    <td>
+                        ${token.is_active 
+                            ? '<span class="badge bg-success">启用</span>' 
+                            : '<span class="badge bg-secondary">禁用</span>'}
+                    </td>
+                    <td>${token.expires_at ? new Date(token.expires_at).toLocaleDateString() : '永久'}</td>
+                    <td>${token.last_used_at ? new Date(token.last_used_at).toLocaleString() : '从未使用'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-${token.is_active ? 'warning' : 'success'}" 
+                                onclick="toggleToken(${token.id})">
+                            <i class="bi bi-${token.is_active ? 'pause' : 'play'}"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteToken(${token.id})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function copyToken() {
+            const tokenInput = document.getElementById('new-token-value');
+            navigator.clipboard.writeText(tokenInput.value).then(() => {
+                showToast('令牌已复制到剪贴板');
+            }).catch(() => {
+                // Fallback for older browsers
+                tokenInput.select();
+                document.execCommand('copy');
+                showToast('令牌已复制到剪贴板');
+            });
+        }
+
+        document.getElementById('create-token-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('token-name').value;
+            const permSelect = document.getElementById('token-permissions');
+            const permissions = Array.from(permSelect.selectedOptions).map(opt => opt.value);
+            const expiresIn = parseInt(document.getElementById('token-expires').value) || 0;
+
+            try {
+                const response = await fetch('/api/admin/api-tokens', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: name,
+                        permissions: permissions,
+                        expires_in: expiresIn
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    // Show the new token
+                    document.getElementById('new-token-value').value = result.data.token;
+                    document.getElementById('new-token-card').style.display = 'block';
+                    document.getElementById('token-name').value = '';
+                    loadTokens();
+                    showAlert('success', '令牌创建成功！请立即复制保存。');
+                } else {
+                    showAlert('danger', result.message);
+                }
+            } catch (error) {
+                showAlert('danger', '创建失败，请稍后重试');
+            }
+        });
+
+        async function toggleToken(id) {
+            try {
+                const response = await fetch(`/api/admin/api-tokens/${id}/toggle`, {
+                    method: 'PUT'
+                });
+                const result = await response.json();
+                if (result.success) {
+                    loadTokens();
+                    showToast('令牌状态已更新');
+                } else {
+                    showAlert('danger', result.message);
+                }
+            } catch (error) {
+                showAlert('danger', '操作失败，请稍后重试');
+            }
+        }
+
+        async function deleteToken(id) {
+            if (!confirm('确定要删除此令牌吗？此操作不可恢复。')) return;
+
+            try {
+                const response = await fetch(`/api/admin/api-tokens/${id}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+                if (result.success) {
+                    loadTokens();
+                    showToast('令牌已删除');
+                } else {
+                    showAlert('danger', result.message);
+                }
+            } catch (error) {
+                showAlert('danger', '删除失败，请稍后重试');
+            }
+        }
+    </script>
+</body>
+</html>

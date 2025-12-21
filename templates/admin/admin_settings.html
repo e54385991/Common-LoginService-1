@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.title}} - Common Login Service 管理后台</title>
+    <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="/static/css/admin.css" rel="stylesheet">
+</head>
+<body>
+    <div class="admin-wrapper">
+        <!-- Sidebar -->
+        <nav class="admin-sidebar">
+            <div class="sidebar-header">
+                <i class="bi bi-shield-lock-fill me-2"></i>
+                <span>管理后台</span>
+            </div>
+            <ul class="sidebar-nav">
+                <li class="nav-item {{if eq .activeMenu "dashboard"}}active{{end}}">
+                    <a href="/admin/dashboard" class="nav-link">
+                        <i class="bi bi-speedometer2"></i>
+                        <span>控制面板</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "users"}}active{{end}}">
+                    <a href="/admin/users" class="nav-link">
+                        <i class="bi bi-people"></i>
+                        <span>用户管理</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "vip"}}active{{end}}">
+                    <a href="/admin/vip" class="nav-link">
+                        <i class="bi bi-gem"></i>
+                        <span>VIP配置</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "profile-navigation"}}active{{end}}">
+                    <a href="/admin/profile-navigation" class="nav-link">
+                        <i class="bi bi-grid-3x3-gap"></i>
+                        <span>个人中心导航</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "api-tokens"}}active{{end}}">
+                    <a href="/admin/api-tokens" class="nav-link">
+                        <i class="bi bi-key"></i>
+                        <span>API令牌</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "gift-cards"}}active{{end}}">
+                    <a href="/admin/gift-cards" class="nav-link">
+                        <i class="bi bi-gift"></i>
+                        <span>礼品卡</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "settings"}}active{{end}}">
+                    <a href="/admin/settings" class="nav-link">
+                        <i class="bi bi-gear"></i>
+                        <span>系统设置</span>
+                    </a>
+                </li>
+            </ul>
+            <div class="sidebar-footer">
+                <a href="/admin/logout" class="nav-link">
+                    <i class="bi bi-box-arrow-right"></i>
+                    <span>退出登录</span>
+                </a>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="admin-main">
+            <header class="admin-header">
+                <h1 class="page-title"><i class="bi bi-gear me-2"></i>系统设置</h1>
+            </header>
+
+            <div class="admin-content">
+                <div id="alert-container"></div>
+
+                <!-- Google OAuth Settings -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-google me-2"></i>Google OAuth 设置
+                        </h5>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" id="google-oauth-enabled" {{if .config.GoogleOAuth.Enabled}}checked{{end}}>
+                            <label class="form-check-label" for="google-oauth-enabled">启用</label>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <form id="google-oauth-form">
+                            <div class="mb-3">
+                                <label for="google-client-id" class="form-label">Client ID</label>
+                                <input type="text" class="form-control" id="google-client-id" value="{{.config.GoogleOAuth.ClientID}}" placeholder="输入 Google OAuth Client ID">
+                            </div>
+                            <div class="mb-3">
+                                <label for="google-client-secret" class="form-label">Client Secret</label>
+                                <input type="password" class="form-control" id="google-client-secret" placeholder="输入 Google OAuth Client Secret（留空则不修改）">
+                            </div>
+                            <div class="mb-3">
+                                <label for="google-redirect-url" class="form-label">Redirect URL</label>
+                                <input type="text" class="form-control" id="google-redirect-url" value="{{.config.GoogleOAuth.RedirectURL}}" placeholder="例如: http://localhost:8080/api/auth/google/callback">
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save me-2"></i>保存 Google OAuth 设置
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Gmail API Settings -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-envelope me-2"></i>Gmail API 设置
+                        </h5>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" id="gmail-api-enabled" {{if .config.GmailAPI.Enabled}}checked{{end}}>
+                            <label class="form-check-label" for="gmail-api-enabled">启用</label>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <form id="gmail-api-form">
+                            <div class="mb-3">
+                                <label for="gmail-sender" class="form-label">发送邮箱</label>
+                                <input type="email" class="form-control" id="gmail-sender" value="{{.config.GmailAPI.SenderEmail}}" placeholder="用于发送邮件的 Gmail 地址">
+                            </div>
+                            <hr class="my-4">
+                            <h6 class="mb-3"><i class="bi bi-key me-2"></i>OAuth 2.0 凭据</h6>
+                            <div class="alert alert-info mb-3">
+                                <i class="bi bi-info-circle me-2"></i>
+                                您可以通过 OAuth 2.0 凭据直接配置 Gmail API，无需上传 credentials.json 文件。
+                                <br><small>请在 <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a> 创建 OAuth 2.0 凭据。</small>
+                            </div>
+                            <div class="mb-3">
+                                <label for="gmail-client-id" class="form-label">Client ID</label>
+                                <input type="text" class="form-control" id="gmail-client-id" value="{{.config.GmailAPI.ClientID}}" placeholder="OAuth 2.0 Client ID">
+                            </div>
+                            <div class="mb-3">
+                                <label for="gmail-client-secret" class="form-label">Client Secret</label>
+                                <input type="password" class="form-control" id="gmail-client-secret" placeholder="OAuth 2.0 Client Secret（留空则不修改）">
+                            </div>
+                            <div class="mb-3">
+                                <label for="gmail-refresh-token" class="form-label">Refresh Token</label>
+                                <input type="password" class="form-control" id="gmail-refresh-token" placeholder="OAuth 2.0 Refresh Token（留空则不修改）">
+                                <small class="text-muted">您可以使用 <a href="https://developers.google.com/oauthplayground/" target="_blank">OAuth 2.0 Playground</a> 获取 Refresh Token</small>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save me-2"></i>保存 Gmail API 设置
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- JWT Settings -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-key me-2"></i>JWT 设置
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="jwt-form">
+                            <div class="mb-3">
+                                <label for="jwt-expire" class="form-label">Token 有效期（小时）</label>
+                                <input type="number" class="form-control" id="jwt-expire" value="{{.config.JWT.ExpireHour}}" min="1" max="720">
+                            </div>
+                            <div class="mb-3">
+                                <label for="jwt-secret" class="form-label">JWT Secret</label>
+                                <input type="password" class="form-control" id="jwt-secret" placeholder="输入新的 JWT Secret（留空则不修改）">
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save me-2"></i>保存 JWT 设置
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Captcha Settings -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-shield-check me-2"></i>验证码设置
+                        </h5>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" id="captcha-enabled" {{if .config.Captcha.Enabled}}checked{{end}}>
+                            <label class="form-check-label" for="captcha-enabled">启用</label>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <form id="captcha-form">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                启用后，用户在登录和注册时需要完成滑块验证码验证。这有助于防止恶意机器人攻击。
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save me-2"></i>保存验证码设置
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Result Modal -->
+    <div class="modal fade" id="resultModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-body text-center py-5">
+                    <i class="bi display-1 mb-3" id="modal-icon"></i>
+                    <h4 class="mb-3" id="modal-title"></h4>
+                    <p class="text-muted mb-0" id="modal-message"></p>
+                </div>
+                <div class="modal-footer justify-content-center border-0 pt-0">
+                    <button type="button" class="btn btn-primary px-4" data-bs-dismiss="modal">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+    <script>
+        let resultModal;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            resultModal = new bootstrap.Modal(document.getElementById('resultModal'));
+        });
+
+        function showAlert(type, message) {
+            const container = document.getElementById('alert-container');
+            container.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>`;
+        }
+
+        function showModal(type, message) {
+            const iconMap = {
+                'success': 'bi-check-circle-fill',
+                'danger': 'bi-exclamation-circle-fill',
+                'warning': 'bi-exclamation-triangle-fill'
+            };
+            const colorMap = {
+                'success': '#28a745',
+                'danger': '#dc3545',
+                'warning': '#ffc107'
+            };
+            const titleMap = {
+                'success': '保存成功',
+                'danger': '保存失败',
+                'warning': '警告'
+            };
+            
+            document.getElementById('modal-icon').className = `bi ${iconMap[type]} display-1 mb-3`;
+            document.getElementById('modal-icon').style.color = colorMap[type];
+            document.getElementById('modal-title').textContent = titleMap[type];
+            document.getElementById('modal-message').textContent = message;
+            
+            resultModal.show();
+        }
+
+        // Google OAuth Form
+        document.getElementById('google-oauth-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const data = {
+                enabled: document.getElementById('google-oauth-enabled').checked,
+                client_id: document.getElementById('google-client-id').value,
+                client_secret: document.getElementById('google-client-secret').value,
+                redirect_url: document.getElementById('google-redirect-url').value
+            };
+            
+            try {
+                const response = await fetch('/api/admin/settings/google-oauth', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                showModal(result.success ? 'success' : 'danger', result.message);
+            } catch (error) {
+                showModal('danger', '网络错误，请稍后重试');
+            }
+        });
+
+        // Gmail API Form
+        document.getElementById('gmail-api-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const data = {
+                enabled: document.getElementById('gmail-api-enabled').checked,
+                sender_email: document.getElementById('gmail-sender').value,
+                client_id: document.getElementById('gmail-client-id').value,
+                client_secret: document.getElementById('gmail-client-secret').value,
+                refresh_token: document.getElementById('gmail-refresh-token').value
+            };
+            
+            try {
+                const response = await fetch('/api/admin/settings/gmail-api', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                showModal(result.success ? 'success' : 'danger', result.message);
+            } catch (error) {
+                showModal('danger', '网络错误，请稍后重试');
+            }
+        });
+
+        // JWT Form
+        document.getElementById('jwt-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const data = {
+                expire_hour: parseInt(document.getElementById('jwt-expire').value),
+                secret: document.getElementById('jwt-secret').value
+            };
+            
+            try {
+                const response = await fetch('/api/admin/settings/jwt', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                showModal(result.success ? 'success' : 'danger', result.message);
+            } catch (error) {
+                showModal('danger', '网络错误，请稍后重试');
+            }
+        });
+
+        // Captcha Form
+        document.getElementById('captcha-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const data = {
+                enabled: document.getElementById('captcha-enabled').checked
+            };
+            
+            try {
+                const response = await fetch('/api/admin/settings/captcha', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                showModal(result.success ? 'success' : 'danger', result.message);
+            } catch (error) {
+                showModal('danger', '网络错误，请稍后重试');
+            }
+        });
+    </script>
+</body>
+</html>

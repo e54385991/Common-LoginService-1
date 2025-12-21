@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.title}} - Common Login Service 管理后台</title>
+    <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="/static/css/admin.css" rel="stylesheet">
+</head>
+<body>
+    <div class="admin-wrapper">
+        <!-- Sidebar -->
+        <nav class="admin-sidebar">
+            <div class="sidebar-header">
+                <i class="bi bi-shield-lock-fill me-2"></i>
+                <span>管理后台</span>
+            </div>
+            <ul class="sidebar-nav">
+                <li class="nav-item {{if eq .activeMenu "dashboard"}}active{{end}}">
+                    <a href="/admin/dashboard" class="nav-link">
+                        <i class="bi bi-speedometer2"></i>
+                        <span>控制面板</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "users"}}active{{end}}">
+                    <a href="/admin/users" class="nav-link">
+                        <i class="bi bi-people"></i>
+                        <span>用户管理</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "vip"}}active{{end}}">
+                    <a href="/admin/vip" class="nav-link">
+                        <i class="bi bi-gem"></i>
+                        <span>VIP配置</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "profile-navigation"}}active{{end}}">
+                    <a href="/admin/profile-navigation" class="nav-link">
+                        <i class="bi bi-grid-3x3-gap"></i>
+                        <span>个人中心导航</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "api-tokens"}}active{{end}}">>
+                    <a href="/admin/api-tokens" class="nav-link">
+                        <i class="bi bi-key"></i>
+                        <span>API令牌</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "gift-cards"}}active{{end}}">
+                    <a href="/admin/gift-cards" class="nav-link">
+                        <i class="bi bi-gift"></i>
+                        <span>礼品卡</span>
+                    </a>
+                </li>
+                <li class="nav-item {{if eq .activeMenu "settings"}}active{{end}}">
+                    <a href="/admin/settings" class="nav-link">
+                        <i class="bi bi-gear"></i>
+                        <span>系统设置</span>
+                    </a>
+                </li>
+            </ul>
+            <div class="sidebar-footer">
+                <a href="/admin/logout" class="nav-link">
+                    <i class="bi bi-box-arrow-right"></i>
+                    <span>退出登录</span>
+                </a>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="admin-main">
+            <header class="admin-header">
+                <h1 class="page-title"><i class="bi bi-speedometer2 me-2"></i>控制面板</h1>
+            </header>
+
+            <div class="admin-content">
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="stat-card">
+                            <div class="stat-icon bg-primary">
+                                <i class="bi bi-people"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>{{.userCount}}</h3>
+                                <p>注册用户</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="stat-card">
+                            <div class="stat-icon bg-success">
+                                <i class="bi bi-check-circle"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>运行中</h3>
+                                <p>系统状态</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="stat-card">
+                            <div class="stat-icon bg-info">
+                                <i class="bi bi-cpu"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>Go Gin</h3>
+                                <p>运行框架</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4 mt-4">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>系统信息</h5>
+                            </div>
+                            <div class="card-body">
+                                <table class="table table-borderless mb-0">
+                                    <tr>
+                                        <td class="text-muted">框架版本</td>
+                                        <td>Gin v1.9.1</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Go 版本</td>
+                                        <td>1.21+</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">数据库</td>
+                                        <td>SQLite</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">认证方式</td>
+                                        <td>JWT</td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="bi bi-link-45deg me-2"></i>快捷操作</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-grid gap-2">
+                                    <a href="/admin/settings" class="btn btn-outline-primary">
+                                        <i class="bi bi-gear me-2"></i>系统设置
+                                    </a>
+                                    <a href="/admin/users" class="btn btn-outline-primary">
+                                        <i class="bi bi-people me-2"></i>用户管理
+                                    </a>
+                                    <a href="/" class="btn btn-outline-secondary" target="_blank">
+                                        <i class="bi bi-box-arrow-up-right me-2"></i>访问前台
+                                    </a>
+                                    <a href="/#features" class="btn btn-outline-info" target="_blank">
+                                        <i class="bi bi-book me-2"></i>API 文档
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+</body>
+</html>
