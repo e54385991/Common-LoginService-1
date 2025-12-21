@@ -8,6 +8,27 @@ on:
   pull_request:
     branches: [ main, master ]
 
+  # 手动执行
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Whether to create a GitHub Release'
+        required: true
+        type: boolean
+        default: false
+      tag_name:
+        description: 'Tag to release (e.g., v1.2.3). Required if create_release=true'
+        required: false
+        type: string
+      release_name:
+        description: 'Release name (optional). Default: Release <tag>'
+        required: false
+        type: string
+
+# 顶层给写权限（release 需要）
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build
@@ -25,80 +46,104 @@ jobs:
             ext: ''
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # 如果是手动发版并指定 tag，这里会把对应 tag checkout 出来
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name != '' && inputs.tag_name || github.ref }}
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.23'
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
 
-    - name: Get dependencies
-      run: go mod download
+      - name: Get dependencies
+        run: go mod download
 
-    - name: Build main service
-      env:
-        GOOS: ${{ matrix.goos }}
-        GOARCH: ${{ matrix.goarch }}
-        CGO_ENABLED: 0
-      run: |
-        mkdir -p dist
-        go build -ldflags="-s -w" -o dist/login-service-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} ./cmd/main.go
+      - name: Build main service
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          mkdir -p dist
+          go build -ldflags="-s -w" -o dist/login-service-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} ./cmd/main.go
 
-    - name: Build demo application
-      env:
-        GOOS: ${{ matrix.goos }}
-        GOARCH: ${{ matrix.goarch }}
-        CGO_ENABLED: 0
-      run: |
-        cd demo
-        go build -ldflags="-s -w" -o ../dist/demo-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} ./main.go
+      - name: Build demo application
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          cd demo
+          go build -ldflags="-s -w" -o ../dist/demo-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} ./main.go
 
-    - name: Prepare release package
-      run: |
-        mkdir -p release/static release/templates release/demo
-        cp -r static/* release/static/
-        cp -r templates/* release/templates/
-        cp dist/login-service-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} release/
-        cp dist/demo-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} release/demo/
-        cp README.md release/
-        cd release && zip -r ../login-service-${{ matrix.goos }}-${{ matrix.goarch }}.zip .
+      - name: Prepare release package
+        run: |
+          mkdir -p release/static release/templates release/demo
+          cp -r static/* release/static/
+          cp -r templates/* release/templates/
+          cp dist/login-service-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} release/
+          cp dist/demo-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} release/demo/
+          cp README.md release/
+          cd release && zip -r ../login-service-${{ matrix.goos }}-${{ matrix.goarch }}.zip .
 
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: login-service-${{ matrix.goos }}-${{ matrix.goarch }}
-        path: login-service-${{ matrix.goos }}-${{ matrix.goarch }}.zip
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: login-service-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: login-service-${{ matrix.goos }}-${{ matrix.goarch }}.zip
 
   release:
     name: Create Release
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: write
 
+    # 自动：tag push
+    # 手动：workflow_dispatch + create_release=true + tag_name 非空
+    if: |
+      startsWith(github.ref, 'refs/tags/') ||
+      (github.event_name == 'workflow_dispatch' && inputs.create_release == true && inputs.tag_name != '')
+
     steps:
-    - name: Download Windows artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: login-service-windows-amd64
-        path: ./artifacts/windows
+      - name: Validate manual inputs
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [ "${{ inputs.create_release }}" = "true" ] && [ -z "${{ inputs.tag_name }}" ]; then
+            echo "tag_name is required when create_release=true"
+            exit 1
+          fi
 
-    - name: Download Linux artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: login-service-linux-amd64
-        path: ./artifacts/linux
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: login-service-windows-amd64
+          path: ./artifacts/windows
 
-    - name: Create Release
-      uses: softprops/action-gh-release@v2
-      with:
-        files: |
-          ./artifacts/windows/login-service-windows-amd64.zip
-          ./artifacts/linux/login-service-linux-amd64.zip
-        generate_release_notes: true
-        tag_name: ${{ github.ref_name }}
-        name: Release ${{ github.ref_name }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: login-service-linux-amd64
+          path: ./artifacts/linux
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ./artifacts/windows/login-service-windows-amd64.zip
+            ./artifacts/linux/login-service-linux-amd64.zip
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+
+          # tag push 用 github.ref_name；手动用 inputs.tag_name
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
+
+          # 手动可自定义 release name；否则默认 Release <tag>
+          name: >-
+            ${{ github.event_name == 'workflow_dispatch' && inputs.release_name != '' &&
+                inputs.release_name ||
+                format('Release {0}', (github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name)) }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
