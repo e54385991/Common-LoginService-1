@@ -134,7 +134,7 @@ func (h *GoogleAuthHandler) GoogleCallback(c *gin.Context) {
 	// Set cookie (secure flag based on request protocol)
 	c.SetCookie("token", response.Token, h.cfg.JWT.ExpireHour*3600, "/", "", isSecureRequest(c), true)
 
-	c.Redirect(http.StatusFound, "/")
+	c.Redirect(http.StatusFound, "/profile")
 }
 
 // GoogleLoginAPI handles Google OAuth login via API (for frontend SDK integration)

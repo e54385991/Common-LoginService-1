@@ -1793,6 +1793,19 @@ func (h *AdminHandler) APIUpdateBalance(c *gin.Context) {
 	}
 	balanceBefore := userBefore.Balance
 
+	// Prevent negative balance when reducing
+	if input.Amount < 0 && balanceBefore+input.Amount < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "余额不足，无法执行此操作",
+			"data": gin.H{
+				"current_balance": balanceBefore,
+				"requested_amount": input.Amount,
+			},
+		})
+		return
+	}
+
 	user, err := h.userRepo.UpdateBalance(input.UserID, input.Amount)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{

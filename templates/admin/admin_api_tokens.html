@@ -178,7 +178,26 @@ X-API-Key: your-token
 
 {
   "user_id": 1,
-  "amount": 100.00  // 正数增加，负数减少
+  "amount": 100.00,  // 正数增加，负数减少（不能使余额变为负数）
+  "reason": "API充值"  // 可选，变更原因
+}</code></pre>
+                        <p class="text-muted mt-2 mb-1"><strong>成功响应 (200)：</strong></p>
+                        <pre class="bg-secondary text-light p-3 rounded"><code>{
+  "success": true,
+  "message": "余额更新成功",
+  "data": {
+    "user_id": 1,
+    "balance": 200.00
+  }
+}</code></pre>
+                        <p class="text-muted mt-2 mb-1"><strong>余额不足错误 (400)：</strong></p>
+                        <pre class="bg-secondary text-light p-3 rounded"><code>{
+  "success": false,
+  "message": "余额不足，无法执行此操作",
+  "data": {
+    "current_balance": 50.00,
+    "requested_amount": -100.00
+  }
 }</code></pre>
 
                         <h6 class="mt-4">2. 设置用户VIP等级</h6>
@@ -190,10 +209,49 @@ X-API-Key: your-token
   "user_id": 1,
   "vip_level": 3
 }</code></pre>
+                        <p class="text-muted mt-2 mb-1"><strong>成功响应 (200)：</strong></p>
+                        <pre class="bg-secondary text-light p-3 rounded"><code>{
+  "success": true,
+  "message": "VIP等级设置成功",
+  "data": {
+    "user_id": 1,
+    "vip_level": 3
+  }
+}</code></pre>
 
                         <h6 class="mt-4">3. 查询用户信息</h6>
                         <pre class="bg-dark text-light p-3 rounded"><code>GET /api/external/user?user_id=1
 X-API-Key: your-token</code></pre>
+                        <p class="text-muted mt-2 mb-1"><strong>成功响应 (200)：</strong></p>
+                        <pre class="bg-secondary text-light p-3 rounded"><code>{
+  "success": true,
+  "data": {
+    "id": 1,
+    "username": "testuser",
+    "email": "test@example.com",
+    "balance": 200.00,
+    "vip_level": 3,
+    "is_active": true,
+    "created_at": "2024-01-01T00:00:00Z"
+  }
+}</code></pre>
+
+                        <h6 class="mt-4">通用错误响应</h6>
+                        <p class="text-muted mt-2 mb-1"><strong>未授权 (401)：</strong></p>
+                        <pre class="bg-secondary text-light p-3 rounded"><code>{
+  "success": false,
+  "message": "未授权"
+}</code></pre>
+                        <p class="text-muted mt-2 mb-1"><strong>无权限 (403)：</strong></p>
+                        <pre class="bg-secondary text-light p-3 rounded"><code>{
+  "success": false,
+  "message": "无权限执行此操作"
+}</code></pre>
+                        <p class="text-muted mt-2 mb-1"><strong>用户不存在 (404)：</strong></p>
+                        <pre class="bg-secondary text-light p-3 rounded"><code>{
+  "success": false,
+  "message": "用户不存在"
+}</code></pre>
                     </div>
                 </div>
             </div>

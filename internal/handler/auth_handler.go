@@ -573,8 +573,8 @@ func (h *AuthHandler) LoginPage(c *gin.Context) {
 					}
 				}
 			}
-			// No redirect or signed URL disabled, go to home
-			c.Redirect(http.StatusFound, "/")
+			// No redirect or signed URL disabled, go to profile
+			c.Redirect(http.StatusFound, "/profile")
 			return
 		}
 	}

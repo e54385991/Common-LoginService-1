@@ -347,7 +347,7 @@
                 
                 if (data.success) {
                     // Build redirect URL with redirect parameter if present
-                    const targetUrl = redirectURL ? '/auth/login?redirect=' + encodeURIComponent(redirectURL) : '/';
+                    const targetUrl = redirectURL ? '/auth/login?redirect=' + encodeURIComponent(redirectURL) : '/profile';
                     const loginRedirectUrl = redirectURL ? '/auth/login?redirect=' + encodeURIComponent(redirectURL) : '/auth/login';
                     // Auto-login after successful registration
                     try {
