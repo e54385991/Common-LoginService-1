@@ -1,0 +1,104 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        include:
+          - goos: windows
+            goarch: amd64
+            ext: .exe
+          - goos: linux
+            goarch: amd64
+            ext: ''
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23'
+
+    - name: Get dependencies
+      run: go mod download
+
+    - name: Build main service
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+        CGO_ENABLED: 0
+      run: |
+        mkdir -p dist
+        go build -ldflags="-s -w" -o dist/login-service-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} ./cmd/main.go
+
+    - name: Build demo application
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+        CGO_ENABLED: 0
+      run: |
+        cd demo
+        go build -ldflags="-s -w" -o ../dist/demo-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} ./main.go
+
+    - name: Prepare release package
+      run: |
+        mkdir -p release/static release/templates release/demo
+        cp -r static/* release/static/
+        cp -r templates/* release/templates/
+        cp dist/login-service-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} release/
+        cp dist/demo-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} release/demo/
+        cp README.md release/
+        cd release && zip -r ../login-service-${{ matrix.goos }}-${{ matrix.goarch }}.zip .
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: login-service-${{ matrix.goos }}-${{ matrix.goarch }}
+        path: login-service-${{ matrix.goos }}-${{ matrix.goarch }}.zip
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+
+    steps:
+    - name: Download Windows artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: login-service-windows-amd64
+        path: ./artifacts/windows
+
+    - name: Download Linux artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: login-service-linux-amd64
+        path: ./artifacts/linux
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          ./artifacts/windows/login-service-windows-amd64.zip
+          ./artifacts/linux/login-service-linux-amd64.zip
+        generate_release_notes: true
+        tag_name: ${{ github.ref_name }}
+        name: Release ${{ github.ref_name }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
