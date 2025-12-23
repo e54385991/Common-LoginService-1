@@ -212,6 +212,49 @@
             background: rgba(255,255,255,0.3);
             color: white;
         }
+        /* Recharge Modal Styles */
+        .recharge-amount-card {
+            border: 2px solid #dee2e6;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: white;
+        }
+        .recharge-amount-card:hover {
+            border-color: #28a745;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        }
+        .recharge-amount-card.selected {
+            border-color: #28a745;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+        .recharge-amount-card .amount {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        .recharge-amount-card .bonus {
+            font-size: 0.85rem;
+            color: #28a745;
+            margin-top: 4px;
+        }
+        .recharge-amount-card.selected .bonus {
+            color: rgba(255,255,255,0.9);
+        }
+        .payment-method-option {
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .payment-method-option:hover {
+            border-color: #667eea !important;
+        }
+        .payment-method-option.selected {
+            border-color: #667eea !important;
+            background: linear-gradient(135deg, #f0f0ff 0%, #e8e8ff 100%);
+        }
         @media (max-width: 768px) {
             .stats-container {
                 grid-template-columns: repeat(1, 1fr);
@@ -355,9 +398,9 @@
                                 </li>
                             </ul>
                             <div class="d-flex gap-2 mt-3">
-                                <a href="/recharge" class="btn action-btn action-btn-success flex-grow-1">
+                                <button class="btn action-btn action-btn-success flex-grow-1" data-bs-toggle="modal" data-bs-target="#rechargeModal">
                                     <i class="bi bi-plus-circle me-2"></i>{{t .lang "profile.recharge"}}
-                                </a>
+                                </button>
                                 <button class="btn action-btn action-btn-primary flex-grow-1" data-bs-toggle="modal" data-bs-target="#giftCardModal">
                                     <i class="bi bi-gift me-2"></i>{{t .lang "profile.redeem_gift_card"}}
                                 </button>
@@ -575,6 +618,79 @@
         </div>
     </div>
 
+    <!-- Recharge Modal -->
+    <div class="modal fade" id="rechargeModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white;">
+                    <h5 class="modal-title"><i class="bi bi-wallet2 me-2"></i>{{t .lang "profile.recharge"}}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row g-3" id="recharge-amounts-container">
+                        <!-- Recharge amounts will be rendered by JavaScript -->
+                    </div>
+                    <div class="mt-4">
+                        <div class="input-group">
+                            <span class="input-group-text">¥</span>
+                            <input type="number" class="form-control" id="custom-recharge-amount" placeholder="{{t .lang "recharge.custom_amount"}}" min="1" step="0.01">
+                            <button class="btn btn-outline-primary" type="button" onclick="selectCustomRechargeAmount()">
+                                <i class="bi bi-check-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{t .lang "profile.cancel"}}</button>
+                    <button type="button" class="btn btn-success" id="confirm-recharge-btn" onclick="openPaymentFromProfile()" disabled>
+                        <i class="bi bi-credit-card me-2"></i>{{t .lang "recharge.recharge_btn"}}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div class="modal fade" id="paymentModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <h5 class="modal-title"><i class="bi bi-credit-card me-2"></i>{{t .lang "payment.title"}}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="bg-light rounded p-3 mb-4">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">{{t .lang "payment.product_name"}}</span>
+                            <span id="payment-product-name">-</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">{{t .lang "payment.amount"}}</span>
+                            <span class="fw-bold text-primary fs-4" id="payment-amount">¥0.00</span>
+                        </div>
+                    </div>
+                    <p class="text-muted small mb-3">{{t .lang "payment.select_method"}}</p>
+                    <div class="d-flex gap-3 mb-4">
+                        <div class="payment-method-option flex-fill border rounded p-3 text-center cursor-pointer selected" data-method="alipay" onclick="selectPaymentMethod('alipay')">
+                            <i class="bi bi-alipay fs-2 text-primary d-block mb-2"></i>
+                            <small>{{t .lang "payment.alipay"}}</small>
+                        </div>
+                        <div class="payment-method-option flex-fill border rounded p-3 text-center cursor-pointer" data-method="wechat" onclick="selectPaymentMethod('wechat')">
+                            <i class="bi bi-wechat fs-2 text-success d-block mb-2"></i>
+                            <small>{{t .lang "payment.wechat"}}</small>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary w-100 py-3 fw-bold" onclick="submitPaymentFromProfile()">
+                        <i class="bi bi-shield-check me-2"></i>{{t .lang "payment.confirm_btn"}}
+                    </button>
+                    <p class="text-center text-muted small mt-3 mb-0">
+                        <i class="bi bi-lock me-1"></i>{{t .lang "payment.secure_note"}}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Change Password Modal -->
     <div class="modal fade" id="changePasswordModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
@@ -646,6 +762,8 @@
         let vipLevels = [];
         let navItems = [];
         let bindingStatus = {};
+        let selectedRechargeAmount = 0;
+        let paymentMethod = 'alipay';
 
         document.addEventListener('DOMContentLoaded', function() {
             loadVIPLevels();
@@ -655,6 +773,7 @@
             formatCreatedAt();
             initGiftCardInput();
             checkUrlMessages();
+            renderRechargeAmounts();
         });
 
         // Check URL parameters for success/error messages
@@ -969,7 +1088,33 @@
             redeemSuccess: "{{t .lang "gift_card.redeem_success"}}",
             redeemSuccessTitle: "{{t .lang "gift_card.redeem_success_title"}}",
             currentBalance: "{{t .lang "gift_card.current_balance"}}",
-            confirmBtn: "{{t .lang "gift_card.confirm_btn"}}"
+            confirmBtn: "{{t .lang "gift_card.confirm_btn"}}",
+            // Recharge i18n
+            rechargeBonus: "{{t .lang "recharge.bonus"}}",
+            // Payment i18n
+            paymentAlipay: "{{t .lang "payment.alipay"}}",
+            paymentWechat: "{{t .lang "payment.wechat"}}",
+            paymentProcessing: "{{t .lang "payment.processing"}}",
+            paymentNotConfiguredTitle: "{{t .lang "payment.not_configured_title"}}",
+            paymentNotConfiguredMsg: "{{t .lang "payment.not_configured_msg"}}",
+            paymentOrderInfo: "{{t .lang "payment.order_info"}}",
+            paymentClose: "{{t .lang "payment.close"}}",
+            paymentRedirectTitle: "{{t .lang "payment.redirect_title"}}",
+            paymentRedirectPreparing: "{{t .lang "payment.redirect_preparing"}}",
+            paymentRedirectMsg: "{{t .lang "payment.redirect_msg"}}",
+            paymentProduct: "{{t .lang "payment.product"}}",
+            paymentPayAmount: "{{t .lang "payment.pay_amount"}}",
+            paymentMethod: "{{t .lang "payment.method"}}",
+            paymentDemoTitle: "{{t .lang "payment.demo_title"}}",
+            paymentDemoMsg: "{{t .lang "payment.demo_msg"}}",
+            paymentOrderDetails: "{{t .lang "payment.order_details"}}",
+            paymentDemoNote: "{{t .lang "payment.demo_note"}}",
+            paymentGoConfigure: "{{t .lang "payment.go_configure"}}",
+            paymentErrorTitle: "{{t .lang "payment.error_title"}}",
+            paymentErrorMsg: "{{t .lang "payment.error_msg"}}",
+            paymentSelectAmount: "{{t .lang "payment.select_amount"}}",
+            paymentAccountRecharge: "{{t .lang "payment.account_recharge"}}",
+            paymentSecureNote: "{{t .lang "payment.secure_note"}}"
         };
 
         async function loadUserBalance() {
@@ -1407,6 +1552,301 @@
             } catch (error) {
                 console.error('Failed to set language:', error);
             }
+        }
+
+        // Recharge functions
+        function renderRechargeAmounts() {
+            const container = document.getElementById('recharge-amounts-container');
+            if (!container) return;
+            
+            const amounts = [
+                { value: 10, bonus: '' },
+                { value: 30, bonus: '' },
+                { value: 50, bonus: i18nStrings.rechargeBonus + ' ¥2' },
+                { value: 100, bonus: i18nStrings.rechargeBonus + ' ¥5' },
+                { value: 200, bonus: i18nStrings.rechargeBonus + ' ¥15' },
+                { value: 500, bonus: i18nStrings.rechargeBonus + ' ¥50' }
+            ];
+            
+            const fragment = document.createDocumentFragment();
+            amounts.forEach(item => {
+                const col = document.createElement('div');
+                col.className = 'col-4';
+                const card = document.createElement('div');
+                card.className = 'recharge-amount-card';
+                card.dataset.amount = item.value;
+                card.onclick = () => selectRechargeAmount(item.value);
+                const amountDiv = document.createElement('div');
+                amountDiv.className = 'amount';
+                amountDiv.textContent = '¥' + item.value;
+                const bonusDiv = document.createElement('div');
+                bonusDiv.className = 'bonus';
+                bonusDiv.innerHTML = item.bonus || '&nbsp;';
+                card.appendChild(amountDiv);
+                card.appendChild(bonusDiv);
+                col.appendChild(card);
+                fragment.appendChild(col);
+            });
+            container.innerHTML = '';
+            container.appendChild(fragment);
+        }
+
+        function selectRechargeAmount(amount) {
+            selectedRechargeAmount = amount;
+            document.querySelectorAll('.recharge-amount-card').forEach(card => {
+                card.classList.remove('selected');
+                if (parseFloat(card.dataset.amount) === amount) {
+                    card.classList.add('selected');
+                }
+            });
+            document.getElementById('custom-recharge-amount').value = '';
+            document.getElementById('confirm-recharge-btn').disabled = false;
+        }
+
+        function selectCustomRechargeAmount() {
+            const input = document.getElementById('custom-recharge-amount');
+            const amount = parseFloat(input.value);
+            if (amount > 0) {
+                selectedRechargeAmount = amount;
+                document.querySelectorAll('.recharge-amount-card').forEach(card => {
+                    card.classList.remove('selected');
+                });
+                document.getElementById('confirm-recharge-btn').disabled = false;
+            }
+        }
+
+        function openPaymentFromProfile() {
+            if (selectedRechargeAmount <= 0) {
+                showToast(i18nStrings.paymentSelectAmount, true);
+                return;
+            }
+            
+            // Hide recharge modal
+            const rechargeModal = bootstrap.Modal.getInstance(document.getElementById('rechargeModal'));
+            if (rechargeModal) rechargeModal.hide();
+            
+            // Show payment modal
+            document.getElementById('payment-product-name').textContent = i18nStrings.paymentAccountRecharge;
+            document.getElementById('payment-amount').textContent = '¥' + selectedRechargeAmount.toFixed(2);
+            
+            setTimeout(() => {
+                new bootstrap.Modal(document.getElementById('paymentModal')).show();
+            }, 300);
+        }
+
+        function selectPaymentMethod(method) {
+            paymentMethod = method;
+            document.querySelectorAll('.payment-method-option').forEach(el => {
+                el.classList.remove('selected');
+                if (el.dataset.method === method) {
+                    el.classList.add('selected');
+                }
+            });
+        }
+
+        async function submitPaymentFromProfile() {
+            const amount = selectedRechargeAmount;
+            const productName = i18nStrings.paymentAccountRecharge;
+
+            const submitBtn = document.querySelector('#paymentModal .btn-primary');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>' + i18nStrings.paymentProcessing;
+
+            try {
+                const settingsRes = await fetch('/api/site-settings');
+                const settings = await settingsRes.json();
+                
+                if (!settings.success || !settings.data.payment_enabled) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                    bootstrap.Modal.getInstance(document.getElementById('paymentModal')).hide();
+                    showPaymentNotConfiguredModal(productName, amount);
+                    return;
+                }
+
+                const paymentRes = await fetch('/api/payment/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        product_type: 'recharge',
+                        product_id: 0,
+                        amount: amount,
+                        payment_method: paymentMethod
+                    })
+                });
+
+                const paymentResult = await paymentRes.json();
+                
+                if (!paymentResult.success) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                    bootstrap.Modal.getInstance(document.getElementById('paymentModal')).hide();
+                    showToast(paymentResult.message || i18nStrings.paymentErrorMsg, true);
+                    return;
+                }
+
+                if (paymentResult.demo_mode) {
+                    bootstrap.Modal.getInstance(document.getElementById('paymentModal')).hide();
+                    showPaymentDemoModal(productName, amount);
+                    return;
+                }
+
+                if (paymentResult.data && paymentResult.data.payment_url) {
+                    bootstrap.Modal.getInstance(document.getElementById('paymentModal')).hide();
+                    showPaymentRedirectModal(productName, amount, paymentResult.data.payment_url);
+                } else {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                    showToast(i18nStrings.paymentErrorMsg, true);
+                }
+                
+            } catch (error) {
+                console.error('Payment error:', error);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+                showToast(i18nStrings.paymentErrorMsg, true);
+            }
+        }
+
+        function showPaymentNotConfiguredModal(productName, amount) {
+            const modalHtml = `
+                <div class="modal fade" id="paymentNotConfiguredModal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header bg-warning text-dark">
+                                <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>${i18nStrings.paymentNotConfiguredTitle}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body text-center py-4">
+                                <i class="bi bi-gear display-1 text-muted mb-3"></i>
+                                <h5>${i18nStrings.paymentNotConfiguredTitle}</h5>
+                                <p class="text-muted mb-4">${i18nStrings.paymentNotConfiguredMsg}</p>
+                                <div class="bg-light rounded p-3 mb-3">
+                                    <small class="text-muted d-block">${i18nStrings.paymentOrderInfo}</small>
+                                    <strong>${productName}</strong>
+                                    <span class="text-primary ms-2">¥${amount.toFixed(2)}</span>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">${i18nStrings.paymentClose}</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const existing = document.getElementById('paymentNotConfiguredModal');
+            if (existing) existing.remove();
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            new bootstrap.Modal(document.getElementById('paymentNotConfiguredModal')).show();
+        }
+
+        function showPaymentRedirectModal(productName, amount, paymentUrl) {
+            const methodText = paymentMethod === 'alipay' ? i18nStrings.paymentAlipay : i18nStrings.paymentWechat;
+            const modalHtml = `
+                <div class="modal fade" id="paymentRedirectModal" tabindex="-1" data-bs-backdrop="static">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                                <h5 class="modal-title"><i class="bi bi-credit-card me-2"></i>${i18nStrings.paymentRedirectTitle}</h5>
+                            </div>
+                            <div class="modal-body text-center py-5">
+                                <div class="spinner-border text-primary mb-4" style="width: 3rem; height: 3rem;" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <h5>${i18nStrings.paymentRedirectPreparing}</h5>
+                                <p class="text-muted mb-4">${i18nStrings.paymentRedirectMsg}</p>
+                                <div class="bg-light rounded p-3 mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">${i18nStrings.paymentProduct}</span>
+                                        <strong>${productName}</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between mt-2">
+                                        <span class="text-muted">${i18nStrings.paymentPayAmount}</span>
+                                        <strong class="text-primary">¥${amount.toFixed(2)}</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between mt-2">
+                                        <span class="text-muted">${i18nStrings.paymentMethod}</span>
+                                        <strong>${methodText}</strong>
+                                    </div>
+                                </div>
+                                <p class="text-muted small"><i class="bi bi-shield-check me-1"></i>${i18nStrings.paymentSecureNote}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const existing = document.getElementById('paymentRedirectModal');
+            if (existing) existing.remove();
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            new bootstrap.Modal(document.getElementById('paymentRedirectModal')).show();
+
+            if (paymentUrl) {
+                try {
+                    const urlObj = new URL(paymentUrl);
+                    if (urlObj.protocol === 'https:') {
+                        setTimeout(() => { window.location.href = paymentUrl; }, 2000);
+                    } else {
+                        showToast(i18nStrings.paymentErrorMsg, true);
+                    }
+                } catch (e) {
+                    showToast(i18nStrings.paymentErrorMsg, true);
+                }
+            }
+        }
+
+        function showPaymentDemoModal(productName, amount) {
+            const methodText = paymentMethod === 'alipay' ? i18nStrings.paymentAlipay : i18nStrings.paymentWechat;
+            const modalHtml = `
+                <div class="modal fade" id="paymentDemoModal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header bg-info text-white">
+                                <h5 class="modal-title"><i class="bi bi-info-circle me-2"></i>${i18nStrings.paymentDemoTitle}</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="alert alert-info mb-3">
+                                    <i class="bi bi-lightbulb me-2"></i><strong>${i18nStrings.paymentDemoTitle}</strong>
+                                </div>
+                                <p>${i18nStrings.paymentDemoMsg}</p>
+                                <div class="bg-light rounded p-3 mb-3">
+                                    <h6 class="mb-2">${i18nStrings.paymentOrderDetails}</h6>
+                                    <div class="d-flex justify-content-between">
+                                        <span>${i18nStrings.paymentProduct}</span>
+                                        <strong>${productName}</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span>${i18nStrings.paymentPayAmount}</span>
+                                        <strong class="text-primary">¥${amount.toFixed(2)}</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span>${i18nStrings.paymentMethod}</span>
+                                        <strong>${methodText}</strong>
+                                    </div>
+                                </div>
+                                <p class="mb-0 text-muted small"><i class="bi bi-gear me-1"></i>${i18nStrings.paymentDemoNote}</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">${i18nStrings.paymentClose}</button>
+                                <a href="/admin/vip" class="btn btn-primary" target="_blank">
+                                    <i class="bi bi-gear me-2"></i>${i18nStrings.paymentGoConfigure}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const existing = document.getElementById('paymentDemoModal');
+            if (existing) existing.remove();
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            new bootstrap.Modal(document.getElementById('paymentDemoModal')).show();
         }
     </script>
     {{if .custom.GlobalHTML}}{{.custom.GlobalHTML}}{{end}}

@@ -11,7 +11,7 @@
         .recharge-hero {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 80px 0;
+            padding: 60px 0;
             position: relative;
             overflow: hidden;
         }
@@ -52,30 +52,58 @@
             font-size: 0.95rem;
             font-weight: 600;
         }
-        .gift-card-section {
-            padding: 80px 0;
+        /* Tab Section Styles */
+        .recharge-tabs-section {
+            padding: 60px 0;
             background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);
         }
-        .gift-card-container {
-            max-width: 600px;
+        .recharge-tabs-container {
+            max-width: 800px;
             margin: 0 auto;
         }
-        .gift-card-box {
+        .recharge-nav-tabs {
+            border: none;
+            background: white;
+            border-radius: 16px;
+            padding: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+        }
+        .recharge-nav-tabs .nav-link {
+            border: none;
+            border-radius: 12px;
+            padding: 16px 32px;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .recharge-nav-tabs .nav-link:hover {
+            color: #333;
+            background: #f8f9fa;
+        }
+        .recharge-nav-tabs .nav-link.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .recharge-nav-tabs .nav-link i {
+            font-size: 1.2rem;
+        }
+        .tab-content-card {
             background: white;
             border-radius: 24px;
             padding: 40px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.1);
             border: 1px solid rgba(0,0,0,0.05);
-            transition: transform 0.3s, box-shadow 0.3s;
         }
-        .gift-card-box:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 25px 70px rgba(0,0,0,0.15);
-        }
+        /* Gift Card Styles */
         .gift-card-icon {
             width: 80px;
             height: 80px;
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
             border-radius: 20px;
             display: flex;
             align-items: center;
@@ -96,26 +124,25 @@
             transition: border-color 0.3s, box-shadow 0.3s;
         }
         .gift-card-input:focus {
-            border-color: #28a745;
-            box-shadow: 0 0 0 4px rgba(40,167,69,0.15);
+            border-color: #9b59b6;
+            box-shadow: 0 0 0 4px rgba(155,89,182,0.15);
         }
         .gift-card-btn {
             padding: 16px 32px;
             font-size: 1.1rem;
             font-weight: 600;
             border-radius: 14px;
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
             border: none;
+            color: white;
             transition: transform 0.3s, box-shadow 0.3s;
         }
         .gift-card-btn:hover {
             transform: scale(1.02);
-            box-shadow: 0 8px 25px rgba(40,167,69,0.3);
+            box-shadow: 0 8px 25px rgba(155,89,182,0.3);
+            color: white;
         }
-        .recharge-section {
-            padding: 80px 0;
-            background: white;
-        }
+        /* Recharge Amount Styles */
         .recharge-amount-card {
             border: 2px solid #dee2e6;
             border-radius: 16px;
@@ -301,57 +328,77 @@
         </div>
     </section>
 
-    <!-- Gift Card Section -->
-    <section class="gift-card-section">
+    <!-- Tabs Section -->
+    <section class="recharge-tabs-section">
         <div class="container">
-            <div class="text-center mb-5">
-                <h2 class="display-6 fw-bold mb-3">{{t .lang "recharge.gift_card_title"}}</h2>
-                <p class="text-muted fs-5">{{t .lang "recharge.gift_card_subtitle"}}</p>
-            </div>
-            <div class="gift-card-container">
-                <div class="gift-card-box">
-                    <div class="gift-card-icon">
-                        <i class="bi bi-gift"></i>
-                    </div>
-                    <div class="mb-4">
-                        <input type="text" class="form-control gift-card-input text-center" id="gift-card-code" placeholder="{{t .lang "recharge.gift_card_placeholder"}}" maxlength="19">
-                    </div>
-                    <button class="btn btn-success gift-card-btn w-100" onclick="redeemGiftCard()">
-                        <i class="bi bi-check-lg me-2"></i>{{t .lang "recharge.redeem_btn"}}
-                    </button>
-                    <p class="text-muted small text-center mt-3 mb-0">{{t .lang "recharge.gift_card_hint"}}</p>
-                </div>
-            </div>
-        </div>
-    </section>
+            <div class="recharge-tabs-container">
+                <!-- Tab Navigation -->
+                <ul class="nav nav-pills recharge-nav-tabs justify-content-center" id="rechargeTab" role="tablist">
+                    <li class="nav-item flex-fill" role="presentation">
+                        <button class="nav-link active w-100" id="recharge-tab" data-bs-toggle="pill" data-bs-target="#recharge-pane" type="button" role="tab">
+                            <i class="bi bi-credit-card"></i>
+                            {{t .lang "recharge.balance_recharge_title"}}
+                        </button>
+                    </li>
+                    <li class="nav-item flex-fill" role="presentation">
+                        <button class="nav-link w-100" id="giftcard-tab" data-bs-toggle="pill" data-bs-target="#giftcard-pane" type="button" role="tab">
+                            <i class="bi bi-gift"></i>
+                            {{t .lang "recharge.gift_card_title"}}
+                        </button>
+                    </li>
+                </ul>
 
-    <!-- Recharge Section -->
-    <section class="recharge-section" id="recharge">
-        <div class="container">
-            <div class="text-center mb-5">
-                <h2 class="display-6 fw-bold mb-3">{{t .lang "recharge.balance_recharge_title"}}</h2>
-                <p class="text-muted fs-5">{{t .lang "recharge.balance_recharge_subtitle"}}</p>
-            </div>
-            <div class="row g-4 justify-content-center" id="recharge-amounts-container">
-                <!-- Recharge amounts will be rendered by JavaScript -->
-            </div>
-            <div class="text-center mt-5">
-                <div class="row justify-content-center">
-                    <div class="col-md-4">
-                        <div class="input-group input-group-lg">
-                            <span class="input-group-text">¥</span>
-                            <input type="number" class="form-control" id="custom-amount" placeholder="{{t .lang "recharge.custom_amount"}}" min="1" step="0.01">
-                            <button class="btn btn-primary" onclick="selectCustomAmount()">
-                                <i class="bi bi-check-lg"></i>
-                            </button>
+                <!-- Tab Content -->
+                <div class="tab-content" id="rechargeTabContent">
+                    <!-- Recharge Tab -->
+                    <div class="tab-pane fade show active" id="recharge-pane" role="tabpanel">
+                        <div class="tab-content-card">
+                            <div class="text-center mb-4">
+                                <p class="text-muted fs-5 mb-0">{{t .lang "recharge.balance_recharge_subtitle"}}</p>
+                            </div>
+                            <div class="row g-3" id="recharge-amounts-container">
+                                <!-- Recharge amounts will be rendered by JavaScript -->
+                            </div>
+                            <div class="mt-4">
+                                <div class="row justify-content-center">
+                                    <div class="col-md-8">
+                                        <div class="input-group">
+                                            <span class="input-group-text">¥</span>
+                                            <input type="number" class="form-control" id="custom-amount" placeholder="{{t .lang "recharge.custom_amount"}}" min="1" step="0.01">
+                                            <button class="btn btn-outline-primary" onclick="selectCustomAmount()">
+                                                <i class="bi bi-check-lg"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-center mt-4">
+                                <button class="btn btn-primary btn-lg px-5 py-3 fw-bold" onclick="openPaymentModal()" id="recharge-btn" disabled>
+                                    <i class="bi bi-credit-card me-2"></i>{{t .lang "recharge.recharge_btn"}}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Gift Card Tab -->
+                    <div class="tab-pane fade" id="giftcard-pane" role="tabpanel">
+                        <div class="tab-content-card">
+                            <div class="text-center">
+                                <div class="gift-card-icon">
+                                    <i class="bi bi-gift"></i>
+                                </div>
+                                <p class="text-muted fs-5 mb-4">{{t .lang "recharge.gift_card_subtitle"}}</p>
+                                <div class="mb-4">
+                                    <input type="text" class="form-control gift-card-input text-center" id="gift-card-code" placeholder="{{t .lang "recharge.gift_card_placeholder"}}" maxlength="19">
+                                </div>
+                                <button class="btn gift-card-btn w-100" onclick="redeemGiftCard()">
+                                    <i class="bi bi-check-lg me-2"></i>{{t .lang "recharge.redeem_btn"}}
+                                </button>
+                                <p class="text-muted small text-center mt-3 mb-0">{{t .lang "recharge.gift_card_hint"}}</p>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-            <div class="text-center mt-4">
-                <button class="btn btn-primary btn-lg px-5 py-3 fw-bold" onclick="openPaymentModal()" id="recharge-btn" disabled>
-                    <i class="bi bi-credit-card me-2"></i>{{t .lang "recharge.recharge_btn"}}
-                </button>
             </div>
         </div>
     </section>
@@ -508,10 +555,27 @@
                 { value: 500, bonus: i18n.rechargeBonus + ' ¥50' }
             ];
             
-            container.innerHTML = '';
+            const fragment = document.createDocumentFragment();
             amounts.forEach(item => {
-                container.innerHTML += '<div class="col-6 col-md-2"><div class="recharge-amount-card" data-amount="' + item.value + '" onclick="selectRechargeAmount(' + item.value + ')"><div class="amount">¥' + item.value + '</div>' + (item.bonus ? '<div class="bonus">' + item.bonus + '</div>' : '<div class="bonus">&nbsp;</div>') + '</div></div>';
+                const col = document.createElement('div');
+                col.className = 'col-6 col-md-4';
+                const card = document.createElement('div');
+                card.className = 'recharge-amount-card';
+                card.dataset.amount = item.value;
+                card.onclick = () => selectRechargeAmount(item.value);
+                const amountDiv = document.createElement('div');
+                amountDiv.className = 'amount';
+                amountDiv.textContent = '¥' + item.value;
+                const bonusDiv = document.createElement('div');
+                bonusDiv.className = 'bonus';
+                bonusDiv.innerHTML = item.bonus || '&nbsp;';
+                card.appendChild(amountDiv);
+                card.appendChild(bonusDiv);
+                col.appendChild(card);
+                fragment.appendChild(col);
             });
+            container.innerHTML = '';
+            container.appendChild(fragment);
         }
 
         function selectRechargeAmount(amount) {
@@ -647,7 +711,7 @@
             if (paymentUrl) {
                 try {
                     const urlObj = new URL(paymentUrl);
-                    if (urlObj.protocol === 'https:' || urlObj.protocol === 'http:') {
+                    if (urlObj.protocol === 'https:') {
                         setTimeout(() => { window.location.href = paymentUrl; }, 2000);
                     } else {
                         showPaymentErrorModal(i18n.paymentErrorMsg);
