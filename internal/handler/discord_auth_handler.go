@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/e54385991/Common-LoginService/config"
 	"github.com/e54385991/Common-LoginService/internal/service"
@@ -110,6 +111,7 @@ func (h *DiscordAuthHandler) DiscordLogin(c *gin.Context) {
 // @Description Handle Discord OAuth callback after user authentication
 // @Tags auth
 // @Param code query string true "OAuth authorization code"
+// @Param state query string false "OAuth state parameter"
 // @Success 302 "Redirect to home page"
 // @Failure 302 "Redirect to login page with error"
 // @Failure 400 {object} Response "Discord login not enabled"
@@ -132,6 +134,12 @@ func (h *DiscordAuthHandler) DiscordCallback(c *gin.Context) {
 	}
 	// Clear the state cookie
 	c.SetCookie("discord_oauth_state", "", -1, "/", "", isSecureRequest(c), true)
+
+	// Check if this is a bind request (state starts with "bind_")
+	if strings.HasPrefix(state, "bind_") {
+		h.handleBindCallback(c)
+		return
+	}
 
 	code := c.Query("code")
 	if code == "" {
@@ -176,6 +184,65 @@ func (h *DiscordAuthHandler) DiscordCallback(c *gin.Context) {
 	c.SetCookie("token", response.Token, h.cfg.JWT.ExpireHour*3600, "/", "", isSecureRequest(c), true)
 
 	c.Redirect(http.StatusFound, "/profile")
+}
+
+// handleBindCallback handles Discord OAuth callback for account binding
+// This is called when the state parameter starts with "bind_", indicating a bind flow
+// that was redirected to the login callback URL due to shared redirect URL
+func (h *DiscordAuthHandler) handleBindCallback(c *gin.Context) {
+	// Get user ID from JWT token in cookie (user must be logged in)
+	tokenString, err := c.Cookie("token")
+	if err != nil || tokenString == "" {
+		c.Redirect(http.StatusFound, "/profile?error=bind_unauthorized")
+		return
+	}
+
+	// Validate token and get user
+	user, err := h.authService.ValidateToken(tokenString)
+	if err != nil {
+		c.Redirect(http.StatusFound, "/profile?error=bind_unauthorized")
+		return
+	}
+
+	code := c.Query("code")
+	if code == "" {
+		c.Redirect(http.StatusFound, "/profile?error=discord_bind_failed")
+		return
+	}
+
+	// Exchange code for token
+	token, err := h.oauthConfig.Exchange(context.Background(), code)
+	if err != nil {
+		c.Redirect(http.StatusFound, "/profile?error=discord_bind_failed")
+		return
+	}
+
+	// Get user info from Discord API
+	userInfo, err := h.getDiscordUserInfo(token.AccessToken)
+	if err != nil {
+		c.Redirect(http.StatusFound, "/profile?error=discord_bind_failed")
+		return
+	}
+
+	// Build avatar URL
+	avatarURL := ""
+	if userInfo.Avatar != "" {
+		avatarURL = "https://cdn.discordapp.com/avatars/" + userInfo.ID + "/" + userInfo.Avatar + ".png"
+	}
+
+	// Get display name (prefer global_name, fall back to username)
+	displayName := userInfo.GlobalName
+	if displayName == "" {
+		displayName = userInfo.Username
+	}
+
+	// Bind Discord account to existing user
+	if err := h.authService.BindDiscord(user.ID, userInfo.ID, userInfo.Email, displayName, avatarURL); err != nil {
+		c.Redirect(http.StatusFound, "/profile?error="+err.Error())
+		return
+	}
+
+	c.Redirect(http.StatusFound, "/profile?success=discord_bind_success")
 }
 
 // DiscordLoginAPI handles Discord OAuth login via API (for frontend SDK integration)

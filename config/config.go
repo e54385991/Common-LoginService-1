@@ -304,7 +304,7 @@ func Load(configPath string) (*Config, error) {
 			ProfileNavigation: ProfileNavigationConfig{
 				Items: []ProfileNavItem{
 					{ID: "recharge", Title: "充值中心", Icon: "bi-wallet2", URL: "/recharge", Type: "link", Color: "#28a745", GradientEnd: "#20c997", Effect: "glow", NewTab: false, Visible: true, Order: 1},
-					{ID: "vip", Title: "VIP会员", Icon: "bi-gem", URL: "/recharge#vip", Type: "link", Color: "#ffd700", GradientEnd: "#ffb300", Effect: "pulse", NewTab: false, Visible: true, Order: 2},
+					{ID: "vip", Title: "VIP会员", Icon: "bi-gem", URL: "/vip", Type: "link", Color: "#ffd700", GradientEnd: "#ffb300", Effect: "pulse", NewTab: false, Visible: true, Order: 2},
 					{ID: "settings", Title: "账号设置", Icon: "bi-gear", URL: "", Type: "action", Color: "#667eea", GradientEnd: "#764ba2", Effect: "", NewTab: false, Visible: true, Order: 3},
 					{ID: "logout", Title: "退出登录", Icon: "bi-box-arrow-right", URL: "", Type: "action", Color: "#6c757d", GradientEnd: "#495057", Effect: "", NewTab: false, Visible: true, Order: 4},
 				},

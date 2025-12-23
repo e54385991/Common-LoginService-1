@@ -83,6 +83,7 @@ func (h *GoogleAuthHandler) GoogleLogin(c *gin.Context) {
 // @Description Handle Google OAuth callback after user authentication
 // @Tags auth
 // @Param code query string true "OAuth authorization code"
+// @Param state query string false "OAuth state parameter"
 // @Success 302 "Redirect to home page"
 // @Failure 302 "Redirect to login page with error"
 // @Failure 400 {object} Response "Google login not enabled"
@@ -93,6 +94,13 @@ func (h *GoogleAuthHandler) GoogleCallback(c *gin.Context) {
 			"success": false,
 			"message": "Google 登录未启用",
 		})
+		return
+	}
+
+	// Check if this is a bind request (state parameter is "bind")
+	state := c.Query("state")
+	if state == "bind" {
+		h.handleBindCallback(c)
 		return
 	}
 
@@ -135,6 +143,61 @@ func (h *GoogleAuthHandler) GoogleCallback(c *gin.Context) {
 	c.SetCookie("token", response.Token, h.cfg.JWT.ExpireHour*3600, "/", "", isSecureRequest(c), true)
 
 	c.Redirect(http.StatusFound, "/profile")
+}
+
+// handleBindCallback handles Google OAuth callback for account binding
+// This is called when the state parameter is "bind", indicating a bind flow
+// that was redirected to the login callback URL due to shared redirect URL
+func (h *GoogleAuthHandler) handleBindCallback(c *gin.Context) {
+	// Get user ID from JWT token in cookie (user must be logged in)
+	tokenString, err := c.Cookie("token")
+	if err != nil || tokenString == "" {
+		c.Redirect(http.StatusFound, "/profile?error=bind_unauthorized")
+		return
+	}
+
+	// Validate token and get user
+	user, err := h.authService.ValidateToken(tokenString)
+	if err != nil {
+		c.Redirect(http.StatusFound, "/profile?error=bind_unauthorized")
+		return
+	}
+
+	code := c.Query("code")
+	if code == "" {
+		c.Redirect(http.StatusFound, "/profile?error=google_bind_failed")
+		return
+	}
+
+	// Exchange code for token
+	token, err := h.oauthConfig.Exchange(context.Background(), code)
+	if err != nil {
+		c.Redirect(http.StatusFound, "/profile?error=google_bind_failed")
+		return
+	}
+
+	// Get user info
+	client := h.oauthConfig.Client(context.Background(), token)
+	resp, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo")
+	if err != nil {
+		c.Redirect(http.StatusFound, "/profile?error=google_bind_failed")
+		return
+	}
+	defer resp.Body.Close()
+
+	var userInfo GoogleUserInfo
+	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
+		c.Redirect(http.StatusFound, "/profile?error=google_bind_failed")
+		return
+	}
+
+	// Bind Google account to existing user
+	if err := h.authService.BindGoogle(user.ID, userInfo.ID, userInfo.Email, userInfo.Name, userInfo.Picture); err != nil {
+		c.Redirect(http.StatusFound, "/profile?error="+err.Error())
+		return
+	}
+
+	c.Redirect(http.StatusFound, "/profile?success=google_bind_success")
 }
 
 // GoogleLoginAPI handles Google OAuth login via API (for frontend SDK integration)

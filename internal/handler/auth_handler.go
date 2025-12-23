@@ -740,6 +740,23 @@ func (h *AuthHandler) RechargePage(c *gin.Context) {
 	})
 }
 
+// VIPPage renders the VIP membership page
+func (h *AuthHandler) VIPPage(c *gin.Context) {
+	lang := c.GetString("lang")
+	var user *model.User
+	if u, exists := c.Get("user"); exists {
+		user = u.(*model.User)
+	}
+
+	c.HTML(http.StatusOK, "vip.html", gin.H{
+		"lang":      lang,
+		"user":      user,
+		"logged":    user != nil,
+		"siteTitle": h.cfg.Site.Title,
+		"custom":    h.cfg.Custom,
+	})
+}
+
 // ProfilePage renders the user profile page
 func (h *AuthHandler) ProfilePage(c *gin.Context) {
 	lang := c.GetString("lang")

@@ -194,6 +194,7 @@ func main() {
 	r.GET("/auth/forgot-password", authHandler.ForgotPasswordPage)
 	r.GET("/auth/reset-password", authHandler.ResetPasswordPage)
 	r.GET("/recharge", middleware.OptionalAuthMiddleware(authService, cfg), authHandler.RechargePage)
+	r.GET("/vip", middleware.OptionalAuthMiddleware(authService, cfg), authHandler.VIPPage)
 	r.GET("/profile", middleware.OptionalAuthMiddleware(authService, cfg), authHandler.ProfilePage)
 
 	// Public routes - API

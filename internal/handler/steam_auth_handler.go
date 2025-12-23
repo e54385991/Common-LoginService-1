@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -11,6 +12,16 @@ import (
 	"github.com/e54385991/Common-LoginService/config"
 	"github.com/e54385991/Common-LoginService/internal/service"
 	"github.com/gin-gonic/gin"
+)
+
+// steamIDRegex is a pre-compiled regex for extracting Steam ID from claimed_id
+var steamIDRegex = regexp.MustCompile(`https://steamcommunity\.com/openid/id/(\d+)`)
+
+// Steam OpenID verification errors
+var (
+	errSteamInvalidOpenIDMode  = errors.New("invalid OpenID mode")
+	errSteamValidationFailed   = errors.New("Steam OpenID validation failed")
+	errSteamInvalidSteamID     = errors.New("invalid Steam ID in response")
 )
 
 // SteamAuthHandler handles Steam OpenID authentication
@@ -104,52 +115,17 @@ func (h *SteamAuthHandler) SteamCallback(c *gin.Context) {
 		return
 	}
 
-	// Verify the OpenID response
-	openIDMode := c.Query("openid.mode")
-	if openIDMode != "id_res" {
-		c.Redirect(http.StatusFound, "/auth/login?error=steam_auth_failed")
+	// Check if this is a bind request (indicated by steam_bind_mode cookie)
+	bindMode, _ := c.Cookie("steam_bind_mode")
+	if bindMode == "true" {
+		// Clear the bind mode cookie
+		c.SetCookie("steam_bind_mode", "", -1, "/", "", isSecureRequest(c), true)
+		h.handleBindCallback(c)
 		return
 	}
 
-	// Validate the response with Steam
-	params := url.Values{}
-	for key, values := range c.Request.URL.Query() {
-		for _, value := range values {
-			params.Add(key, value)
-		}
-	}
-	params.Set("openid.mode", "check_authentication")
-
-	resp, err := http.PostForm("https://steamcommunity.com/openid/login", params)
-	if err != nil {
-		c.Redirect(http.StatusFound, "/auth/login?error=steam_auth_failed")
-		return
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		c.Redirect(http.StatusFound, "/auth/login?error=steam_auth_failed")
-		return
-	}
-
-	if !strings.Contains(string(body), "is_valid:true") {
-		c.Redirect(http.StatusFound, "/auth/login?error=steam_auth_failed")
-		return
-	}
-
-	// Extract Steam ID from openid.claimed_id
-	claimedID := c.Query("openid.claimed_id")
-	steamIDRegex := regexp.MustCompile(`https://steamcommunity\.com/openid/id/(\d+)`)
-	matches := steamIDRegex.FindStringSubmatch(claimedID)
-	if len(matches) < 2 {
-		c.Redirect(http.StatusFound, "/auth/login?error=steam_auth_failed")
-		return
-	}
-	steamID := matches[1]
-
-	// Get user info from Steam API
-	playerSummary, err := h.getSteamPlayerSummary(steamID)
+	// Verify Steam OpenID and get player summary
+	steamID, playerSummary, err := h.verifySteamOpenID(c)
 	if err != nil {
 		c.Redirect(http.StatusFound, "/auth/login?error=steam_auth_failed")
 		return
@@ -166,6 +142,89 @@ func (h *SteamAuthHandler) SteamCallback(c *gin.Context) {
 	c.SetCookie("token", response.Token, h.cfg.JWT.ExpireHour*3600, "/", "", isSecureRequest(c), true)
 
 	c.Redirect(http.StatusFound, "/profile")
+}
+
+// handleBindCallback handles Steam OpenID callback for account binding
+// This is called when the steam_bind_mode cookie is set, indicating a bind flow
+// that was redirected to the login callback URL due to shared redirect URL
+func (h *SteamAuthHandler) handleBindCallback(c *gin.Context) {
+	// Get user ID from JWT token in cookie (user must be logged in)
+	tokenString, err := c.Cookie("token")
+	if err != nil || tokenString == "" {
+		c.Redirect(http.StatusFound, "/profile?error=bind_unauthorized")
+		return
+	}
+
+	// Validate token and get user
+	user, err := h.authService.ValidateToken(tokenString)
+	if err != nil {
+		c.Redirect(http.StatusFound, "/profile?error=bind_unauthorized")
+		return
+	}
+
+	// Verify Steam OpenID and get player summary
+	steamID, playerSummary, err := h.verifySteamOpenID(c)
+	if err != nil {
+		c.Redirect(http.StatusFound, "/profile?error=steam_bind_failed")
+		return
+	}
+
+	// Bind Steam account to existing user
+	if err := h.authService.BindSteam(user.ID, steamID, playerSummary.PersonaName, playerSummary.AvatarFull); err != nil {
+		c.Redirect(http.StatusFound, "/profile?error="+err.Error())
+		return
+	}
+
+	c.Redirect(http.StatusFound, "/profile?success=steam_bind_success")
+}
+
+// verifySteamOpenID verifies the Steam OpenID response and returns the Steam ID and player summary
+func (h *SteamAuthHandler) verifySteamOpenID(c *gin.Context) (string, *SteamPlayerSummary, error) {
+	// Verify the OpenID response
+	openIDMode := c.Query("openid.mode")
+	if openIDMode != "id_res" {
+		return "", nil, errSteamInvalidOpenIDMode
+	}
+
+	// Validate the response with Steam
+	params := url.Values{}
+	for key, values := range c.Request.URL.Query() {
+		for _, value := range values {
+			params.Add(key, value)
+		}
+	}
+	params.Set("openid.mode", "check_authentication")
+
+	resp, err := http.PostForm("https://steamcommunity.com/openid/login", params)
+	if err != nil {
+		return "", nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", nil, err
+	}
+
+	if !strings.Contains(string(body), "is_valid:true") {
+		return "", nil, errSteamValidationFailed
+	}
+
+	// Extract Steam ID from openid.claimed_id
+	claimedID := c.Query("openid.claimed_id")
+	matches := steamIDRegex.FindStringSubmatch(claimedID)
+	if len(matches) < 2 {
+		return "", nil, errSteamInvalidSteamID
+	}
+	steamID := matches[1]
+
+	// Get user info from Steam API
+	playerSummary, err := h.getSteamPlayerSummary(steamID)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return steamID, playerSummary, nil
 }
 
 // getSteamPlayerSummary fetches player summary from Steam API
@@ -222,6 +281,9 @@ func (h *SteamAuthHandler) SteamBindLogin(c *gin.Context) {
 		})
 		return
 	}
+
+	// Set a cookie to indicate bind mode (will be checked in callback)
+	c.SetCookie("steam_bind_mode", "true", 600, "/", "", isSecureRequest(c), true)
 
 	// Use bind-specific redirect URL if configured, otherwise use login redirect URL
 	redirectURL := h.cfg.SteamOAuth.BindRedirectURL
@@ -282,52 +344,8 @@ func (h *SteamAuthHandler) SteamBindCallback(c *gin.Context) {
 		return
 	}
 
-	// Verify the OpenID response
-	openIDMode := c.Query("openid.mode")
-	if openIDMode != "id_res" {
-		c.Redirect(http.StatusFound, "/profile?error=steam_bind_failed")
-		return
-	}
-
-	// Validate the response with Steam
-	params := url.Values{}
-	for key, values := range c.Request.URL.Query() {
-		for _, value := range values {
-			params.Add(key, value)
-		}
-	}
-	params.Set("openid.mode", "check_authentication")
-
-	resp, err := http.PostForm("https://steamcommunity.com/openid/login", params)
-	if err != nil {
-		c.Redirect(http.StatusFound, "/profile?error=steam_bind_failed")
-		return
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		c.Redirect(http.StatusFound, "/profile?error=steam_bind_failed")
-		return
-	}
-
-	if !strings.Contains(string(body), "is_valid:true") {
-		c.Redirect(http.StatusFound, "/profile?error=steam_bind_failed")
-		return
-	}
-
-	// Extract Steam ID from openid.claimed_id
-	claimedID := c.Query("openid.claimed_id")
-	steamIDRegex := regexp.MustCompile(`https://steamcommunity\.com/openid/id/(\d+)`)
-	matches := steamIDRegex.FindStringSubmatch(claimedID)
-	if len(matches) < 2 {
-		c.Redirect(http.StatusFound, "/profile?error=steam_bind_failed")
-		return
-	}
-	steamID := matches[1]
-
-	// Get user info from Steam API
-	playerSummary, err := h.getSteamPlayerSummary(steamID)
+	// Verify Steam OpenID and get player summary
+	steamID, playerSummary, err := h.verifySteamOpenID(c)
 	if err != nil {
 		c.Redirect(http.StatusFound, "/profile?error=steam_bind_failed")
 		return
