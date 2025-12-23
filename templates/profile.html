@@ -11,88 +11,6 @@
         .profile-hero {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 60px 0 120px;
-        }
-        .profile-card {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-            margin-top: -80px;
-            overflow: hidden;
-        }
-        .avatar-container {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            border: 4px solid white;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-            overflow: hidden;
-            margin: -60px auto 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-        .avatar-container img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        .avatar-placeholder {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 3rem;
-        }
-        .user-name {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: #333;
-            margin-bottom: 5px;
-        }
-        .user-email {
-            color: #888;
-            font-size: 0.95rem;
-        }
-        .stats-container {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
-            padding: 30px;
-            border-top: 1px solid #f0f0f0;
-        }
-        .stat-item {
-            text-align: center;
-        }
-        .stat-value {
-            font-size: 1.75rem;
-            font-weight: 700;
-            color: #333;
-        }
-        .stat-label {
-            color: #888;
-            font-size: 0.85rem;
-            margin-top: 5px;
-        }
-        .balance-value {
-            color: #28a745;
-        }
-        .vip-badge {
-            display: inline-flex;
-            align-items: center;
-            background: linear-gradient(135deg, #ffd700 0%, #ffb300 100%);
-            color: #333;
-            padding: 6px 16px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-        .vip-badge.normal {
-            background: linear-gradient(135deg, #e0e0e0 0%, #bdbdbd 100%);
-            color: #666;
-        }
-        .vip-badge i {
-            margin-right: 6px;
         }
         .info-card {
             background: white;
@@ -317,16 +235,16 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="/"><i class="bi bi-house me-1"></i>首页</a>
+                        <a class="nav-link" href="/"><i class="bi bi-house me-1"></i>{{t .lang "nav.home"}}</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link active" href="/profile"><i class="bi bi-person me-1"></i>个人中心</a>
+                        <a class="nav-link active" href="/profile"><i class="bi bi-person me-1"></i>{{t .lang "nav.profile_center"}}</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/recharge"><i class="bi bi-wallet2 me-1"></i>充值</a>
+                        <a class="nav-link" href="/recharge"><i class="bi bi-wallet2 me-1"></i>{{t .lang "nav.recharge"}}</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/recharge#vip"><i class="bi bi-gem me-1"></i>VIP</a>
+                        <a class="nav-link" href="/recharge#vip"><i class="bi bi-gem me-1"></i>{{t .lang "nav.vip"}}</a>
                     </li>
                     {{if .logged}}
                     <li class="nav-item dropdown">
@@ -339,11 +257,11 @@
                             {{.user.DisplayName}}
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="/profile"><i class="bi bi-person me-2"></i>个人中心</a></li>
-                            <li><a class="dropdown-item" href="/recharge"><i class="bi bi-wallet2 me-2"></i>充值中心</a></li>
-                            <li><a class="dropdown-item" href="/recharge#vip"><i class="bi bi-gem me-2"></i>VIP会员</a></li>
+                            <li><a class="dropdown-item" href="/profile"><i class="bi bi-person me-2"></i>{{t .lang "nav.profile_center"}}</a></li>
+                            <li><a class="dropdown-item" href="/recharge"><i class="bi bi-wallet2 me-2"></i>{{t .lang "nav.recharge_center"}}</a></li>
+                            <li><a class="dropdown-item" href="/recharge#vip"><i class="bi bi-gem me-2"></i>{{t .lang "nav.vip_member"}}</a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="#" onclick="logout()"><i class="bi bi-box-arrow-right me-2"></i>退出登录</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="logout()"><i class="bi bi-box-arrow-right me-2"></i>{{t .lang "nav.logout"}}</a></li>
                         </ul>
                     </li>
                     {{else}}
@@ -354,6 +272,16 @@
                         <a class="nav-link" href="/auth/register"><i class="bi bi-person-plus me-1"></i>{{t .lang "nav.register"}}</a>
                     </li>
                     {{end}}
+                    <!-- Language Switcher -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="langDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-globe me-1"></i>{{if eq .lang "zh"}}中文{{else}}English{{end}}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item {{if eq .lang "en"}}active{{end}}" href="#" onclick="setLanguage('en')"><i class="bi bi-check2 me-2 {{if ne .lang "en"}}invisible{{end}}"></i>English</a></li>
+                            <li><a class="dropdown-item {{if eq .lang "zh"}}active{{end}}" href="#" onclick="setLanguage('zh')"><i class="bi bi-check2 me-2 {{if ne .lang "zh"}}invisible{{end}}"></i>中文</a></li>
+                        </ul>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -361,62 +289,18 @@
 
     {{if .logged}}
     <!-- Profile Hero -->
-    <section class="profile-hero">
+    <section class="profile-hero" style="padding: 40px 0 40px;">
         <div class="container text-center">
-            <h1 class="mb-3">个人中心</h1>
-            <p class="opacity-75">管理您的账户信息和会员权益</p>
+            <h1 class="mb-2">{{t .lang "profile.hero_title"}}</h1>
+            <p class="opacity-75 mb-0">{{t .lang "profile.hero_subtitle"}}</p>
         </div>
     </section>
 
     <!-- Profile Content -->
-    <div class="container pb-5">
+    <div class="container py-4">
         <div class="row justify-content-center">
             <div class="col-lg-10">
-                <!-- Profile Card -->
-                <div class="profile-card">
-                    <div class="text-center pt-4">
-                        <div class="avatar-container">
-                            {{if .user.Avatar}}
-                            <img src="{{.user.Avatar}}" alt="Avatar">
-                            {{else}}
-                            <div class="avatar-placeholder">
-                                <i class="bi bi-person-fill"></i>
-                            </div>
-                            {{end}}
-                        </div>
-                        <h2 class="user-name">{{.user.DisplayName}}</h2>
-                        <p class="user-email">{{.user.Email}}</p>
-                        <div class="mb-3">
-                            {{if gt .user.VIPLevel 0}}
-                            <span class="vip-badge" id="vip-badge">
-                                <i class="bi bi-gem"></i>
-                                <span id="vip-name">VIP {{.user.VIPLevel}}</span>
-                            </span>
-                            {{else}}
-                            <span class="vip-badge normal">
-                                <i class="bi bi-person"></i>
-                                普通用户
-                            </span>
-                            {{end}}
-                        </div>
-                    </div>
-                    <div class="stats-container">
-                        <div class="stat-item">
-                            <div class="stat-value balance-value">¥<span id="user-balance">{{printf "%.2f" .user.Balance}}</span></div>
-                            <div class="stat-label">账户余额</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value" id="vip-level-display">{{if gt .user.VIPLevel 0}}VIP {{.user.VIPLevel}}{{else}}普通{{end}}</div>
-                            <div class="stat-label">会员等级</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value" id="member-days">-</div>
-                            <div class="stat-label">会员天数</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row mt-4">
+                <div class="row">
                     <!-- Left Column -->
                     <div class="col-lg-8">
                         <!-- VIP Status Card -->
@@ -426,26 +310,26 @@
                                     <i class="bi bi-gem"></i>
                                 </div>
                                 <div>
-                                    <div class="info-card-title">VIP会员</div>
-                                    <div class="info-card-subtitle">查看您的会员权益和状态</div>
+                                    <div class="info-card-title">{{t .lang "profile.vip_member"}}</div>
+                                    <div class="info-card-subtitle">{{t .lang "profile.vip_member_subtitle"}}</div>
                                 </div>
                             </div>
                             <div id="vip-info-content">
                                 {{if gt .user.VIPLevel 0}}
                                 <div class="vip-status-card mb-3">
-                                    <div class="vip-status-title">当前会员等级</div>
+                                    <div class="vip-status-title">{{t .lang "profile.current_level"}}</div>
                                     <div class="vip-status-level" id="vip-level-name">VIP {{.user.VIPLevel}}</div>
-                                    <div class="vip-status-expire" id="vip-expire-info">会员有效期计算中...</div>
+                                    <div class="vip-status-expire" id="vip-expire-info">{{t .lang "profile.vip_expire_calculating"}}</div>
                                     <a href="/recharge" class="vip-upgrade-btn">
-                                        <i class="bi bi-arrow-up-circle me-1"></i>续费/升级
+                                        <i class="bi bi-arrow-up-circle me-1"></i>{{t .lang "profile.vip_renew_upgrade"}}
                                     </a>
                                 </div>
                                 {{else}}
                                 <div class="text-center py-4">
                                     <i class="bi bi-gem display-4 text-muted mb-3"></i>
-                                    <p class="text-muted mb-3">您还不是VIP会员</p>
+                                    <p class="text-muted mb-3">{{t .lang "profile.not_vip"}}</p>
                                     <a href="/recharge" class="btn action-btn action-btn-primary">
-                                        <i class="bi bi-gem me-2"></i>立即开通VIP
+                                        <i class="bi bi-gem me-2"></i>{{t .lang "profile.activate_vip"}}
                                     </a>
                                 </div>
                                 {{end}}
@@ -459,22 +343,22 @@
                                     <i class="bi bi-wallet2"></i>
                                 </div>
                                 <div>
-                                    <div class="info-card-title">账户余额</div>
-                                    <div class="info-card-subtitle">管理您的账户资金</div>
+                                    <div class="info-card-title">{{t .lang "profile.account_balance"}}</div>
+                                    <div class="info-card-subtitle">{{t .lang "profile.account_balance_subtitle"}}</div>
                                 </div>
                             </div>
                             <ul class="info-list">
                                 <li>
-                                    <span class="info-label">可用余额</span>
+                                    <span class="info-label">{{t .lang "profile.available_balance"}}</span>
                                     <span class="info-value text-success fs-4">¥<span id="available-balance">{{printf "%.2f" .user.Balance}}</span></span>
                                 </li>
                             </ul>
                             <div class="d-flex gap-2 mt-3">
                                 <a href="/recharge" class="btn action-btn action-btn-success flex-grow-1">
-                                    <i class="bi bi-plus-circle me-2"></i>充值
+                                    <i class="bi bi-plus-circle me-2"></i>{{t .lang "profile.recharge"}}
                                 </a>
                                 <button class="btn action-btn action-btn-primary flex-grow-1" data-bs-toggle="modal" data-bs-target="#giftCardModal">
-                                    <i class="bi bi-gift me-2"></i>兑换礼品卡
+                                    <i class="bi bi-gift me-2"></i>{{t .lang "profile.redeem_gift_card"}}
                                 </button>
                             </div>
                         </div>
@@ -486,44 +370,89 @@
                                     <i class="bi bi-person-badge"></i>
                                 </div>
                                 <div>
-                                    <div class="info-card-title">账户信息</div>
-                                    <div class="info-card-subtitle">您的基本账户信息</div>
+                                    <div class="info-card-title">{{t .lang "profile.account_info"}}</div>
+                                    <div class="info-card-subtitle">{{t .lang "profile.account_info_subtitle"}}</div>
                                 </div>
                             </div>
                             <ul class="info-list">
                                 <li>
-                                    <span class="info-label">用户名</span>
+                                    <span class="info-label">{{t .lang "profile.username"}}</span>
                                     <span class="info-value">{{.user.Username}}</span>
                                 </li>
                                 <li>
-                                    <span class="info-label">邮箱</span>
+                                    <span class="info-label">{{t .lang "profile.email"}}</span>
                                     <span class="info-value">{{.user.Email}}</span>
                                 </li>
                                 <li>
-                                    <span class="info-label">显示名称</span>
+                                    <span class="info-label">{{t .lang "profile.display_name"}}</span>
                                     <span class="info-value">{{.user.DisplayName}}</span>
                                 </li>
                                 <li>
-                                    <span class="info-label">注册时间</span>
+                                    <span class="info-label">{{t .lang "profile.registration_time"}}</span>
                                     <span class="info-value" id="created-at">{{.user.CreatedAt}}</span>
                                 </li>
                                 <li>
-                                    <span class="info-label">账户状态</span>
+                                    <span class="info-label">{{t .lang "profile.account_status"}}</span>
                                     <span class="info-value">
                                         {{if .user.IsActive}}
-                                        <span class="badge bg-success">正常</span>
+                                        <span class="badge bg-success">{{t .lang "profile.status_active"}}</span>
                                         {{else}}
-                                        <span class="badge bg-danger">已禁用</span>
+                                        <span class="badge bg-danger">{{t .lang "profile.status_disabled"}}</span>
                                         {{end}}
                                     </span>
                                 </li>
                             </ul>
                             <button class="btn action-btn action-btn-primary w-100 mt-3" data-bs-toggle="modal" data-bs-target="#editProfileModal">
-                                <i class="bi bi-pencil me-2"></i>编辑个人资料
+                                <i class="bi bi-pencil me-2"></i>{{t .lang "profile.edit_profile"}}
                             </button>
                             <button class="btn btn-outline-danger w-100 mt-2" data-bs-toggle="modal" data-bs-target="#changePasswordModal">
-                                <i class="bi bi-key me-2"></i>修改密码
+                                <i class="bi bi-key me-2"></i>{{t .lang "profile.change_password"}}
                             </button>
+                        </div>
+
+                        <!-- Third-party Account Binding Card -->
+                        <div class="info-card">
+                            <div class="info-card-header">
+                                <div class="info-card-icon" style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); color: white;">
+                                    <i class="bi bi-link-45deg"></i>
+                                </div>
+                                <div>
+                                    <div class="info-card-title">{{t .lang "binding.title"}}</div>
+                                    <div class="info-card-subtitle">{{t .lang "binding.subtitle"}}</div>
+                                </div>
+                            </div>
+                            <ul class="info-list" id="binding-list">
+                                <!-- Google Account -->
+                                <li id="binding-google-row" style="display: none;">
+                                    <span class="info-label">
+                                        <i class="bi bi-google me-2" style="color: #4285F4;"></i>{{t .lang "binding.google"}}
+                                    </span>
+                                    <span class="info-value" id="binding-google-status">
+                                        <span class="badge bg-secondary">{{t .lang "binding.not_bound"}}</span>
+                                    </span>
+                                </li>
+                                <!-- Steam Account -->
+                                <li id="binding-steam-row" style="display: none;">
+                                    <span class="info-label">
+                                        <i class="bi bi-steam me-2" style="color: #171a21;"></i>{{t .lang "binding.steam"}}
+                                    </span>
+                                    <span class="info-value" id="binding-steam-status">
+                                        <span class="badge bg-secondary">{{t .lang "binding.not_bound"}}</span>
+                                    </span>
+                                </li>
+                                <!-- Discord Account -->
+                                <li id="binding-discord-row" style="display: none;">
+                                    <span class="info-label">
+                                        <i class="bi bi-discord me-2" style="color: #5865F2;"></i>{{t .lang "binding.discord"}}
+                                    </span>
+                                    <span class="info-value" id="binding-discord-status">
+                                        <span class="badge bg-secondary">{{t .lang "binding.not_bound"}}</span>
+                                    </span>
+                                </li>
+                            </ul>
+                            <div id="binding-empty-state" class="text-center text-muted py-3">
+                                <i class="bi bi-link-45deg"></i> {{t .lang "binding.empty_state"}}
+                            </div>
                         </div>
                     </div>
 
@@ -536,23 +465,23 @@
                                     <i class="bi bi-lightning"></i>
                                 </div>
                                 <div>
-                                    <div class="info-card-title">快捷操作</div>
-                                    <div class="info-card-subtitle">常用功能入口</div>
+                                    <div class="info-card-title">{{t .lang "profile.quick_actions"}}</div>
+                                    <div class="info-card-subtitle">{{t .lang "profile.quick_actions_subtitle"}}</div>
                                 </div>
                             </div>
                             <div class="quick-actions" id="quick-actions-container">
                                 <!-- Dynamic navigation items will be rendered here -->
                                 <a href="/recharge" class="quick-action-btn" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
-                                    <i class="bi bi-wallet2"></i>充值中心
+                                    <i class="bi bi-wallet2"></i>{{t .lang "profile.recharge_center"}}
                                 </a>
                                 <a href="/recharge#vip" class="quick-action-btn" style="background: linear-gradient(135deg, #ffd700 0%, #ffb300 100%); color: #333;">
-                                    <i class="bi bi-gem"></i>VIP会员
+                                    <i class="bi bi-gem"></i>{{t .lang "profile.vip_membership"}}
                                 </a>
                                 <a href="#" class="quick-action-btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);" data-bs-toggle="modal" data-bs-target="#editProfileModal">
-                                    <i class="bi bi-gear"></i>账号设置
+                                    <i class="bi bi-gear"></i>{{t .lang "profile.account_settings"}}
                                 </a>
                                 <a href="#" onclick="logout()" class="quick-action-btn" style="background: linear-gradient(135deg, #6c757d 0%, #495057 100%);">
-                                    <i class="bi bi-box-arrow-right"></i>退出登录
+                                    <i class="bi bi-box-arrow-right"></i>{{t .lang "profile.logout"}}
                                 </a>
                             </div>
                         </div>
@@ -564,23 +493,23 @@
                                     <i class="bi bi-star"></i>
                                 </div>
                                 <div>
-                                    <div class="info-card-title">VIP特权</div>
-                                    <div class="info-card-subtitle">会员专属权益</div>
+                                    <div class="info-card-title">{{t .lang "profile.vip_benefits"}}</div>
+                                    <div class="info-card-subtitle">{{t .lang "profile.vip_benefits_subtitle"}}</div>
                                 </div>
                             </div>
                             <ul class="info-list" id="vip-benefits-list">
                                 <li>
-                                    <span class="info-label"><i class="bi bi-check-circle text-success me-2"></i>专属客服</span>
+                                    <span class="info-label"><i class="bi bi-check-circle text-success me-2"></i>{{t .lang "profile.benefit_support"}}</span>
                                 </li>
                                 <li>
-                                    <span class="info-label"><i class="bi bi-check-circle text-success me-2"></i>优先支持</span>
+                                    <span class="info-label"><i class="bi bi-check-circle text-success me-2"></i>{{t .lang "profile.benefit_exclusive"}}</span>
                                 </li>
                                 <li>
-                                    <span class="info-label"><i class="bi bi-check-circle text-success me-2"></i>更多特权</span>
+                                    <span class="info-label"><i class="bi bi-check-circle text-success me-2"></i>{{t .lang "profile.benefit_more"}}</span>
                                 </li>
                             </ul>
                             <a href="/recharge" class="btn btn-outline-primary w-100 mt-3">
-                                <i class="bi bi-arrow-right me-2"></i>查看全部VIP特权
+                                <i class="bi bi-arrow-right me-2"></i>{{t .lang "profile.view_all_benefits"}}
                             </a>
                         </div>
                     </div>
@@ -594,25 +523,25 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>编辑个人资料</h5>
+                    <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>{{t .lang "profile.edit_profile_title"}}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <form id="edit-profile-form">
                         <div class="mb-3">
-                            <label for="display-name" class="form-label">显示名称</label>
+                            <label for="display-name" class="form-label">{{t .lang "profile.display_name_label"}}</label>
                             <input type="text" class="form-control" id="display-name" value="{{.user.DisplayName}}">
                         </div>
                         <div class="mb-3">
-                            <label for="avatar-url" class="form-label">头像URL</label>
+                            <label for="avatar-url" class="form-label">{{t .lang "profile.avatar_url"}}</label>
                             <input type="url" class="form-control" id="avatar-url" value="{{.user.Avatar}}" placeholder="https://example.com/avatar.jpg">
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{t .lang "profile.cancel"}}</button>
                     <button type="button" class="btn btn-primary" onclick="saveProfile()">
-                        <i class="bi bi-check-lg me-1"></i>保存
+                        <i class="bi bi-check-lg me-1"></i>{{t .lang "profile.save"}}
                     </button>
                 </div>
             </div>
@@ -624,21 +553,21 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-gift me-2"></i>兑换礼品卡</h5>
+                    <h5 class="modal-title"><i class="bi bi-gift me-2"></i>{{t .lang "profile.gift_card_title"}}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-muted mb-3">输入礼品卡码，余额将自动添加到您的账户</p>
+                    <p class="text-muted mb-3">{{t .lang "profile.gift_card_hint"}}</p>
                     <div class="input-group input-group-lg">
                         <span class="input-group-text"><i class="bi bi-gift"></i></span>
-                        <input type="text" class="form-control font-monospace" id="gift-card-code" placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="19">
+                        <input type="text" class="form-control font-monospace" id="gift-card-code" placeholder="{{t .lang "profile.gift_card_placeholder"}}" maxlength="19">
                     </div>
-                    <small class="text-muted mt-2 d-block">请输入16位礼品卡码（格式：XXXX-XXXX-XXXX-XXXX）</small>
+                    <small class="text-muted mt-2 d-block">{{t .lang "profile.gift_card_format_hint"}}</small>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{t .lang "profile.cancel"}}</button>
                     <button type="button" class="btn btn-success" onclick="redeemGiftCard()">
-                        <i class="bi bi-check-lg me-1"></i>兑换
+                        <i class="bi bi-check-lg me-1"></i>{{t .lang "profile.redeem"}}
                     </button>
                 </div>
             </div>
@@ -650,38 +579,38 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-key me-2"></i>修改密码</h5>
+                    <h5 class="modal-title"><i class="bi bi-key me-2"></i>{{t .lang "profile.change_password_title"}}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <form id="change-password-form">
                         <div class="mb-3">
-                            <label for="old-password" class="form-label">原密码</label>
+                            <label for="old-password" class="form-label">{{t .lang "profile.old_password"}}</label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="bi bi-lock"></i></span>
-                                <input type="password" class="form-control" id="old-password" placeholder="请输入原密码" required>
+                                <input type="password" class="form-control" id="old-password" placeholder="{{t .lang "profile.old_password_placeholder"}}" required>
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label for="new-password" class="form-label">新密码</label>
+                            <label for="new-password" class="form-label">{{t .lang "profile.new_password"}}</label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
-                                <input type="password" class="form-control" id="new-password" placeholder="请输入新密码（至少6位）" required minlength="6">
+                                <input type="password" class="form-control" id="new-password" placeholder="{{t .lang "profile.new_password_placeholder"}}" required minlength="6">
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label for="confirm-password" class="form-label">确认新密码</label>
+                            <label for="confirm-password" class="form-label">{{t .lang "profile.confirm_password"}}</label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
-                                <input type="password" class="form-control" id="confirm-password" placeholder="请再次输入新密码" required minlength="6">
+                                <input type="password" class="form-control" id="confirm-password" placeholder="{{t .lang "profile.confirm_password_placeholder"}}" required minlength="6">
                             </div>
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{t .lang "profile.cancel"}}</button>
                     <button type="button" class="btn btn-danger" onclick="changePassword()">
-                        <i class="bi bi-check-lg me-1"></i>确认修改
+                        <i class="bi bi-check-lg me-1"></i>{{t .lang "profile.confirm_change"}}
                     </button>
                 </div>
             </div>
@@ -694,10 +623,10 @@
         <div class="row justify-content-center">
             <div class="col-md-6 text-center">
                 <i class="bi bi-person-lock display-1 text-muted mb-4"></i>
-                <h2>请先登录</h2>
-                <p class="text-muted mb-4">您需要登录后才能访问个人中心</p>
+                <h2>{{t .lang "profile.login_required"}}</h2>
+                <p class="text-muted mb-4">{{t .lang "profile.login_required_desc"}}</p>
                 <a href="/auth/login" class="btn btn-primary btn-lg">
-                    <i class="bi bi-box-arrow-in-right me-2"></i>立即登录
+                    <i class="bi bi-box-arrow-in-right me-2"></i>{{t .lang "profile.login_now"}}
                 </a>
             </div>
         </div>
@@ -715,14 +644,193 @@
     <script>
         let vipLevels = [];
         let navItems = [];
+        let bindingStatus = {};
 
         document.addEventListener('DOMContentLoaded', function() {
             loadVIPLevels();
             loadUserBalance();
             loadProfileNavigation();
+            loadThirdPartyBindingStatus();
             formatCreatedAt();
             initGiftCardInput();
+            checkUrlMessages();
         });
+
+        // Check URL parameters for success/error messages
+        function checkUrlMessages() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const success = urlParams.get('success');
+            const error = urlParams.get('error');
+            
+            if (success) {
+                if (success === 'google_bind_success' || success === 'steam_bind_success' || success === 'discord_bind_success') {
+                    showToast(bindingI18n.bindSuccess, false);
+                }
+                // Clear the URL parameter
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+            
+            if (error) {
+                showToast(decodeURIComponent(error), true);
+                // Clear the URL parameter
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        }
+
+        // I18n strings for binding
+        const bindingI18n = {
+            bound: "{{t .lang "binding.bound"}}",
+            notBound: "{{t .lang "binding.not_bound"}}",
+            bind: "{{t .lang "binding.bind"}}",
+            unbind: "{{t .lang "binding.unbind"}}",
+            bindDisabled: "{{t .lang "binding.bind_disabled"}}",
+            unbindDisabled: "{{t .lang "binding.unbind_disabled"}}",
+            unbindConfirmTitle: "{{t .lang "binding.unbind_confirm_title"}}",
+            unbindConfirmMessage: "{{t .lang "binding.unbind_confirm_message"}}",
+            unbindConfirm: "{{t .lang "binding.unbind_confirm"}}",
+            unbindCancel: "{{t .lang "binding.unbind_cancel"}}",
+            unbindSuccess: "{{t .lang "binding.unbind_success"}}",
+            unbindError: "{{t .lang "binding.unbind_error"}}",
+            bindSuccess: "{{t .lang "binding.bind_success"}}",
+            bindError: "{{t .lang "binding.bind_error"}}"
+        };
+
+        async function loadThirdPartyBindingStatus() {
+            try {
+                const response = await fetch('/api/auth/third-party-status');
+                const result = await response.json();
+                if (result.success && result.data) {
+                    bindingStatus = result.data;
+                    renderBindingStatus();
+                }
+            } catch (error) {
+                console.error('Failed to load binding status:', error);
+            }
+        }
+
+        function renderBindingStatus() {
+            const emptyState = document.getElementById('binding-empty-state');
+            let hasAnyBinding = false;
+
+            // Render Google binding status
+            if (bindingStatus.google) {
+                const googleRow = document.getElementById('binding-google-row');
+                const googleStatus = document.getElementById('binding-google-status');
+                if (bindingStatus.google.allow_bind || bindingStatus.google.bound) {
+                    googleRow.style.display = 'flex';
+                    hasAnyBinding = true;
+                    googleStatus.innerHTML = renderBindingButton('google', bindingStatus.google);
+                }
+            }
+
+            // Render Steam binding status
+            if (bindingStatus.steam) {
+                const steamRow = document.getElementById('binding-steam-row');
+                const steamStatus = document.getElementById('binding-steam-status');
+                if (bindingStatus.steam.allow_bind || bindingStatus.steam.bound) {
+                    steamRow.style.display = 'flex';
+                    hasAnyBinding = true;
+                    steamStatus.innerHTML = renderBindingButton('steam', bindingStatus.steam);
+                }
+            }
+
+            // Render Discord binding status
+            if (bindingStatus.discord) {
+                const discordRow = document.getElementById('binding-discord-row');
+                const discordStatus = document.getElementById('binding-discord-status');
+                if (bindingStatus.discord.allow_bind || bindingStatus.discord.bound) {
+                    discordRow.style.display = 'flex';
+                    hasAnyBinding = true;
+                    discordStatus.innerHTML = renderBindingButton('discord', bindingStatus.discord);
+                }
+            }
+
+            // Show/hide empty state
+            if (emptyState) {
+                emptyState.style.display = hasAnyBinding ? 'none' : 'block';
+            }
+        }
+
+        function renderBindingButton(provider, status) {
+            if (status.bound) {
+                // Account is bound - show unbind button or badge
+                if (status.allow_unbind) {
+                    return `<span class="badge bg-success me-2">${bindingI18n.bound}</span>
+                            <button class="btn btn-sm btn-outline-danger" onclick="confirmUnbind('${provider}')">
+                                <i class="bi bi-link-break me-1"></i>${bindingI18n.unbind}
+                            </button>`;
+                } else {
+                    return `<span class="badge bg-success">${bindingI18n.bound}</span>
+                            <small class="text-muted ms-2">${bindingI18n.unbindDisabled}</small>`;
+                }
+            } else {
+                // Account is not bound - show bind button
+                if (status.allow_bind) {
+                    return `<span class="badge bg-secondary me-2">${bindingI18n.notBound}</span>
+                            <a href="/api/auth/${provider}/bind" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-link me-1"></i>${bindingI18n.bind}
+                            </a>`;
+                } else {
+                    return `<span class="badge bg-secondary">${bindingI18n.notBound}</span>
+                            <small class="text-muted ms-2">${bindingI18n.bindDisabled}</small>`;
+                }
+            }
+        }
+
+        function confirmUnbind(provider) {
+            const modalHtml = `
+                <div class="modal fade" id="unbindConfirmModal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header bg-warning text-dark">
+                                <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>${bindingI18n.unbindConfirmTitle}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body py-4">
+                                <p>${bindingI18n.unbindConfirmMessage}</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">${bindingI18n.unbindCancel}</button>
+                                <button type="button" class="btn btn-danger" onclick="performUnbind('${provider}')">
+                                    <i class="bi bi-link-break me-1"></i>${bindingI18n.unbindConfirm}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const existing = document.getElementById('unbindConfirmModal');
+            if (existing) existing.remove();
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            new bootstrap.Modal(document.getElementById('unbindConfirmModal')).show();
+        }
+
+        async function performUnbind(provider) {
+            try {
+                const response = await fetch(`/api/auth/unbind/${provider}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const result = await response.json();
+                
+                // Close the modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('unbindConfirmModal'));
+                if (modal) modal.hide();
+                
+                if (result.success) {
+                    showToast(bindingI18n.unbindSuccess, false);
+                    // Reload binding status
+                    loadThirdPartyBindingStatus();
+                } else {
+                    showToast(result.message || bindingI18n.unbindError, true);
+                }
+            } catch (error) {
+                showToast(bindingI18n.unbindError, true);
+            }
+        }
 
         async function loadProfileNavigation() {
             try {
@@ -837,19 +945,73 @@
             }
         }
 
+        // I18n strings for VIP expiration display
+        const i18nStrings = {
+            vipExpireAt: "{{t .lang "profile.vip_expire_at"}}",
+            vipPermanent: "{{t .lang "profile.vip_permanent"}}",
+            vipExpired: "{{t .lang "profile.vip_expired"}}",
+            // Gift card VIP warning i18n
+            vipWarningTitle: "{{t .lang "gift_card.vip_warning_title"}}",
+            vipWarningMessage: "{{t .lang "gift_card.vip_warning_message"}}",
+            vipWarningCurrent: "{{t .lang "gift_card.vip_warning_current"}}",
+            vipWarningCardVip: "{{t .lang "gift_card.vip_warning_card_vip"}}",
+            vipWarningExpires: "{{t .lang "gift_card.vip_warning_expires"}}",
+            vipWarningPermanent: "{{t .lang "gift_card.vip_warning_permanent"}}",
+            vipWarningDays: "{{t .lang "gift_card.vip_warning_days"}}",
+            vipWarningConfirm: "{{t .lang "gift_card.vip_warning_confirm"}}",
+            vipWarningCancel: "{{t .lang "gift_card.vip_warning_cancel"}}",
+            vipWarningBalanceNote: "{{t .lang "gift_card.vip_warning_balance_note"}}",
+            vipSkipped: "{{t .lang "gift_card.vip_skipped"}}",
+            balance: "{{t .lang "gift_card.balance"}}",
+            balanceAdded: "{{t .lang "gift_card.balance_added"}}",
+            vipGranted: "{{t .lang "gift_card.vip_granted"}}",
+            redeemSuccess: "{{t .lang "gift_card.redeem_success"}}",
+            redeemSuccessTitle: "{{t .lang "gift_card.redeem_success_title"}}",
+            currentBalance: "{{t .lang "gift_card.current_balance"}}",
+            confirmBtn: "{{t .lang "gift_card.confirm_btn"}}"
+        };
+
         async function loadUserBalance() {
             try {
                 const response = await fetch('/api/auth/balance');
                 const result = await response.json();
                 if (result.success && result.data) {
-                    document.getElementById('user-balance').textContent = result.data.balance.toFixed(2);
-                    document.getElementById('available-balance').textContent = result.data.balance.toFixed(2);
+                    const userBalanceEl = document.getElementById('user-balance');
+                    const availableBalanceEl = document.getElementById('available-balance');
+                    if (userBalanceEl) userBalanceEl.textContent = result.data.balance.toFixed(2);
+                    if (availableBalanceEl) availableBalanceEl.textContent = result.data.balance.toFixed(2);
                     
                     if (result.data.vip_name) {
                         const vipNameEl = document.getElementById('vip-name');
                         const vipLevelName = document.getElementById('vip-level-name');
                         if (vipNameEl) vipNameEl.textContent = result.data.vip_name;
                         if (vipLevelName) vipLevelName.textContent = result.data.vip_name;
+                    }
+                    
+                    // Update VIP expiration display
+                    const vipExpireInfo = document.getElementById('vip-expire-info');
+                    if (vipExpireInfo && result.data.vip_level > 0) {
+                        if (result.data.vip_expire_at) {
+                            const expireDate = new Date(result.data.vip_expire_at);
+                            const now = new Date();
+                            if (expireDate > now) {
+                                // Use BCP 47 language tag based on current language
+                                const localeMap = {'zh': 'zh-CN', 'en': 'en-US'};
+                                const currentLang = '{{.lang}}';
+                                const locale = localeMap[currentLang] || 'en-US';
+                                const formattedDate = expireDate.toLocaleDateString(locale, {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
+                                });
+                                vipExpireInfo.textContent = `${i18nStrings.vipExpireAt} ${formattedDate}`;
+                            } else {
+                                vipExpireInfo.innerHTML = `<span class="text-danger">${i18nStrings.vipExpired}</span>`;
+                            }
+                        } else {
+                            // No expiration date means permanent VIP
+                            vipExpireInfo.textContent = `${i18nStrings.vipExpireAt}: ${i18nStrings.vipPermanent}`;
+                        }
                     }
                 }
             } catch (error) {
@@ -865,7 +1027,6 @@
                 const vipBadge = document.getElementById('vip-badge');
                 const vipLevelName = document.getElementById('vip-level-name');
                 const vipLevelDisplay = document.getElementById('vip-level-display');
-                const vipExpireInfo = document.getElementById('vip-expire-info');
                 const memberDays = document.getElementById('member-days');
                 
                 if (vipBadge) {
@@ -873,18 +1034,11 @@
                 }
                 if (vipLevelName) vipLevelName.textContent = vipConfig.name;
                 if (vipLevelDisplay) vipLevelDisplay.textContent = vipConfig.name;
-                if (vipExpireInfo) {
-                    if (vipConfig.duration > 0) {
-                        vipExpireInfo.textContent = `有效期：${vipConfig.duration} 天`;
-                    } else {
-                        vipExpireInfo.textContent = '有效期：永久';
-                    }
-                }
                 if (memberDays) {
                     if (vipConfig.duration > 0) {
                         memberDays.textContent = vipConfig.duration;
                     } else {
-                        memberDays.textContent = '永久';
+                        memberDays.textContent = i18nStrings.vipPermanent;
                     }
                 }
             } else {
@@ -959,7 +1113,7 @@
             }
         }
 
-        async function redeemGiftCard() {
+        async function redeemGiftCard(confirmVipConflict = false) {
             const codeInput = document.getElementById('gift-card-code');
             const code = codeInput.value.trim().toUpperCase();
             
@@ -977,21 +1131,30 @@
                 const response = await fetch('/api/auth/redeem-gift-card', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code: code })
+                    body: JSON.stringify({ code: code, confirm: confirmVipConflict })
                 });
 
                 const result = await response.json();
+                
+                // Handle VIP conflict - show warning modal
+                if (response.status === 409 && result.requires_confirm) {
+                    showVipConflictWarningModal(code, result.data);
+                    return;
+                }
+                
                 if (result.success) {
                     codeInput.value = '';
                     bootstrap.Modal.getInstance(document.getElementById('giftCardModal')).hide();
                     
                     // Update balance display
                     if (result.data) {
-                        document.getElementById('user-balance').textContent = result.data.balance.toFixed(2);
-                        document.getElementById('available-balance').textContent = result.data.balance.toFixed(2);
+                        const userBalanceEl = document.getElementById('user-balance');
+                        const availableBalanceEl = document.getElementById('available-balance');
+                        if (userBalanceEl) userBalanceEl.textContent = result.data.balance.toFixed(2);
+                        if (availableBalanceEl) availableBalanceEl.textContent = result.data.balance.toFixed(2);
                     }
                     
-                    showRedeemSuccessModal(result.data?.amount || 0, result.data?.balance || 0);
+                    showRedeemSuccessModal(result.data, result.data?.vip_skipped || false);
                 } else {
                     showToast(result.message || '兑换失败', true);
                 }
@@ -1000,24 +1163,138 @@
             }
         }
 
-        function showRedeemSuccessModal(amount, newBalance) {
+        function showVipConflictWarningModal(code, data) {
+            // Format VIP expiration date
+            let currentVipExpireText = i18nStrings.vipWarningPermanent;
+            if (data.current_vip_expire_at) {
+                const expireDate = new Date(data.current_vip_expire_at);
+                const localeMap = {'zh': 'zh-CN', 'en': 'en-US'};
+                const currentLang = '{{.lang}}';
+                const locale = localeMap[currentLang] || 'en-US';
+                currentVipExpireText = expireDate.toLocaleDateString(locale, {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+            }
+            
+            // Format card VIP duration
+            let cardVipDurationText = i18nStrings.vipWarningPermanent;
+            if (data.card_vip_days > 0) {
+                cardVipDurationText = `${data.card_vip_days} ${i18nStrings.vipWarningDays}`;
+            }
+            
+            const modalHtml = `
+                <div class="modal fade" id="vipConflictModal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header bg-warning text-dark">
+                                <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>${i18nStrings.vipWarningTitle}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body py-4">
+                                <div class="alert alert-warning mb-3">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    ${i18nStrings.vipWarningMessage}
+                                </div>
+                                <div class="bg-light rounded p-3 mb-3">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">${i18nStrings.vipWarningCurrent}</span>
+                                        <strong>VIP ${data.current_vip_level}</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">${i18nStrings.vipWarningExpires}</span>
+                                        <strong>${currentVipExpireText}</strong>
+                                    </div>
+                                    <hr class="my-2">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">${i18nStrings.vipWarningCardVip}</span>
+                                        <strong class="text-muted text-decoration-line-through">VIP ${data.card_vip_level} (${cardVipDurationText})</strong>
+                                    </div>
+                                    ${data.card_amount > 0 ? `
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">${i18nStrings.balance}</span>
+                                        <strong class="text-success">¥${data.card_amount.toFixed(2)}</strong>
+                                    </div>
+                                    ` : ''}
+                                </div>
+                                ${data.card_amount > 0 ? `
+                                <p class="text-info small mb-0">
+                                    <i class="bi bi-info-circle me-1"></i>${i18nStrings.vipWarningBalanceNote}
+                                </p>
+                                ` : ''}
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">${i18nStrings.vipWarningCancel}</button>
+                                <button type="button" class="btn btn-warning" onclick="confirmRedeemWithVipConflict('${code}')">
+                                    <i class="bi bi-check-lg me-1"></i>${i18nStrings.vipWarningConfirm}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const existing = document.getElementById('vipConflictModal');
+            if (existing) existing.remove();
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            new bootstrap.Modal(document.getElementById('vipConflictModal')).show();
+        }
+
+        async function confirmRedeemWithVipConflict(code) {
+            // Close the warning modal
+            const warningModal = bootstrap.Modal.getInstance(document.getElementById('vipConflictModal'));
+            if (warningModal) warningModal.hide();
+            
+            // Re-enter the code and trigger redeem with confirmation
+            const codeInput = document.getElementById('gift-card-code');
+            codeInput.value = code;
+            
+            // Call redeem with confirmation flag
+            await redeemGiftCard(true);
+        }
+
+        function showRedeemSuccessModal(data, vipSkipped = false) {
+            const amount = data?.amount || 0;
+            const newBalance = data?.balance || 0;
+            const grantedVipLevel = data?.granted_vip_level || 0;
+            const grantedVipDays = data?.granted_vip_days || 0;
+            
+            let rewardContent = '';
+            if (amount > 0) {
+                rewardContent += `<p class="mb-2">${i18nStrings.balanceAdded}<strong class="text-success fs-4">¥${amount.toFixed(2)}</strong></p>`;
+            }
+            if (grantedVipLevel > 0 && !vipSkipped) {
+                rewardContent += `<p class="mb-2">${i18nStrings.vipGranted}<strong class="text-warning fs-4"><i class="bi bi-gem me-1"></i>VIP${grantedVipLevel}</strong>`;
+                if (grantedVipDays > 0) {
+                    rewardContent += ` <span class="text-muted">(${grantedVipDays}${i18nStrings.vipWarningDays})</span>`;
+                } else {
+                    rewardContent += ` <span class="text-muted">(${i18nStrings.vipWarningPermanent})</span>`;
+                }
+                rewardContent += `</p>`;
+            }
+            if (vipSkipped) {
+                rewardContent += `<p class="text-warning small mb-2"><i class="bi bi-info-circle me-1"></i>${i18nStrings.vipSkipped}</p>`;
+            }
+            
             const modalHtml = `
                 <div class="modal fade" id="redeemSuccessModal" tabindex="-1">
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
                             <div class="modal-header bg-success text-white">
-                                <h5 class="modal-title"><i class="bi bi-gift me-2"></i>兑换成功</h5>
+                                <h5 class="modal-title"><i class="bi bi-gift me-2"></i>${i18nStrings.redeemSuccess}</h5>
                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body text-center py-4">
                                 <i class="bi bi-gift display-1 text-success mb-3"></i>
-                                <h4>礼品卡兑换成功！</h4>
-                                <p class="mb-2">已添加余额：<strong class="text-success fs-4">¥${amount.toFixed(2)}</strong></p>
-                                <p class="text-muted">当前余额：¥${newBalance.toFixed(2)}</p>
+                                <h4>${i18nStrings.redeemSuccessTitle}</h4>
+                                ${rewardContent}
+                                <p class="text-muted">${i18nStrings.currentBalance}¥${newBalance.toFixed(2)}</p>
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-success" data-bs-dismiss="modal">
-                                    <i class="bi bi-check-lg me-2"></i>确定
+                                    <i class="bi bi-check-lg me-2"></i>${i18nStrings.confirmBtn}
                                 </button>
                             </div>
                         </div>
@@ -1111,6 +1388,23 @@
                 window.location.href = '/auth/login';
             } catch (error) {
                 console.error('Logout error:', error);
+            }
+        }
+
+        // Language switcher function
+        async function setLanguage(lang) {
+            try {
+                const response = await fetch('/api/i18n/set-language', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ lang: lang })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    window.location.reload();
+                }
+            } catch (error) {
+                console.error('Failed to set language:', error);
             }
         }
     </script>

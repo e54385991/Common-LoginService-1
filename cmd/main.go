@@ -127,15 +127,28 @@ func main() {
 
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db)
-	sessionRepo := repository.NewSessionRepository(db)
 	configRepo := repository.NewConfigRepository(db)
 	apiTokenRepo := repository.NewAPITokenRepository(db)
 	giftCardRepo := repository.NewGiftCardRepository(db)
 	paymentOrderRepo := repository.NewPaymentOrderRepository(db)
 	balanceLogRepo := repository.NewBalanceLogRepository(db)
 
+	// Initialize session store based on configuration
+	var sessionStore repository.SessionStore
+	if cfg.Session.StorageType == "redis" {
+		redisStore, err := repository.NewRedisSessionStore(&cfg.Session.Redis)
+		if err != nil {
+			log.Fatalf("Failed to connect to Redis: %v", err)
+		}
+		sessionStore = redisStore
+		log.Printf("Using Redis for session storage at %s:%s", cfg.Session.Redis.Host, cfg.Session.Redis.Port)
+	} else {
+		sessionStore = repository.NewSessionRepository(db)
+		log.Printf("Using MySQL for session storage")
+	}
+
 	// Initialize services
-	authService := service.NewAuthService(userRepo, sessionRepo, cfg)
+	authService := service.NewAuthService(userRepo, sessionStore, cfg)
 	emailService := service.NewEmailService(cfg)
 	captchaService := service.NewCaptchaService()
 
@@ -145,13 +158,18 @@ func main() {
 	authHandler.SetGiftCardRepo(giftCardRepo)
 	authHandler.SetBalanceLogRepo(balanceLogRepo)
 	googleHandler := handler.NewGoogleAuthHandler(authService, cfg)
-	adminHandler := handler.NewAdminHandler(cfg, configRepo, userRepo, apiTokenRepo, giftCardRepo, balanceLogRepo)
+	steamHandler := handler.NewSteamAuthHandler(authService, cfg)
+	discordHandler := handler.NewDiscordAuthHandler(authService, cfg)
+	adminHandler := handler.NewAdminHandler(cfg, configRepo, userRepo, apiTokenRepo, giftCardRepo, balanceLogRepo, sessionStore)
 	captchaHandler := handler.NewCaptchaHandler(captchaService, cfg)
 	paymentHandler := handler.NewPaymentHandler(cfg, paymentOrderRepo, userRepo, balanceLogRepo)
 
 	// Initialize Gin
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
+
+	// Set user repository for middleware VIP expiration checks
+	middleware.SetUserRepository(userRepo)
 
 	// Load templates
 	tmpl, err := loadTemplates("templates")
@@ -193,9 +211,23 @@ func main() {
 			auth.GET("/google/login", googleHandler.GoogleLogin)
 			auth.GET("/google/callback", googleHandler.GoogleCallback)
 			auth.POST("/google/login", googleHandler.GoogleLoginAPI)
+			// Steam OAuth routes
+			auth.GET("/steam/login", steamHandler.SteamLogin)
+			auth.GET("/steam/callback", steamHandler.SteamCallback)
+			// Discord OAuth routes
+			auth.GET("/discord/login", discordHandler.DiscordLogin)
+			auth.GET("/discord/callback", discordHandler.DiscordCallback)
+			auth.POST("/discord/login", discordHandler.DiscordLoginAPI)
 			// Signed URL routes (public)
 			auth.GET("/signed-url/status", authHandler.GetSignedURLStatus)
 			auth.POST("/verify-signature", authHandler.VerifySignedCallback)
+		}
+
+		// i18n routes (public)
+		i18n := api.Group("/i18n")
+		{
+			i18n.GET("/language", authHandler.GetLanguage)
+			i18n.POST("/set-language", authHandler.SetLanguage)
 		}
 
 		// Captcha routes
@@ -214,10 +246,23 @@ func main() {
 			protected.PUT("/auth/profile", authHandler.UpdateProfile)
 			protected.POST("/auth/change-password", authHandler.ChangePassword)
 			protected.POST("/auth/purchase-vip", authHandler.PurchaseVIP)
+			protected.POST("/auth/preview-gift-card", authHandler.PreviewGiftCard)
 			protected.POST("/auth/redeem-gift-card", authHandler.RedeemGiftCard)
 			protected.GET("/auth/balance", authHandler.GetBalance)
 			// Signed URL routes (protected - requires authentication)
 			protected.POST("/auth/signed-callback", authHandler.GenerateSignedCallback)
+			// Third-party account binding status and unbind routes
+			protected.GET("/auth/third-party-status", authHandler.GetThirdPartyBindingStatus)
+			protected.POST("/auth/unbind/google", authHandler.UnbindGoogle)
+			protected.POST("/auth/unbind/steam", authHandler.UnbindSteam)
+			protected.POST("/auth/unbind/discord", authHandler.UnbindDiscord)
+			// Third-party account bind routes (OAuth flow initiation)
+			protected.GET("/auth/google/bind", googleHandler.GoogleBindLogin)
+			protected.GET("/auth/google/bind/callback", googleHandler.GoogleBindCallback)
+			protected.GET("/auth/steam/bind", steamHandler.SteamBindLogin)
+			protected.GET("/auth/steam/bind/callback", steamHandler.SteamBindCallback)
+			protected.GET("/auth/discord/bind", discordHandler.DiscordBindLogin)
+			protected.GET("/auth/discord/bind/callback", discordHandler.DiscordBindCallback)
 		}
 
 		// Payment routes
@@ -266,6 +311,8 @@ func main() {
 		{
 			adminAPIProtected.GET("/settings", adminHandler.GetSettings)
 			adminAPIProtected.PUT("/settings/google-oauth", adminHandler.UpdateGoogleOAuth)
+			adminAPIProtected.PUT("/settings/steam-oauth", adminHandler.UpdateSteamOAuth)
+			adminAPIProtected.PUT("/settings/discord-oauth", adminHandler.UpdateDiscordOAuth)
 			adminAPIProtected.PUT("/settings/gmail-api", adminHandler.UpdateGmailAPI)
 			adminAPIProtected.PUT("/settings/jwt", adminHandler.UpdateJWT)
 			adminAPIProtected.PUT("/settings/captcha", adminHandler.UpdateCaptcha)
@@ -277,15 +324,22 @@ func main() {
 			adminAPIProtected.PUT("/settings/vip-levels", adminHandler.UpdateVIPLevels)
 			adminAPIProtected.GET("/settings/profile-navigation", adminHandler.GetProfileNavigation)
 			adminAPIProtected.PUT("/settings/profile-navigation", adminHandler.UpdateProfileNavigation)
+			adminAPIProtected.GET("/settings/access", adminHandler.GetAccessSettings)
+			adminAPIProtected.PUT("/settings/access", adminHandler.UpdateAccessSettings)
+			adminAPIProtected.GET("/settings/custom", adminHandler.GetCustomSettings)
+			adminAPIProtected.PUT("/settings/custom", adminHandler.UpdateCustomSettings)
 
 			// User management routes
 			adminAPIProtected.GET("/users", adminHandler.ListUsers)
 			adminAPIProtected.GET("/users/:id", adminHandler.GetUser)
+			adminAPIProtected.POST("/users", adminHandler.AdminCreateUser)
 			adminAPIProtected.POST("/users/:id/balance", adminHandler.UpdateUserBalance)
 			adminAPIProtected.PUT("/users/:id/balance", adminHandler.SetUserBalance)
 			adminAPIProtected.PUT("/users/:id/vip-level", adminHandler.SetUserVIPLevel)
+			adminAPIProtected.PUT("/users/:id/vip-expire", adminHandler.SetUserVIPExpireAt)
 			adminAPIProtected.PUT("/users/:id/status", adminHandler.SetUserStatus)
 			adminAPIProtected.POST("/users/:id/reset-password", adminHandler.ResetUserPassword)
+			adminAPIProtected.POST("/users/:id/logout", adminHandler.LogoutUser)
 
 			// API Token management routes
 			adminAPIProtected.GET("/api-tokens", adminHandler.ListAPITokens)
@@ -297,6 +351,8 @@ func main() {
 			adminAPIProtected.GET("/gift-cards", adminHandler.ListGiftCards)
 			adminAPIProtected.POST("/gift-cards", adminHandler.CreateGiftCards)
 			adminAPIProtected.DELETE("/gift-cards/:id", adminHandler.DeleteGiftCard)
+			adminAPIProtected.GET("/gift-cards/export-unused", adminHandler.ExportUnusedGiftCards)
+			adminAPIProtected.POST("/gift-cards/batch-delete", adminHandler.BatchDeleteGiftCards)
 
 			// Balance log management routes
 			adminAPIProtected.GET("/balance-logs", adminHandler.ListBalanceLogs)
@@ -309,13 +365,17 @@ func main() {
 	{
 		externalAPI.POST("/balance", adminHandler.APIUpdateBalance)
 		externalAPI.POST("/vip-level", adminHandler.APISetVIPLevel)
+		externalAPI.POST("/vip-expire", adminHandler.APISetVIPExpireAt)
+		externalAPI.POST("/password", adminHandler.APISetPassword)
 		externalAPI.GET("/user", adminHandler.APIGetUser)
+		externalAPI.POST("/user", adminHandler.APICreateUser)
 	}
 
 	// Public API for frontend
 	api.GET("/vip-levels", adminHandler.GetPublicVIPLevels)
 	api.GET("/site-settings", adminHandler.GetPublicSiteSettings)
 	api.GET("/profile-navigation", adminHandler.GetPublicProfileNavigation)
+	api.GET("/custom-settings", adminHandler.GetPublicCustomSettings)
 
 	// Swagger documentation route
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))

@@ -322,6 +322,65 @@ body {
     background: #1a1a2e !important;
 }
 
+/* Language Switcher */
+.lang-switcher {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+}
+
+.lang-switcher .btn {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 500;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.lang-switcher .btn:hover {
+    background: white;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+}
+
+.lang-switcher .dropdown-menu {
+    min-width: 140px;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    border: none;
+    padding: 8px;
+}
+
+.lang-switcher .dropdown-item {
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.lang-switcher .dropdown-item:hover {
+    background: var(--gradient);
+    color: white;
+}
+
+.lang-switcher .dropdown-item.active {
+    background: var(--gradient);
+    color: white;
+}
+
+.lang-switcher .dropdown-item i {
+    font-size: 16px;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .auth-card {
@@ -331,5 +390,15 @@ body {
     .hero-illustration {
         font-size: 120px;
         margin-top: 30px;
+    }
+
+    .lang-switcher {
+        top: 10px;
+        right: 10px;
+    }
+
+    .lang-switcher .btn {
+        padding: 6px 12px;
+        font-size: 13px;
     }
 }

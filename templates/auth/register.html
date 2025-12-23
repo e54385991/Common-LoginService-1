@@ -86,6 +86,20 @@
     </style>
 </head>
 <body class="auth-page">
+    <!-- Language Switcher -->
+    <div class="lang-switcher">
+        <div class="dropdown">
+            <button class="btn dropdown-toggle" type="button" id="langDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-globe"></i>
+                <span id="currentLang">{{if eq .lang "zh"}}中文{{else}}English{{end}}</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="langDropdown">
+                <li><a class="dropdown-item {{if eq .lang "en"}}active{{end}}" href="#" onclick="setLanguage('en')"><i class="bi bi-check2 {{if ne .lang "en"}}invisible{{end}}"></i> English</a></li>
+                <li><a class="dropdown-item {{if eq .lang "zh"}}active{{end}}" href="#" onclick="setLanguage('zh')"><i class="bi bi-check2 {{if ne .lang "zh"}}invisible{{end}}"></i> 中文</a></li>
+            </ul>
+        </div>
+    </div>
+
     <div class="auth-container">
         <div class="auth-card">
             <div class="auth-header">
@@ -98,6 +112,16 @@
 
             <div id="alert-container"></div>
 
+            {{if not .registrationEnabled}}
+            <!-- Registration Disabled Message -->
+            <div class="alert alert-warning text-center">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                {{.registrationDisabledMessage}}
+            </div>
+            <div class="auth-footer">
+                <p><a href="/auth/login">{{if eq .lang "zh"}}返回登录{{else}}Back to Login{{end}}</a></p>
+            </div>
+            {{else}}
             <form id="register-form" class="auth-form">
                 <div class="mb-3">
                     <label for="email" class="form-label">{{t .lang "register.email"}}</label>
@@ -112,14 +136,6 @@
                     <div class="input-group">
                         <span class="input-group-text"><i class="bi bi-person"></i></span>
                         <input type="text" class="form-control" id="username" name="username" placeholder="{{t .lang "register.username.placeholder"}}" required>
-                    </div>
-                </div>
-
-                <div class="mb-3">
-                    <label for="display_name" class="form-label">{{t .lang "register.display_name"}} <span class="text-muted">{{t .lang "register.display_name.optional"}}</span></label>
-                    <div class="input-group">
-                        <span class="input-group-text"><i class="bi bi-tag"></i></span>
-                        <input type="text" class="form-control" id="display_name" name="display_name" placeholder="{{t .lang "register.display_name.placeholder"}}">
                     </div>
                 </div>
 
@@ -145,22 +161,7 @@
                     </div>
                 </div>
 
-                {{if .captchaEnabled}}
-                <div class="slider-captcha" id="slider-captcha">
-                    <div class="slider-captcha-title">
-                        <i class="bi bi-shield-check"></i>
-                        <span>{{if eq .lang "zh"}}请拖动滑块到指定位置{{else}}Drag the slider to the target{{end}}</span>
-                    </div>
-                    <div class="slider-track" id="slider-track">
-                        <div class="slider-target" id="slider-target"></div>
-                        <div class="slider-thumb" id="slider-thumb">
-                            <i class="bi bi-arrows-move"></i>
-                        </div>
-                    </div>
-                    <div class="slider-hint" id="slider-hint">{{if eq .lang "zh"}}拖动滑块验证{{else}}Slide to verify{{end}}</div>
-                    <input type="hidden" id="captcha_id" name="captcha_id">
-                </div>
-                {{end}}
+                <input type="hidden" id="captcha_id" name="captcha_id">
 
                 <div class="mb-4">
                     <div class="form-check">
@@ -174,13 +175,14 @@
                 </button>
             </form>
 
-            {{if .googleOAuthEnabled}}
+            {{if or .googleOAuthEnabled .steamOAuthEnabled .discordOAuthEnabled}}
             <div class="auth-divider">
                 <span>{{if eq .lang "zh"}}或{{else}}or{{end}}</span>
             </div>
 
             <div class="social-login">
-                <button type="button" class="btn btn-outline-dark w-100" id="google-login-btn">
+                {{if .googleOAuthEnabled}}
+                <button type="button" class="btn btn-outline-dark w-100 mb-2" id="google-login-btn">
                     <svg class="google-icon me-2" viewBox="0 0 24 24" width="18" height="18">
                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                         <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -189,14 +191,57 @@
                     </svg>
                     {{t .lang "register.google"}}
                 </button>
+                {{end}}
+                {{if .steamOAuthEnabled}}
+                <button type="button" class="btn btn-outline-dark w-100 mb-2" id="steam-login-btn">
+                    <i class="bi bi-steam me-2"></i>
+                    {{if eq .lang "zh"}}使用 Steam 注册{{else}}Sign up with Steam{{end}}
+                </button>
+                {{end}}
+                {{if .discordOAuthEnabled}}
+                <button type="button" class="btn btn-outline-primary w-100 mb-2" id="discord-login-btn" style="background-color: #5865F2; border-color: #5865F2; color: white;">
+                    <i class="bi bi-discord me-2"></i>
+                    {{if eq .lang "zh"}}使用 Discord 注册{{else}}Sign up with Discord{{end}}
+                </button>
+                {{end}}
             </div>
             {{end}}
 
             <div class="auth-footer">
                 <p>{{t .lang "register.has_account"}} <a href="/auth/login{{if .redirect}}?redirect={{urlquery .redirect}}{{end}}">{{t .lang "register.login_now"}}</a></p>
             </div>
+            {{end}}
         </div>
     </div>
+
+    {{if .captchaEnabled}}
+    <!-- Captcha Modal -->
+    <div class="modal fade" id="captchaModal" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-shield-check me-2"></i>{{if eq .lang "zh"}}安全验证{{else}}Security Verification{{end}}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="slider-captcha" id="slider-captcha">
+                        <div class="slider-captcha-title">
+                            <i class="bi bi-shield-check"></i>
+                            <span>{{if eq .lang "zh"}}请拖动滑块到指定位置{{else}}Drag the slider to the target{{end}}</span>
+                        </div>
+                        <div class="slider-track" id="slider-track">
+                            <div class="slider-target" id="slider-target"></div>
+                            <div class="slider-thumb" id="slider-thumb">
+                                <i class="bi bi-arrows-move"></i>
+                            </div>
+                        </div>
+                        <div class="slider-hint" id="slider-hint">{{if eq .lang "zh"}}拖动滑块验证{{else}}Slide to verify{{end}}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{end}}
 
     <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
     <script src="/static/js/app.js"></script>
@@ -215,8 +260,16 @@
 
         let captchaVerified = false;
         let captchaId = '';
+        let pendingRegisterData = null;
 
         {{if .captchaEnabled}}
+        let captchaModal;
+        
+        // Initialize captcha modal
+        document.addEventListener('DOMContentLoaded', function() {
+            captchaModal = new bootstrap.Modal(document.getElementById('captchaModal'));
+        });
+
         // Initialize captcha
         async function initCaptcha() {
             try {
@@ -237,6 +290,19 @@
             } catch (error) {
                 console.error('Failed to init captcha:', error);
             }
+        }
+
+        // Reset captcha state
+        function resetCaptcha() {
+            captchaVerified = false;
+            const sliderCaptcha = document.getElementById('slider-captcha');
+            const sliderThumb = document.getElementById('slider-thumb');
+            const sliderHint = document.getElementById('slider-hint');
+            sliderCaptcha.classList.remove('verified');
+            sliderThumb.innerHTML = '<i class="bi bi-arrows-move"></i>';
+            sliderThumb.style.left = '0px';
+            sliderHint.textContent = lang === 'zh' ? '拖动滑块验证' : 'Slide to verify';
+            initCaptcha();
         }
 
         // Slider captcha logic
@@ -296,6 +362,16 @@
                     sliderCaptcha.classList.add('verified');
                     sliderThumb.innerHTML = '<i class="bi bi-check-lg"></i>';
                     sliderHint.textContent = messages.captchaSuccess;
+                    
+                    // Auto submit after successful captcha
+                    setTimeout(() => {
+                        captchaModal.hide();
+                        if (pendingRegisterData) {
+                            // Add captcha_id to the pending data before submitting
+                            pendingRegisterData.captcha_id = captchaId;
+                            performRegister(pendingRegisterData);
+                        }
+                    }, 500);
                 } else {
                     sliderThumb.style.left = '0px';
                     sliderHint.textContent = messages.captchaFailed;
@@ -306,46 +382,20 @@
                 sliderHint.textContent = messages.captchaFailed;
             }
         }
-
-        initCaptcha();
         {{end}}
 
-        document.getElementById('register-form').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const email = document.getElementById('email').value;
-            const username = document.getElementById('username').value;
-            const display_name = document.getElementById('display_name').value;
-            const password = document.getElementById('password').value;
-            const confirmPassword = document.getElementById('confirm_password').value;
-            
-            if (password !== confirmPassword) {
-                showModal('danger', lang === 'zh' ? '密码错误' : 'Password Error', messages.passwordMismatch);
-                return;
-            }
-
-            {{if .captchaEnabled}}
-            if (!captchaVerified) {
-                showModal('warning', lang === 'zh' ? '验证提示' : 'Verification Required', messages.captchaRequired);
-                return;
-            }
-            {{end}}
-            
-            const payload = { email, username, password, display_name };
-            {{if .captchaEnabled}}
-            payload.captcha_id = captchaId;
-            {{end}}
-            
+        // Perform actual registration
+        async function performRegister(data) {
             try {
                 const response = await fetch('/api/auth/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(data)
                 });
                 
-                const data = await response.json();
+                const result = await response.json();
                 
-                if (data.success) {
+                if (result.success) {
                     // Build redirect URL with redirect parameter if present
                     const targetUrl = redirectURL ? '/auth/login?redirect=' + encodeURIComponent(redirectURL) : '/profile';
                     const loginRedirectUrl = redirectURL ? '/auth/login?redirect=' + encodeURIComponent(redirectURL) : '/auth/login';
@@ -354,7 +404,7 @@
                         const loginResponse = await fetch('/api/auth/login', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ email, password })
+                            body: JSON.stringify({ email: data.email, password: data.password })
                         });
                         const loginData = await loginResponse.json();
                         
@@ -370,24 +420,60 @@
                             lang === 'zh' ? '注册成功，请登录' : 'Registration successful, please login', true, loginRedirectUrl);
                     }
                 } else {
-                    showModal('danger', lang === 'zh' ? '注册失败' : 'Registration Failed', data.message);
+                    showModal('danger', lang === 'zh' ? '注册失败' : 'Registration Failed', result.message);
                     {{if .captchaEnabled}}
-                    captchaVerified = false;
-                    sliderCaptcha.classList.remove('verified');
-                    sliderThumb.innerHTML = '<i class="bi bi-arrows-move"></i>';
-                    sliderThumb.style.left = '0px';
-                    sliderHint.textContent = lang === 'zh' ? '拖动滑块验证' : 'Slide to verify';
-                    initCaptcha();
+                    resetCaptcha();
                     {{end}}
                 }
             } catch (error) {
                 showModal('danger', lang === 'zh' ? '网络错误' : 'Network Error', messages.networkError);
             }
+        }
+
+        document.getElementById('register-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm_password').value;
+            
+            if (password !== confirmPassword) {
+                showModal('danger', lang === 'zh' ? '密码错误' : 'Password Error', messages.passwordMismatch);
+                return;
+            }
+            
+            const payload = { email, username, password };
+            
+            {{if .captchaEnabled}}
+            if (!captchaVerified) {
+                // Store pending data and show captcha modal
+                pendingRegisterData = payload;
+                initCaptcha();
+                captchaModal.show();
+                return;
+            }
+            payload.captcha_id = captchaId;
+            {{end}}
+            
+            performRegister(payload);
         });
 
         {{if .googleOAuthEnabled}}
         document.getElementById('google-login-btn').addEventListener('click', function() {
             window.location.href = '/api/auth/google/login';
+        });
+        {{end}}
+
+        {{if .steamOAuthEnabled}}
+        document.getElementById('steam-login-btn').addEventListener('click', function() {
+            window.location.href = '/api/auth/steam/login';
+        });
+        {{end}}
+
+        {{if .discordOAuthEnabled}}
+        document.getElementById('discord-login-btn').addEventListener('click', function() {
+            window.location.href = '/api/auth/discord/login';
         });
         {{end}}
 
@@ -464,6 +550,9 @@
                 }, 1500);
             }
         }
+
+        // Language switcher function
+        // setLanguage function is now in /static/js/app.js
     </script>
 </body>
 </html>

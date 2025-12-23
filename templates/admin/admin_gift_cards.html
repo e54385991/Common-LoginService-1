@@ -37,63 +37,7 @@
 </head>
 <body>
     <div class="admin-wrapper">
-        <!-- Sidebar -->
-        <nav class="admin-sidebar">
-            <div class="sidebar-header">
-                <i class="bi bi-shield-lock-fill me-2"></i>
-                <span>管理后台</span>
-            </div>
-            <ul class="sidebar-nav">
-                <li class="nav-item {{if eq .activeMenu "dashboard"}}active{{end}}">
-                    <a href="/admin/dashboard" class="nav-link">
-                        <i class="bi bi-speedometer2"></i>
-                        <span>控制面板</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "users"}}active{{end}}">
-                    <a href="/admin/users" class="nav-link">
-                        <i class="bi bi-people"></i>
-                        <span>用户管理</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "vip"}}active{{end}}">
-                    <a href="/admin/vip" class="nav-link">
-                        <i class="bi bi-gem"></i>
-                        <span>VIP配置</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "profile-navigation"}}active{{end}}">
-                    <a href="/admin/profile-navigation" class="nav-link">
-                        <i class="bi bi-grid-3x3-gap"></i>
-                        <span>个人中心导航</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "api-tokens"}}active{{end}}">
-                    <a href="/admin/api-tokens" class="nav-link">
-                        <i class="bi bi-key"></i>
-                        <span>API令牌</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "gift-cards"}}active{{end}}">
-                    <a href="/admin/gift-cards" class="nav-link">
-                        <i class="bi bi-gift"></i>
-                        <span>礼品卡</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "settings"}}active{{end}}">
-                    <a href="/admin/settings" class="nav-link">
-                        <i class="bi bi-gear"></i>
-                        <span>系统设置</span>
-                    </a>
-                </li>
-            </ul>
-            <div class="sidebar-footer">
-                <a href="/admin/logout" class="nav-link">
-                    <i class="bi bi-box-arrow-right"></i>
-                    <span>退出登录</span>
-                </a>
-            </div>
-        </nav>
+        {{template "admin_sidebar" .}}
 
         <!-- Main Content -->
         <main class="admin-main">
@@ -183,6 +127,12 @@
                                 <option value="unused">未使用</option>
                                 <option value="used">已使用</option>
                             </select>
+                            <button class="btn btn-outline-success btn-sm me-1" onclick="exportUnusedCards()">
+                                <i class="bi bi-download"></i> 导出未使用
+                            </button>
+                            <button class="btn btn-outline-danger btn-sm me-1" onclick="batchDeleteSelected()" id="batch-delete-btn" disabled>
+                                <i class="bi bi-trash"></i> 批量删除 (<span id="selected-count">0</span>)
+                            </button>
                             <button class="btn btn-outline-primary btn-sm" onclick="loadCards()">
                                 <i class="bi bi-arrow-clockwise"></i> 刷新
                             </button>
@@ -193,6 +143,7 @@
                             <table class="table table-hover">
                                 <thead>
                                     <tr>
+                                        <th><input type="checkbox" class="form-check-input" id="select-all" onclick="toggleSelectAll()"></th>
                                         <th>卡码</th>
                                         <th>面值</th>
                                         <th>VIP</th>
@@ -314,12 +265,17 @@ Authorization: Bearer user-jwt-token
         function renderCards(cards) {
             const tbody = document.getElementById('cards-table-body');
             if (cards.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">暂无礼品卡</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">暂无礼品卡</td></tr>';
+                document.getElementById('select-all').checked = false;
+                updateSelectedCount();
                 return;
             }
 
             tbody.innerHTML = cards.map(card => `
                 <tr>
+                    <td>
+                        ${!card.is_used ? `<input type="checkbox" class="form-check-input card-checkbox" data-id="${Number(card.id)}" onchange="updateSelectedCount()">` : ''}
+                    </td>
                     <td>
                         <code class="gift-code">${escapeHtml(card.code)}</code>
                         <button class="btn btn-sm btn-link p-0 ms-2" onclick="copyCode('${escapeHtml(card.code)}')" title="复制">
@@ -350,12 +306,29 @@ Authorization: Bearer user-jwt-token
                     </td>
                 </tr>
             `).join('');
+            
+            document.getElementById('select-all').checked = false;
+            updateSelectedCount();
         }
 
         function escapeHtml(text) {
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        // Escape CSV cell value to prevent CSV injection
+        function escapeCsvCell(value) {
+            if (value === null || value === undefined) {
+                return '';
+            }
+            const strValue = String(value);
+            // If value contains comma, quote, newline, or starts with =, +, -, @, tab, or carriage return
+            // wrap it in quotes and escape any existing quotes
+            if (/[,"\n\r\t=+\-@]/.test(strValue) || strValue.charAt(0) === '=') {
+                return '"' + strValue.replace(/"/g, '""') + '"';
+            }
+            return strValue;
         }
 
         function copyCode(code) {
@@ -453,6 +426,99 @@ Authorization: Bearer user-jwt-token
                 }
             } catch (error) {
                 showAlert('danger', '删除失败，请稍后重试');
+            }
+        }
+
+        // Toggle select all checkboxes
+        function toggleSelectAll() {
+            const selectAll = document.getElementById('select-all');
+            const checkboxes = document.querySelectorAll('.card-checkbox');
+            checkboxes.forEach(cb => cb.checked = selectAll.checked);
+            updateSelectedCount();
+        }
+
+        // Update selected count and button state
+        function updateSelectedCount() {
+            const checkboxes = document.querySelectorAll('.card-checkbox:checked');
+            const count = checkboxes.length;
+            document.getElementById('selected-count').textContent = count;
+            document.getElementById('batch-delete-btn').disabled = count === 0;
+        }
+
+        // Get selected card IDs
+        function getSelectedIds() {
+            const checkboxes = document.querySelectorAll('.card-checkbox:checked');
+            return Array.from(checkboxes).map(cb => parseInt(cb.dataset.id));
+        }
+
+        // Export unused cards
+        async function exportUnusedCards() {
+            try {
+                const response = await fetch('/api/admin/gift-cards/export-unused');
+                const result = await response.json();
+                if (result.success) {
+                    const cards = result.data.cards || [];
+                    if (cards.length === 0) {
+                        showAlert('info', '没有未使用的礼品卡');
+                        return;
+                    }
+                    
+                    // Generate CSV content with proper escaping
+                    let csvContent = '卡码,面值,VIP等级,VIP天数,有效期,描述,创建时间\n';
+                    cards.forEach(card => {
+                        const row = [
+                            escapeCsvCell(card.code),
+                            escapeCsvCell(card.amount),
+                            escapeCsvCell(card.vip_level),
+                            escapeCsvCell(card.vip_days),
+                            escapeCsvCell(card.expires_at || '永久'),
+                            escapeCsvCell(card.description || ''),
+                            escapeCsvCell(card.created_at)
+                        ].join(',');
+                        csvContent += row + '\n';
+                    });
+                    
+                    // Download CSV file
+                    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `unused_gift_cards_${new Date().toISOString().split('T')[0]}.csv`;
+                    link.click();
+                    
+                    showToast(`已导出 ${cards.length} 张未使用礼品卡`);
+                } else {
+                    showAlert('danger', result.message);
+                }
+            } catch (error) {
+                showAlert('danger', '导出失败，请稍后重试');
+            }
+        }
+
+        // Batch delete selected cards
+        async function batchDeleteSelected() {
+            const ids = getSelectedIds();
+            if (ids.length === 0) {
+                showAlert('warning', '请先选择要删除的礼品卡');
+                return;
+            }
+
+            if (!confirm(`确定要删除选中的 ${ids.length} 张礼品卡吗？此操作不可恢复。`)) return;
+
+            try {
+                const response = await fetch('/api/admin/gift-cards/batch-delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids: ids })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    loadCards();
+                    showToast(`成功删除 ${result.data.deleted_count} 张礼品卡`);
+                } else {
+                    showAlert('danger', result.message);
+                }
+            } catch (error) {
+                showAlert('danger', '批量删除失败，请稍后重试');
             }
         }
     </script>

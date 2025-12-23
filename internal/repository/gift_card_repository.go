@@ -123,3 +123,19 @@ func (r *GiftCardRepository) BatchCreate(amount float64, count int, expiresAt *t
 
 	return cards, nil
 }
+
+// ListUnused lists all unused gift cards
+func (r *GiftCardRepository) ListUnused() ([]model.GiftCard, error) {
+	var cards []model.GiftCard
+	err := r.db.Where("is_used = ?", false).Order("created_at DESC").Find(&cards).Error
+	return cards, err
+}
+
+// BatchDelete deletes multiple gift cards by IDs and returns the number of deleted records
+func (r *GiftCardRepository) BatchDelete(ids []uint) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	result := r.db.Where("id IN ?", ids).Delete(&model.GiftCard{})
+	return result.RowsAffected, result.Error
+}

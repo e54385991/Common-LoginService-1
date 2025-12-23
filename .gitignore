@@ -1,0 +1,42 @@
+# Binaries
+bin/
+main
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go dependency directories (not static/vendor)
+/vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Application data
+data/
+*.db
+
+# Config files with secrets
+config.json
+credentials.json
+token.json
+
+# Logs
+*.log
+
+# Temporary files
+tmp/

@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/e54385991/Common-LoginService/config"
@@ -82,9 +84,12 @@ type AuthHandler struct {
 		FindByID(id uint) (*model.User, error)
 		UpdateBalance(id uint, amount float64) (*model.User, error)
 		SetVIPLevel(id uint, level int) (*model.User, error)
+		SetVIPLevelWithDuration(id uint, level int, durationDays int) (*model.User, error)
+		SetVIPLevelWithUpgrade(id uint, level int, durationDays int, oldPrice float64, newPrice float64) (*model.User, int, error)
 	}
 	giftCardRepo interface {
 		Redeem(code string, userID uint) (*model.GiftCard, error)
+		FindByCode(code string) (*model.GiftCard, error)
 	}
 	balanceLogRepo interface {
 		Create(log *model.BalanceLog) error
@@ -106,6 +111,8 @@ func (h *AuthHandler) SetUserRepo(userRepo interface {
 	FindByID(id uint) (*model.User, error)
 	UpdateBalance(id uint, amount float64) (*model.User, error)
 	SetVIPLevel(id uint, level int) (*model.User, error)
+	SetVIPLevelWithDuration(id uint, level int, durationDays int) (*model.User, error)
+	SetVIPLevelWithUpgrade(id uint, level int, durationDays int, oldPrice float64, newPrice float64) (*model.User, int, error)
 }) {
 	h.userRepo = userRepo
 }
@@ -113,6 +120,7 @@ func (h *AuthHandler) SetUserRepo(userRepo interface {
 // SetGiftCardRepo sets the gift card repository for AuthHandler
 func (h *AuthHandler) SetGiftCardRepo(giftCardRepo interface {
 	Redeem(code string, userID uint) (*model.GiftCard, error)
+	FindByCode(code string) (*model.GiftCard, error)
 }) {
 	h.giftCardRepo = giftCardRepo
 }
@@ -161,8 +169,22 @@ func isValidCallbackURL(callbackURL string) bool {
 // @Param request body handler.RegisterRequest true "Registration request"
 // @Success 200 {object} handler.Response{data=service.AuthResponse} "Registration successful"
 // @Failure 400 {object} handler.Response "Bad request"
+// @Failure 403 {object} handler.Response "Registration disabled"
 // @Router /auth/register [post]
 func (h *AuthHandler) Register(c *gin.Context) {
+	// Check if registration is enabled
+	if !h.cfg.Access.RegistrationEnabled {
+		message := "注册功能已关闭"
+		if h.cfg.Access.RegistrationMessage != "" {
+			message = h.cfg.Access.RegistrationMessage
+		}
+		c.JSON(http.StatusForbidden, gin.H{
+			"success": false,
+			"message": message,
+		})
+		return
+	}
+
 	var input struct {
 		service.RegisterInput
 		CaptchaID       string `json:"captcha_id"`
@@ -216,8 +238,22 @@ func (h *AuthHandler) Register(c *gin.Context) {
 // @Success 200 {object} handler.Response{data=service.AuthResponse} "Login successful"
 // @Failure 400 {object} handler.Response "Bad request"
 // @Failure 401 {object} handler.Response "Invalid credentials"
+// @Failure 403 {object} handler.Response "Login disabled"
 // @Router /auth/login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
+	// Check if login is enabled
+	if !h.cfg.Access.LoginEnabled {
+		message := "登录功能已关闭"
+		if h.cfg.Access.LoginMessage != "" {
+			message = h.cfg.Access.LoginMessage
+		}
+		c.JSON(http.StatusForbidden, gin.H{
+			"success": false,
+			"message": message,
+		})
+		return
+	}
+
 	var input struct {
 		service.LoginInput
 		CaptchaID       string `json:"captcha_id"`
@@ -263,12 +299,30 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 // Logout handles user logout
 // @Summary User logout
-// @Description Log out the current user by clearing the token cookie
+// @Description Log out the current user by clearing the token cookie and invalidating the session
 // @Tags auth
 // @Produce json
 // @Success 200 {object} handler.Response "Logout successful"
 // @Router /auth/logout [post]
 func (h *AuthHandler) Logout(c *gin.Context) {
+	// Get token from cookie or header
+	tokenString := ""
+	authHeader := c.GetHeader("Authorization")
+	if authHeader != "" {
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
+			tokenString = parts[1]
+		}
+	}
+	if tokenString == "" {
+		tokenString, _ = c.Cookie("token")
+	}
+
+	// Invalidate session if token exists
+	if tokenString != "" {
+		h.authService.Logout(tokenString)
+	}
+
 	// Clear cookie (secure flag based on request protocol)
 	c.SetCookie("token", "", -1, "/", "", isSecureRequest(c), true)
 
@@ -580,12 +634,25 @@ func (h *AuthHandler) LoginPage(c *gin.Context) {
 	}
 
 	lang := c.GetString("lang")
+	
+	// Prepare login disabled message
+	loginDisabledMessage := "登录功能已关闭"
+	if h.cfg.Access.LoginMessage != "" {
+		loginDisabledMessage = h.cfg.Access.LoginMessage
+	}
+	
 	c.HTML(http.StatusOK, "login.html", gin.H{
-		"lang":               lang,
-		"googleOAuthEnabled": h.cfg.GoogleOAuth.Enabled,
-		"googleClientID":     h.cfg.GoogleOAuth.ClientID,
-		"captchaEnabled":     h.cfg.Captcha.Enabled,
-		"redirect":           redirectURL,
+		"lang":                 lang,
+		"googleOAuthEnabled":   h.cfg.GoogleOAuth.Enabled,
+		"googleClientID":       h.cfg.GoogleOAuth.ClientID,
+		"steamOAuthEnabled":    h.cfg.SteamOAuth.Enabled,
+		"discordOAuthEnabled":  h.cfg.DiscordOAuth.Enabled,
+		"captchaEnabled":       h.cfg.Captcha.Enabled,
+		"redirect":             redirectURL,
+		"loginEnabled":         h.cfg.Access.LoginEnabled,
+		"loginDisabledMessage": loginDisabledMessage,
+		"allowEmailLogin":      h.cfg.Access.AllowEmailLogin,
+		"allowUsernameLogin":   h.cfg.Access.AllowUsernameLogin,
 	})
 }
 
@@ -597,12 +664,23 @@ func (h *AuthHandler) RegisterPage(c *gin.Context) {
 	if !isValidCallbackURL(redirectURL) {
 		redirectURL = ""
 	}
+	
+	// Prepare registration disabled message
+	registrationDisabledMessage := "注册功能已关闭"
+	if h.cfg.Access.RegistrationMessage != "" {
+		registrationDisabledMessage = h.cfg.Access.RegistrationMessage
+	}
+	
 	c.HTML(http.StatusOK, "register.html", gin.H{
-		"lang":               lang,
-		"googleOAuthEnabled": h.cfg.GoogleOAuth.Enabled,
-		"googleClientID":     h.cfg.GoogleOAuth.ClientID,
-		"captchaEnabled":     h.cfg.Captcha.Enabled,
-		"redirect":           redirectURL,
+		"lang":                        lang,
+		"googleOAuthEnabled":          h.cfg.GoogleOAuth.Enabled,
+		"googleClientID":              h.cfg.GoogleOAuth.ClientID,
+		"steamOAuthEnabled":           h.cfg.SteamOAuth.Enabled,
+		"discordOAuthEnabled":         h.cfg.DiscordOAuth.Enabled,
+		"captchaEnabled":              h.cfg.Captcha.Enabled,
+		"redirect":                    redirectURL,
+		"registrationEnabled":         h.cfg.Access.RegistrationEnabled,
+		"registrationDisabledMessage": registrationDisabledMessage,
 	})
 }
 
@@ -679,6 +757,12 @@ type PurchaseVIPRequest struct {
 
 // RedeemGiftCardRequest represents gift card redemption request
 type RedeemGiftCardRequest struct {
+	Code    string `json:"code" binding:"required" example:"XXXX-XXXX-XXXX-XXXX"`
+	Confirm bool   `json:"confirm" example:"false"` // Set to true to confirm redemption when VIP conflict exists
+}
+
+// PreviewGiftCardRequest represents gift card preview request
+type PreviewGiftCardRequest struct {
 	Code string `json:"code" binding:"required" example:"XXXX-XXXX-XXXX-XXXX"`
 }
 
@@ -748,6 +832,17 @@ func (h *AuthHandler) PurchaseVIP(c *gin.Context) {
 	// Calculate the actual price (check for upgrade price from current level)
 	actualPrice := vipConfig.Price
 	isUpgrade := currentUser.VIPLevel > 0
+	
+	// Get old VIP config for time compensation calculation
+	var oldVIPConfig *config.VIPLevelConfig
+	if isUpgrade {
+		for _, v := range h.cfg.VIPLevels {
+			if v.Level == currentUser.VIPLevel {
+				oldVIPConfig = &v
+				break
+			}
+		}
+	}
 
 	if isUpgrade && vipConfig.UpgradePrices != nil {
 		// Convert current VIP level to string for map lookup
@@ -792,8 +887,25 @@ func (h *AuthHandler) PurchaseVIP(c *gin.Context) {
 		return
 	}
 
-	// Set VIP level
-	updatedUser, err = h.userRepo.SetVIPLevel(currentUser.ID, vipConfig.Level)
+	// Set VIP level with duration
+	// For upgrades, use SetVIPLevelWithUpgrade to compensate remaining time
+	var bonusDays int
+	if isUpgrade && oldVIPConfig != nil {
+		updatedUser, bonusDays, err = h.userRepo.SetVIPLevelWithUpgrade(
+			currentUser.ID,
+			vipConfig.Level,
+			vipConfig.Duration,
+			oldVIPConfig.Price,
+			vipConfig.Price,
+		)
+	} else {
+		// If upgrade but oldVIPConfig not found (config changed), log and proceed without time compensation
+		if isUpgrade && oldVIPConfig == nil {
+			log.Printf("PurchaseVIP: User %d upgrading from VIP level %d but old VIP config not found, proceeding without time compensation",
+				currentUser.ID, currentUser.VIPLevel)
+		}
+		updatedUser, err = h.userRepo.SetVIPLevelWithDuration(currentUser.ID, vipConfig.Level, vipConfig.Duration)
+	}
 	if err != nil {
 		// Refund balance if VIP upgrade fails - log if refund fails
 		if _, refundErr := h.userRepo.UpdateBalance(currentUser.ID, actualPrice); refundErr != nil {
@@ -833,24 +945,35 @@ func (h *AuthHandler) PurchaseVIP(c *gin.Context) {
 	responseMessage := "VIP购买成功"
 	if isUpgrade {
 		responseMessage = "VIP升级成功"
+		if bonusDays > 0 {
+			responseMessage = "VIP升级成功，已补足剩余时间"
+		}
+	}
+
+	responseData := gin.H{
+		"vip_level":     updatedUser.VIPLevel,
+		"vip_name":      vipConfig.Name,
+		"vip_expire_at": updatedUser.VIPExpireAt,
+		"balance":       updatedUser.Balance,
+		"is_upgrade":    isUpgrade,
+		"price_paid":    actualPrice,
+	}
+	
+	// Include bonus_days in response if it's an upgrade with time compensation
+	if isUpgrade && bonusDays > 0 {
+		responseData["bonus_days"] = bonusDays
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": responseMessage,
-		"data": gin.H{
-			"vip_level":   updatedUser.VIPLevel,
-			"vip_name":    vipConfig.Name,
-			"balance":     updatedUser.Balance,
-			"is_upgrade":  isUpgrade,
-			"price_paid":  actualPrice,
-		},
+		"data":    responseData,
 	})
 }
 
 // RedeemGiftCard allows users to redeem a gift card for balance or VIP membership
 // @Summary Redeem gift card
-// @Description Redeem a gift card to add balance and/or VIP membership to account
+// @Description Redeem a gift card to add balance and/or VIP membership to account. If the gift card contains VIP and the user already has an active VIP, confirmation is required.
 // @Tags user
 // @Accept json
 // @Produce json
@@ -859,6 +982,7 @@ func (h *AuthHandler) PurchaseVIP(c *gin.Context) {
 // @Success 200 {object} handler.Response "Gift card redeemed"
 // @Failure 400 {object} handler.Response "Bad request or invalid code"
 // @Failure 401 {object} handler.Response "Unauthorized"
+// @Failure 409 {object} handler.Response "VIP conflict - requires confirmation"
 // @Router /auth/redeem-gift-card [post]
 func (h *AuthHandler) RedeemGiftCard(c *gin.Context) {
 	user, exists := c.Get("user")
@@ -889,6 +1013,60 @@ func (h *AuthHandler) RedeemGiftCard(c *gin.Context) {
 		return
 	}
 
+	// First, preview the gift card to check for VIP conflict
+	previewCard, err := h.giftCardRepo.FindByCode(input.Code)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "礼品卡无效或已被使用",
+		})
+		return
+	}
+
+	// Check if gift card is already used
+	if previewCard.IsUsed {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "礼品卡无效或已被使用",
+		})
+		return
+	}
+
+	// Check if gift card is expired
+	if previewCard.ExpiresAt != nil && previewCard.ExpiresAt.Before(time.Now()) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "礼品卡已过期",
+		})
+		return
+	}
+
+	// Check for VIP conflict: gift card has VIP and user already has active VIP
+	hasVIPConflict := false
+	if previewCard.VIPLevel > 0 && currentUser.VIPLevel > 0 {
+		// Check if user's current VIP is still valid (not expired)
+		if currentUser.VIPExpireAt == nil || currentUser.VIPExpireAt.After(time.Now()) {
+			hasVIPConflict = true
+		}
+	}
+
+	// If there's a VIP conflict and user hasn't confirmed, return warning
+	if hasVIPConflict && !input.Confirm {
+		c.JSON(http.StatusConflict, gin.H{
+			"success":          false,
+			"requires_confirm": true,
+			"message":          "您当前已有有效的VIP会员，礼品卡中的VIP将不会生效",
+			"data": gin.H{
+				"card_amount":           previewCard.Amount,
+				"card_vip_level":        previewCard.VIPLevel,
+				"card_vip_days":         previewCard.VIPDays,
+				"current_vip_level":     currentUser.VIPLevel,
+				"current_vip_expire_at": currentUser.VIPExpireAt,
+			},
+		})
+		return
+	}
+
 	// Redeem the gift card
 	giftCard, err := h.giftCardRepo.Redeem(input.Code, currentUser.ID)
 	if err != nil {
@@ -901,6 +1079,7 @@ func (h *AuthHandler) RedeemGiftCard(c *gin.Context) {
 
 	var updatedUser *model.User
 	balanceBefore := currentUser.Balance
+	vipSkipped := false
 
 	// Add balance to user if amount > 0
 	if giftCard.Amount > 0 {
@@ -930,17 +1109,21 @@ func (h *AuthHandler) RedeemGiftCard(c *gin.Context) {
 		}
 	}
 
-	// Grant VIP level if VIPLevel > 0
-	// Note: VIPDays is informational only; the system currently doesn't enforce VIP expiration.
-	// The VIPDays value is returned in the response to inform the user about the intended duration.
+	// Grant VIP level if VIPLevel > 0 with duration from gift card
+	// BUT only if there's no VIP conflict (user's current VIP is not active)
 	if giftCard.VIPLevel > 0 {
-		updatedUser, err = h.userRepo.SetVIPLevel(currentUser.ID, giftCard.VIPLevel)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"success": false,
-				"message": "设置VIP等级失败",
-			})
-			return
+		if hasVIPConflict {
+			// VIP conflict - skip VIP grant
+			vipSkipped = true
+		} else {
+			updatedUser, err = h.userRepo.SetVIPLevelWithDuration(currentUser.ID, giftCard.VIPLevel, giftCard.VIPDays)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"success": false,
+					"message": "设置VIP等级失败",
+				})
+				return
+			}
 		}
 	}
 
@@ -958,21 +1141,122 @@ func (h *AuthHandler) RedeemGiftCard(c *gin.Context) {
 
 	// Build response data
 	responseData := gin.H{
-		"amount":    giftCard.Amount,
-		"balance":   updatedUser.Balance,
-		"vip_level": updatedUser.VIPLevel,
+		"amount":        giftCard.Amount,
+		"balance":       updatedUser.Balance,
+		"vip_level":     updatedUser.VIPLevel,
+		"vip_expire_at": updatedUser.VIPExpireAt,
+		"vip_skipped":   vipSkipped,
 	}
 
-	// Add VIP-related fields if VIP was granted
-	if giftCard.VIPLevel > 0 {
+	// Add VIP-related fields if VIP was granted (not skipped)
+	if giftCard.VIPLevel > 0 && !vipSkipped {
 		responseData["granted_vip_level"] = giftCard.VIPLevel
 		responseData["granted_vip_days"] = giftCard.VIPDays
 	}
 
+	// Build response message
+	message := "礼品卡兑换成功"
+	if vipSkipped {
+		message = "礼品卡兑换成功。由于您已有有效的VIP会员，礼品卡中的VIP未生效。"
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"message": "礼品卡兑换成功",
+		"message": message,
 		"data":    responseData,
+	})
+}
+
+// PreviewGiftCard allows users to preview a gift card before redeeming
+// @Summary Preview gift card
+// @Description Preview a gift card to see its contents and check for VIP conflicts before redeeming
+// @Tags user
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body PreviewGiftCardRequest true "Gift card preview request"
+// @Success 200 {object} handler.Response "Gift card preview"
+// @Failure 400 {object} handler.Response "Bad request or invalid code"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Router /auth/preview-gift-card [post]
+func (h *AuthHandler) PreviewGiftCard(c *gin.Context) {
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"message": "请先登录",
+		})
+		return
+	}
+
+	currentUser := user.(*model.User)
+
+	var input PreviewGiftCardRequest
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	if h.giftCardRepo == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "服务暂不可用",
+		})
+		return
+	}
+
+	// Find the gift card
+	giftCard, err := h.giftCardRepo.FindByCode(input.Code)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "礼品卡无效",
+		})
+		return
+	}
+
+	// Check if gift card is already used
+	if giftCard.IsUsed {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "礼品卡已被使用",
+		})
+		return
+	}
+
+	// Check if gift card is expired
+	if giftCard.ExpiresAt != nil && giftCard.ExpiresAt.Before(time.Now()) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "礼品卡已过期",
+		})
+		return
+	}
+
+	// Check for VIP conflict
+	hasVIPConflict := false
+	if giftCard.VIPLevel > 0 && currentUser.VIPLevel > 0 {
+		// Check if user's current VIP is still valid (not expired)
+		if currentUser.VIPExpireAt == nil || currentUser.VIPExpireAt.After(time.Now()) {
+			hasVIPConflict = true
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"amount":                giftCard.Amount,
+			"vip_level":             giftCard.VIPLevel,
+			"vip_days":              giftCard.VIPDays,
+			"expires_at":            giftCard.ExpiresAt,
+			"description":           giftCard.Description,
+			"has_vip_conflict":      hasVIPConflict,
+			"current_vip_level":     currentUser.VIPLevel,
+			"current_vip_expire_at": currentUser.VIPExpireAt,
+		},
 	})
 }
 
@@ -1009,9 +1293,10 @@ func (h *AuthHandler) GetBalance(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
-			"balance":   currentUser.Balance,
-			"vip_level": currentUser.VIPLevel,
-			"vip_name":  vipName,
+			"balance":       currentUser.Balance,
+			"vip_level":     currentUser.VIPLevel,
+			"vip_name":      vipName,
+			"vip_expire_at": currentUser.VIPExpireAt,
 		},
 	})
 }
@@ -1193,5 +1478,188 @@ func (h *AuthHandler) VerifySignedCallback(c *gin.Context) {
 			"vip_level": userData.VIPLevel,
 			"balance":   userData.Balance,
 		},
+	})
+}
+
+// SetLanguageRequest represents language setting request
+type SetLanguageRequest struct {
+	Lang string `json:"lang" binding:"required" example:"zh"`
+}
+
+// SetLanguage sets the user's preferred language
+// @Summary Set language preference
+// @Description Set the user's preferred language (stored in cookie)
+// @Tags i18n
+// @Accept json
+// @Produce json
+// @Param request body SetLanguageRequest true "Language setting request"
+// @Success 200 {object} handler.Response "Language set"
+// @Failure 400 {object} handler.Response "Bad request"
+// @Router /i18n/set-language [post]
+func (h *AuthHandler) SetLanguage(c *gin.Context) {
+	var input struct {
+		Lang string `json:"lang"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	// Validate language
+	supportedLangs := []string{"en", "zh"}
+	isValid := false
+	for _, lang := range supportedLangs {
+		if input.Lang == lang {
+			isValid = true
+			break
+		}
+	}
+
+	if !isValid {
+		input.Lang = "en" // Default to English
+	}
+
+	// Set language cookie (1 year expiry)
+	c.SetCookie("lang", input.Lang, 365*24*3600, "/", "", isSecureRequest(c), false)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "语言设置成功",
+		"data": gin.H{
+			"lang": input.Lang,
+		},
+	})
+}
+
+// GetLanguage returns the user's current language preference
+// @Summary Get language preference
+// @Description Get the user's current language preference
+// @Tags i18n
+// @Produce json
+// @Success 200 {object} handler.Response "Current language"
+// @Router /i18n/language [get]
+func (h *AuthHandler) GetLanguage(c *gin.Context) {
+	lang := c.GetString("lang")
+	if lang == "" {
+		lang = "en"
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"lang":            lang,
+			"supported_langs": []string{"en", "zh"},
+		},
+	})
+}
+
+// GetThirdPartyBindingStatus returns the binding status of third-party accounts
+// @Summary Get third-party binding status
+// @Description Get the binding status of Google, Steam, and Discord accounts
+// @Tags auth
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} handler.Response "Binding status"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Router /auth/third-party-status [get]
+func (h *AuthHandler) GetThirdPartyBindingStatus(c *gin.Context) {
+	userID := c.GetUint("userID")
+
+	status, err := h.authService.GetThirdPartyBindingStatus(userID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    status,
+	})
+}
+
+// UnbindGoogle unbinds Google account from the current user
+// @Summary Unbind Google account
+// @Description Unbind Google account from the current user
+// @Tags auth
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} handler.Response "Unbind successful"
+// @Failure 400 {object} handler.Response "Bad request"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Router /auth/unbind/google [post]
+func (h *AuthHandler) UnbindGoogle(c *gin.Context) {
+	userID := c.GetUint("userID")
+
+	if err := h.authService.UnbindGoogle(userID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Google账号解绑成功",
+	})
+}
+
+// UnbindSteam unbinds Steam account from the current user
+// @Summary Unbind Steam account
+// @Description Unbind Steam account from the current user
+// @Tags auth
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} handler.Response "Unbind successful"
+// @Failure 400 {object} handler.Response "Bad request"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Router /auth/unbind/steam [post]
+func (h *AuthHandler) UnbindSteam(c *gin.Context) {
+	userID := c.GetUint("userID")
+
+	if err := h.authService.UnbindSteam(userID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Steam账号解绑成功",
+	})
+}
+
+// UnbindDiscord unbinds Discord account from the current user
+// @Summary Unbind Discord account
+// @Description Unbind Discord account from the current user
+// @Tags auth
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} handler.Response "Unbind successful"
+// @Failure 400 {object} handler.Response "Bad request"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Router /auth/unbind/discord [post]
+func (h *AuthHandler) UnbindDiscord(c *gin.Context) {
+	userID := c.GetUint("userID")
+
+	if err := h.authService.UnbindDiscord(userID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Discord账号解绑成功",
 	})
 }

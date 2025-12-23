@@ -89,6 +89,9 @@
             min-height: 48px;
             font-size: 0.95rem;
         }
+        .vip-description > *:first-child {
+            margin-top: 0 !important;
+        }
         .vip-duration {
             color: #888;
             font-size: 0.9rem;
@@ -192,17 +195,17 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="/"><i class="bi bi-house me-1"></i>首页</a>
+                        <a class="nav-link" href="/"><i class="bi bi-house me-1"></i>{{t .lang "nav.home"}}</a>
                     </li>
                     {{if .logged}}
                     <li class="nav-item">
-                        <a class="nav-link" href="/profile"><i class="bi bi-person me-1"></i>个人中心</a>
+                        <a class="nav-link" href="/profile"><i class="bi bi-person me-1"></i>{{t .lang "nav.profile_center"}}</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link active" href="/recharge"><i class="bi bi-wallet2 me-1"></i>充值</a>
+                        <a class="nav-link active" href="/recharge"><i class="bi bi-wallet2 me-1"></i>{{t .lang "nav.recharge"}}</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#vip"><i class="bi bi-gem me-1"></i>VIP</a>
+                        <a class="nav-link" href="#vip"><i class="bi bi-gem me-1"></i>{{t .lang "nav.vip"}}</a>
                     </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
@@ -214,9 +217,9 @@
                             {{.user.DisplayName}}
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="/profile"><i class="bi bi-person me-2"></i>个人中心</a></li>
-                            <li><a class="dropdown-item" href="/recharge"><i class="bi bi-wallet2 me-2"></i>充值中心</a></li>
-                            <li><a class="dropdown-item" href="#vip"><i class="bi bi-gem me-2"></i>VIP会员</a></li>
+                            <li><a class="dropdown-item" href="/profile"><i class="bi bi-person me-2"></i>{{t .lang "nav.profile_center"}}</a></li>
+                            <li><a class="dropdown-item" href="/recharge"><i class="bi bi-wallet2 me-2"></i>{{t .lang "nav.recharge_center"}}</a></li>
+                            <li><a class="dropdown-item" href="#vip"><i class="bi bi-gem me-2"></i>{{t .lang "nav.vip_member"}}</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="#" onclick="logout()"><i class="bi bi-box-arrow-right me-2"></i>{{t .lang "nav.logout"}}</a></li>
                         </ul>
@@ -229,6 +232,16 @@
                         <a class="nav-link" href="/auth/register"><i class="bi bi-person-plus me-1"></i>{{t .lang "nav.register"}}</a>
                     </li>
                     {{end}}
+                    <!-- Language Switcher -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="langDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-globe me-1"></i>{{if eq .lang "zh"}}中文{{else}}English{{end}}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item {{if eq .lang "en"}}active{{end}}" href="#" onclick="setLanguage('en')"><i class="bi bi-check2 me-2 {{if ne .lang "en"}}invisible{{end}}"></i>English</a></li>
+                            <li><a class="dropdown-item {{if eq .lang "zh"}}active{{end}}" href="#" onclick="setLanguage('zh')"><i class="bi bi-check2 me-2 {{if ne .lang "zh"}}invisible{{end}}"></i>中文</a></li>
+                        </ul>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -405,6 +418,28 @@
         // Get current user's VIP level from the page
         let currentUserVIPLevel = {{if .user}}{{.user.VIPLevel}}{{else}}0{{end}};
 
+        // I18n strings for gift card VIP warning
+        const i18nStrings = {
+            vipWarningTitle: "{{t .lang "gift_card.vip_warning_title"}}",
+            vipWarningMessage: "{{t .lang "gift_card.vip_warning_message"}}",
+            vipWarningCurrent: "{{t .lang "gift_card.vip_warning_current"}}",
+            vipWarningCardVip: "{{t .lang "gift_card.vip_warning_card_vip"}}",
+            vipWarningExpires: "{{t .lang "gift_card.vip_warning_expires"}}",
+            vipWarningPermanent: "{{t .lang "gift_card.vip_warning_permanent"}}",
+            vipWarningDays: "{{t .lang "gift_card.vip_warning_days"}}",
+            vipWarningConfirm: "{{t .lang "gift_card.vip_warning_confirm"}}",
+            vipWarningCancel: "{{t .lang "gift_card.vip_warning_cancel"}}",
+            vipWarningBalanceNote: "{{t .lang "gift_card.vip_warning_balance_note"}}",
+            vipSkipped: "{{t .lang "gift_card.vip_skipped"}}",
+            balance: "{{t .lang "gift_card.balance"}}",
+            balanceAdded: "{{t .lang "gift_card.balance_added"}}",
+            vipGranted: "{{t .lang "gift_card.vip_granted"}}",
+            redeemSuccess: "{{t .lang "gift_card.redeem_success"}}",
+            redeemSuccessTitle: "{{t .lang "gift_card.redeem_success_title"}}",
+            currentBalance: "{{t .lang "gift_card.current_balance"}}",
+            confirmBtn: "{{t .lang "gift_card.confirm_btn"}}"
+        };
+
         document.addEventListener('DOMContentLoaded', function() {
             loadSiteSettings();
             loadVIPLevels();
@@ -522,7 +557,7 @@
                                 <div class="vip-price">${priceDisplay}<small>/${level.duration > 0 ? level.duration + '天' : '永久'}</small></div>
                             </div>
                             <div class="vip-body text-center">
-                                <p class="vip-description">${level.description}</p>
+                                ${level.description ? `<p class="vip-description">${level.description}</p>` : ''}
                                 <p class="vip-duration">
                                     <i class="bi bi-clock me-1"></i>
                                     有效期：${level.duration > 0 ? level.duration + ' 天' : '永久'}
@@ -1014,7 +1049,7 @@
         }
 
         // Redeem gift card
-        async function redeemGiftCard() {
+        async function redeemGiftCard(confirmVipConflict = false) {
             const codeInput = document.getElementById('gift-card-code');
             const code = codeInput.value.trim().toUpperCase();
             
@@ -1032,10 +1067,17 @@
                 const response = await fetch('/api/auth/redeem-gift-card', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code: code })
+                    body: JSON.stringify({ code: code, confirm: confirmVipConflict })
                 });
 
                 const result = await response.json();
+                
+                // Handle VIP conflict - show warning modal
+                if (response.status === 409 && result.requires_confirm) {
+                    showVipConflictWarningModal(code, result.data);
+                    return;
+                }
+                
                 if (result.success) {
                     // Update balance display
                     const balanceEl = document.getElementById('user-balance');
@@ -1055,24 +1097,120 @@
             }
         }
 
+        function showVipConflictWarningModal(code, data) {
+            // Format VIP expiration date
+            let currentVipExpireText = i18nStrings.vipWarningPermanent;
+            if (data.current_vip_expire_at) {
+                const expireDate = new Date(data.current_vip_expire_at);
+                const localeMap = {'zh': 'zh-CN', 'en': 'en-US'};
+                const currentLang = '{{.lang}}';
+                const locale = localeMap[currentLang] || 'en-US';
+                currentVipExpireText = expireDate.toLocaleDateString(locale, {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+            }
+            
+            // Format card VIP duration
+            let cardVipDurationText = i18nStrings.vipWarningPermanent;
+            if (data.card_vip_days > 0) {
+                cardVipDurationText = `${data.card_vip_days} ${i18nStrings.vipWarningDays}`;
+            }
+            
+            const modalHtml = `
+                <div class="modal fade" id="vipConflictModal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header bg-warning text-dark">
+                                <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>${i18nStrings.vipWarningTitle}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body py-4">
+                                <div class="alert alert-warning mb-3">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    ${i18nStrings.vipWarningMessage}
+                                </div>
+                                <div class="bg-light rounded p-3 mb-3">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">${i18nStrings.vipWarningCurrent}</span>
+                                        <strong>VIP ${data.current_vip_level}</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">${i18nStrings.vipWarningExpires}</span>
+                                        <strong>${currentVipExpireText}</strong>
+                                    </div>
+                                    <hr class="my-2">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">${i18nStrings.vipWarningCardVip}</span>
+                                        <strong class="text-muted text-decoration-line-through">VIP ${data.card_vip_level} (${cardVipDurationText})</strong>
+                                    </div>
+                                    ${data.card_amount > 0 ? `
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">${i18nStrings.balance}</span>
+                                        <strong class="text-success">¥${data.card_amount.toFixed(2)}</strong>
+                                    </div>
+                                    ` : ''}
+                                </div>
+                                ${data.card_amount > 0 ? `
+                                <p class="text-info small mb-0">
+                                    <i class="bi bi-info-circle me-1"></i>${i18nStrings.vipWarningBalanceNote}
+                                </p>
+                                ` : ''}
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">${i18nStrings.vipWarningCancel}</button>
+                                <button type="button" class="btn btn-warning" onclick="confirmRedeemWithVipConflict('${code}')">
+                                    <i class="bi bi-check-lg me-1"></i>${i18nStrings.vipWarningConfirm}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const existing = document.getElementById('vipConflictModal');
+            if (existing) existing.remove();
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            new bootstrap.Modal(document.getElementById('vipConflictModal')).show();
+        }
+
+        async function confirmRedeemWithVipConflict(code) {
+            // Close the warning modal
+            const warningModal = bootstrap.Modal.getInstance(document.getElementById('vipConflictModal'));
+            if (warningModal) warningModal.hide();
+            
+            // Re-enter the code and trigger redeem with confirmation
+            const codeInput = document.getElementById('gift-card-code');
+            codeInput.value = code;
+            
+            // Call redeem with confirmation flag
+            await redeemGiftCard(true);
+        }
+
         function showRedeemSuccessModal(data) {
             const amount = data?.amount || 0;
             const newBalance = data?.balance || 0;
             const grantedVipLevel = data?.granted_vip_level || 0;
             const grantedVipDays = data?.granted_vip_days || 0;
+            const vipSkipped = data?.vip_skipped || false;
             
             let rewardContent = '';
             if (amount > 0) {
-                rewardContent += `<p class="mb-2">已添加余额：<strong class="text-success fs-4">¥${amount.toFixed(2)}</strong></p>`;
+                rewardContent += `<p class="mb-2">${i18nStrings.balanceAdded}<strong class="text-success fs-4">¥${amount.toFixed(2)}</strong></p>`;
             }
-            if (grantedVipLevel > 0) {
-                rewardContent += `<p class="mb-2">已获得VIP：<strong class="text-warning fs-4"><i class="bi bi-gem me-1"></i>VIP${grantedVipLevel}</strong>`;
+            if (grantedVipLevel > 0 && !vipSkipped) {
+                rewardContent += `<p class="mb-2">${i18nStrings.vipGranted}<strong class="text-warning fs-4"><i class="bi bi-gem me-1"></i>VIP${grantedVipLevel}</strong>`;
                 if (grantedVipDays > 0) {
-                    rewardContent += ` <span class="text-muted">(${grantedVipDays}天)</span>`;
+                    rewardContent += ` <span class="text-muted">(${grantedVipDays}${i18nStrings.vipWarningDays})</span>`;
                 } else {
-                    rewardContent += ` <span class="text-muted">(永久)</span>`;
+                    rewardContent += ` <span class="text-muted">(${i18nStrings.vipWarningPermanent})</span>`;
                 }
                 rewardContent += `</p>`;
+            }
+            if (vipSkipped) {
+                rewardContent += `<p class="text-warning small mb-2"><i class="bi bi-info-circle me-1"></i>${i18nStrings.vipSkipped}</p>`;
             }
             
             const modalHtml = `
@@ -1080,18 +1218,18 @@
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
                             <div class="modal-header bg-success text-white">
-                                <h5 class="modal-title"><i class="bi bi-gift me-2"></i>兑换成功</h5>
+                                <h5 class="modal-title"><i class="bi bi-gift me-2"></i>${i18nStrings.redeemSuccess}</h5>
                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body text-center py-4">
                                 <i class="bi bi-gift display-1 text-success mb-3"></i>
-                                <h4>礼品卡兑换成功！</h4>
+                                <h4>${i18nStrings.redeemSuccessTitle}</h4>
                                 ${rewardContent}
-                                <p class="text-muted">当前余额：¥${newBalance.toFixed(2)}</p>
+                                <p class="text-muted">${i18nStrings.currentBalance}¥${newBalance.toFixed(2)}</p>
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-success" data-bs-dismiss="modal" id="redeemSuccessOkBtn">
-                                    <i class="bi bi-check-lg me-2"></i>确定
+                                    <i class="bi bi-check-lg me-2"></i>${i18nStrings.confirmBtn}
                                 </button>
                             </div>
                         </div>
@@ -1137,6 +1275,23 @@
                 window.location.href = '/auth/login';
             } catch (error) {
                 console.error('Logout error:', error);
+            }
+        }
+
+        // Language switcher function
+        async function setLanguage(lang) {
+            try {
+                const response = await fetch('/api/i18n/set-language', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ lang: lang })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    window.location.reload();
+                }
+            } catch (error) {
+                console.error('Failed to set language:', error);
             }
         }
     </script>

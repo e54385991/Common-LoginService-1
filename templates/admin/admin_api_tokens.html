@@ -10,63 +10,7 @@
 </head>
 <body>
     <div class="admin-wrapper">
-        <!-- Sidebar -->
-        <nav class="admin-sidebar">
-            <div class="sidebar-header">
-                <i class="bi bi-shield-lock-fill me-2"></i>
-                <span>管理后台</span>
-            </div>
-            <ul class="sidebar-nav">
-                <li class="nav-item {{if eq .activeMenu "dashboard"}}active{{end}}">
-                    <a href="/admin/dashboard" class="nav-link">
-                        <i class="bi bi-speedometer2"></i>
-                        <span>控制面板</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "users"}}active{{end}}">
-                    <a href="/admin/users" class="nav-link">
-                        <i class="bi bi-people"></i>
-                        <span>用户管理</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "vip"}}active{{end}}">
-                    <a href="/admin/vip" class="nav-link">
-                        <i class="bi bi-gem"></i>
-                        <span>VIP配置</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "profile-navigation"}}active{{end}}">
-                    <a href="/admin/profile-navigation" class="nav-link">
-                        <i class="bi bi-grid-3x3-gap"></i>
-                        <span>个人中心导航</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "api-tokens"}}active{{end}}">
-                    <a href="/admin/api-tokens" class="nav-link">
-                        <i class="bi bi-key"></i>
-                        <span>API令牌</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "gift-cards"}}active{{end}}">
-                    <a href="/admin/gift-cards" class="nav-link">
-                        <i class="bi bi-gift"></i>
-                        <span>礼品卡</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "settings"}}active{{end}}">
-                    <a href="/admin/settings" class="nav-link">
-                        <i class="bi bi-gear"></i>
-                        <span>系统设置</span>
-                    </a>
-                </li>
-            </ul>
-            <div class="sidebar-footer">
-                <a href="/admin/logout" class="nav-link">
-                    <i class="bi bi-box-arrow-right"></i>
-                    <span>退出登录</span>
-                </a>
-            </div>
-        </nav>
+        {{template "admin_sidebar" .}}
 
         <!-- Main Content -->
         <main class="admin-main">
@@ -101,6 +45,8 @@
                                     <select class="form-select" id="token-permissions" multiple>
                                         <option value="balance" selected>余额管理</option>
                                         <option value="vip" selected>VIP管理</option>
+                                        <option value="user">用户创建</option>
+                                        <option value="password">密码管理</option>
                                         <option value="all">所有权限</option>
                                     </select>
                                 </div>
@@ -131,6 +77,83 @@
                             <button class="btn btn-outline-primary" onclick="copyToken()">
                                 <i class="bi bi-clipboard"></i> 复制
                             </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Create User Card -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-person-plus me-2"></i>创建新账号</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="create-user-form">
+                            <div class="row">
+                                <div class="col-md-3 mb-3">
+                                    <label for="user-id" class="form-label">强制UID (可选)</label>
+                                    <input type="number" class="form-control" id="user-id" min="1" placeholder="留空则自动生成">
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label for="user-username" class="form-label">用户名 <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="user-username" placeholder="3-30个字符" required>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label for="user-email" class="form-label">邮箱 <span class="text-danger">*</span></label>
+                                    <input type="email" class="form-control" id="user-email" placeholder="user@example.com" required>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label for="user-password" class="form-label">密码 <span class="text-danger">*</span></label>
+                                    <input type="password" class="form-control" id="user-password" placeholder="至少6个字符" required>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-3 mb-3">
+                                    <label for="user-display-name" class="form-label">显示名称</label>
+                                    <input type="text" class="form-control" id="user-display-name" placeholder="留空则使用用户名">
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label for="user-balance" class="form-label">初始余额</label>
+                                    <input type="number" class="form-control" id="user-balance" value="0" min="0" step="0.01">
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label for="user-vip-level" class="form-label">VIP等级</label>
+                                    <input type="number" class="form-control" id="user-vip-level" value="0" min="0">
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label for="user-vip-expire" class="form-label">VIP到期时间</label>
+                                    <input type="datetime-local" class="form-control" id="user-vip-expire" placeholder="留空则永不过期">
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-person-plus me-2"></i>创建账号
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- New User Display (Hidden by default) -->
+                <div class="card mb-4 border-primary" id="new-user-card" style="display: none;">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="bi bi-check-circle me-2"></i>账号创建成功</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <table class="table table-sm">
+                                    <tr><th>用户ID</th><td id="created-user-id"></td></tr>
+                                    <tr><th>用户名</th><td id="created-user-username"></td></tr>
+                                    <tr><th>邮箱</th><td id="created-user-email"></td></tr>
+                                    <tr><th>显示名称</th><td id="created-user-display-name"></td></tr>
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                <table class="table table-sm">
+                                    <tr><th>余额</th><td id="created-user-balance"></td></tr>
+                                    <tr><th>VIP等级</th><td id="created-user-vip-level"></td></tr>
+                                    <tr><th>VIP到期</th><td id="created-user-vip-expire"></td></tr>
+                                    <tr><th>状态</th><td id="created-user-status"></td></tr>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -171,7 +194,20 @@
                         <h5 class="mb-0"><i class="bi bi-book me-2"></i>API接口文档</h5>
                     </div>
                     <div class="card-body">
-                        <h6>1. 更新用户余额</h6>
+                        <div class="alert alert-info mb-4">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>权限说明：</strong>
+                            <ul class="mb-0 mt-2">
+                                <li><code>balance</code> - 余额管理：增加/减少用户余额</li>
+                                <li><code>vip</code> - VIP管理：设置VIP等级和到期时间</li>
+                                <li><code>user</code> - 用户创建：创建新用户账号（可设置VIP、余额、强制UID）</li>
+                                <li><code>password</code> - 密码管理：修改用户密码</li>
+                                <li><code>all</code> - 所有权限：包含以上全部权限</li>
+                            </ul>
+                        </div>
+
+                        <h6>1. 更新用户余额 <span class="badge bg-primary">需要 balance 权限</span></h6>
+                        <p class="text-muted">增加或减少指定用户的余额，适用于积分兑换、充值、消费扣款等场景。</p>
                         <pre class="bg-dark text-light p-3 rounded"><code>POST /api/external/balance
 Content-Type: application/json
 X-API-Key: your-token
@@ -179,7 +215,7 @@ X-API-Key: your-token
 {
   "user_id": 1,
   "amount": 100.00,  // 正数增加，负数减少（不能使余额变为负数）
-  "reason": "API充值"  // 可选，变更原因
+  "reason": "积分兑换充值"  // 可选，变更原因（会记录在余额日志中）
 }</code></pre>
                         <p class="text-muted mt-2 mb-1"><strong>成功响应 (200)：</strong></p>
                         <pre class="bg-secondary text-light p-3 rounded"><code>{
@@ -200,14 +236,15 @@ X-API-Key: your-token
   }
 }</code></pre>
 
-                        <h6 class="mt-4">2. 设置用户VIP等级</h6>
+                        <h6 class="mt-4">2. 设置用户VIP等级 <span class="badge bg-primary">需要 vip 权限</span></h6>
+                        <p class="text-muted">设置用户的VIP等级，适用于VIP购买、升级、降级等场景。</p>
                         <pre class="bg-dark text-light p-3 rounded"><code>POST /api/external/vip-level
 Content-Type: application/json
 X-API-Key: your-token
 
 {
   "user_id": 1,
-  "vip_level": 3
+  "vip_level": 3  // VIP等级，0表示普通用户
 }</code></pre>
                         <p class="text-muted mt-2 mb-1"><strong>成功响应 (200)：</strong></p>
                         <pre class="bg-secondary text-light p-3 rounded"><code>{
@@ -219,7 +256,29 @@ X-API-Key: your-token
   }
 }</code></pre>
 
-                        <h6 class="mt-4">3. 查询用户信息</h6>
+                        <h6 class="mt-4">3. 设置VIP到期时间 <span class="badge bg-primary">需要 vip 权限</span></h6>
+                        <p class="text-muted">设置用户VIP的到期时间，留空表示永久VIP。</p>
+                        <pre class="bg-dark text-light p-3 rounded"><code>POST /api/external/vip-expire
+Content-Type: application/json
+X-API-Key: your-token
+
+{
+  "user_id": 1,
+  "vip_expire_at": "2025-12-31T23:59:59Z"  // ISO 8601格式，留空表示永久VIP
+}</code></pre>
+                        <p class="text-muted mt-2 mb-1"><strong>成功响应 (200)：</strong></p>
+                        <pre class="bg-secondary text-light p-3 rounded"><code>{
+  "success": true,
+  "message": "VIP到期时间设置成功",
+  "data": {
+    "user_id": 1,
+    "vip_level": 3,
+    "vip_expire_at": "2025-12-31T23:59:59Z"
+  }
+}</code></pre>
+
+                        <h6 class="mt-4">4. 查询用户信息 <span class="badge bg-secondary">无需特定权限</span></h6>
+                        <p class="text-muted">查询指定用户的详细信息。</p>
                         <pre class="bg-dark text-light p-3 rounded"><code>GET /api/external/user?user_id=1
 X-API-Key: your-token</code></pre>
                         <p class="text-muted mt-2 mb-1"><strong>成功响应 (200)：</strong></p>
@@ -231,18 +290,82 @@ X-API-Key: your-token</code></pre>
     "email": "test@example.com",
     "balance": 200.00,
     "vip_level": 3,
+    "vip_expire_at": "2025-12-31T23:59:59Z",
     "is_active": true,
     "created_at": "2024-01-01T00:00:00Z"
   }
 }</code></pre>
 
+                        <h6 class="mt-4">5. 创建用户 <span class="badge bg-success">需要 user 权限</span></h6>
+                        <p class="text-muted">创建新用户账号，可同时设置VIP等级、VIP到期时间、初始余额，并支持强制指定用户ID。适用于从其他系统迁移用户、批量创建账号等场景。</p>
+                        <pre class="bg-dark text-light p-3 rounded"><code>POST /api/external/user
+Content-Type: application/json
+X-API-Key: your-token
+
+{
+  "id": 100,                              // 可选：强制指定用户ID（UID）
+  "email": "user@example.com",            // 必填：邮箱地址
+  "username": "newuser",                  // 必填：用户名（3-30字符，字母数字下划线）
+  "password": "password123",              // 必填：密码（至少6个字符）
+  "display_name": "New User",             // 可选：显示名称，留空则使用用户名
+  "balance": 100.00,                      // 可选：初始余额，默认0
+  "vip_level": 1,                         // 可选：VIP等级，默认0（普通用户）
+  "vip_expire_at": "2025-12-31T23:59:59Z",// 可选：VIP到期时间，留空则永久
+  "is_active": true                       // 可选：账号状态，默认true
+}</code></pre>
+                        <p class="text-muted mt-2 mb-1"><strong>成功响应 (200)：</strong></p>
+                        <pre class="bg-secondary text-light p-3 rounded"><code>{
+  "success": true,
+  "message": "用户创建成功",
+  "data": {
+    "id": 100,
+    "username": "newuser",
+    "email": "user@example.com",
+    "display_name": "New User",
+    "balance": 100.00,
+    "vip_level": 1,
+    "vip_expire_at": "2025-12-31T23:59:59Z",
+    "is_active": true,
+    "created_at": "2024-01-01T00:00:00Z"
+  }
+}</code></pre>
+                        <p class="text-muted mt-2 mb-1"><strong>用户ID已存在 (409)：</strong></p>
+                        <pre class="bg-secondary text-light p-3 rounded"><code>{
+  "success": false,
+  "message": "用户ID已存在"
+}</code></pre>
+                        <p class="text-muted mt-2 mb-1"><strong>邮箱已被注册 (409)：</strong></p>
+                        <pre class="bg-secondary text-light p-3 rounded"><code>{
+  "success": false,
+  "message": "邮箱已被注册"
+}</code></pre>
+
+                        <h6 class="mt-4">6. 设置用户密码 <span class="badge bg-warning text-dark">需要 password 权限</span></h6>
+                        <p class="text-muted">修改用户密码，适用于密码重置、找回密码等场景。</p>
+                        <pre class="bg-dark text-light p-3 rounded"><code>POST /api/external/password
+Content-Type: application/json
+X-API-Key: your-token
+
+{
+  "user_id": 1,
+  "password": "newpassword123"  // 新密码，至少6个字符
+}</code></pre>
+                        <p class="text-muted mt-2 mb-1"><strong>成功响应 (200)：</strong></p>
+                        <pre class="bg-secondary text-light p-3 rounded"><code>{
+  "success": true,
+  "message": "密码设置成功",
+  "data": {
+    "user_id": 1
+  }
+}</code></pre>
+
                         <h6 class="mt-4">通用错误响应</h6>
-                        <p class="text-muted mt-2 mb-1"><strong>未授权 (401)：</strong></p>
+                        <p class="text-muted mt-2 mb-1"><strong>未授权 (401) - 无效的API令牌：</strong></p>
                         <pre class="bg-secondary text-light p-3 rounded"><code>{
   "success": false,
   "message": "未授权"
 }</code></pre>
-                        <p class="text-muted mt-2 mb-1"><strong>无权限 (403)：</strong></p>
+                        <p class="text-muted mt-2 mb-1"><strong>无权限 (403) - 令牌缺少所需权限：</strong></p>
                         <pre class="bg-secondary text-light p-3 rounded"><code>{
   "success": false,
   "message": "无权限执行此操作"
@@ -429,6 +552,81 @@ X-API-Key: your-token</code></pre>
                 showAlert('danger', '删除失败，请稍后重试');
             }
         }
+
+        // User creation form
+        document.getElementById('create-user-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const userId = document.getElementById('user-id').value;
+            const username = document.getElementById('user-username').value;
+            const email = document.getElementById('user-email').value;
+            const password = document.getElementById('user-password').value;
+            const displayName = document.getElementById('user-display-name').value;
+            const balance = parseFloat(document.getElementById('user-balance').value) || 0;
+            const vipLevel = parseInt(document.getElementById('user-vip-level').value) || 0;
+            const vipExpireInput = document.getElementById('user-vip-expire').value;
+
+            const requestData = {
+                email: email,
+                username: username,
+                password: password,
+                display_name: displayName,
+                balance: balance,
+                vip_level: vipLevel
+            };
+
+            // Add forced ID if specified
+            if (userId) {
+                requestData.id = parseInt(userId);
+            }
+
+            // Convert datetime-local to ISO 8601 format
+            if (vipExpireInput) {
+                const vipExpireDate = new Date(vipExpireInput);
+                requestData.vip_expire_at = vipExpireDate.toISOString();
+            }
+
+            try {
+                const response = await fetch('/api/admin/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestData)
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    // Show the created user info
+                    document.getElementById('created-user-id').textContent = result.data.id;
+                    document.getElementById('created-user-username').textContent = result.data.username || '';
+                    document.getElementById('created-user-email').textContent = result.data.email || '';
+                    document.getElementById('created-user-display-name').textContent = result.data.display_name || '';
+                    document.getElementById('created-user-balance').textContent = (result.data.balance != null ? result.data.balance.toFixed(2) : '0.00');
+                    document.getElementById('created-user-vip-level').textContent = result.data.vip_level != null ? result.data.vip_level : 0;
+                    document.getElementById('created-user-vip-expire').textContent = result.data.vip_expire_at 
+                        ? new Date(result.data.vip_expire_at).toLocaleString() 
+                        : '永久';
+                    document.getElementById('created-user-status').textContent = result.data.is_active ? '正常' : '禁用';
+                    
+                    document.getElementById('new-user-card').style.display = 'block';
+                    
+                    // Clear form
+                    document.getElementById('user-id').value = '';
+                    document.getElementById('user-username').value = '';
+                    document.getElementById('user-email').value = '';
+                    document.getElementById('user-password').value = '';
+                    document.getElementById('user-display-name').value = '';
+                    document.getElementById('user-balance').value = '0';
+                    document.getElementById('user-vip-level').value = '0';
+                    document.getElementById('user-vip-expire').value = '';
+                    
+                    showAlert('success', '账号创建成功！');
+                } else {
+                    showAlert('danger', result.message);
+                }
+            } catch (error) {
+                showAlert('danger', '创建失败，请稍后重试');
+            }
+        });
     </script>
 </body>
 </html>

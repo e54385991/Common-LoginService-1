@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"net/http"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -23,6 +24,7 @@ type AdminHandler struct {
 	apiTokenRepo   *repository.APITokenRepository
 	giftCardRepo   *repository.GiftCardRepository
 	balanceLogRepo *repository.BalanceLogRepository
+	sessionStore   repository.SessionStore
 }
 
 // AdminLoginRequest represents admin login request
@@ -59,6 +61,21 @@ type GoogleOAuthSettings struct {
 	RedirectURL  string `json:"redirect_url" example:"http://localhost:8080/api/auth/google/callback"`
 }
 
+// SteamOAuthSettings represents Steam OAuth settings
+type SteamOAuthSettings struct {
+	Enabled     bool   `json:"enabled" example:"true"`
+	APIKey      string `json:"api_key" example:"****"`
+	RedirectURL string `json:"redirect_url" example:"http://localhost:8080/api/auth/steam/callback"`
+}
+
+// DiscordOAuthSettings represents Discord OAuth settings
+type DiscordOAuthSettings struct {
+	Enabled      bool   `json:"enabled" example:"true"`
+	ClientID     string `json:"client_id" example:"your-client-id"`
+	ClientSecret string `json:"client_secret" example:"****"`
+	RedirectURL  string `json:"redirect_url" example:"http://localhost:8080/api/auth/discord/callback"`
+}
+
 // GmailAPISettings represents Gmail API settings
 type GmailAPISettings struct {
 	Enabled      bool   `json:"enabled" example:"true"`
@@ -80,10 +97,12 @@ type CaptchaSettings struct {
 
 // AdminSettingsResponse represents admin settings response
 type AdminSettingsResponse struct {
-	GoogleOAuth GoogleOAuthSettings `json:"google_oauth"`
-	GmailAPI    GmailAPISettings    `json:"gmail_api"`
-	JWT         JWTSettings         `json:"jwt"`
-	Captcha     CaptchaSettings     `json:"captcha"`
+	GoogleOAuth  GoogleOAuthSettings  `json:"google_oauth"`
+	SteamOAuth   SteamOAuthSettings   `json:"steam_oauth"`
+	DiscordOAuth DiscordOAuthSettings `json:"discord_oauth"`
+	GmailAPI     GmailAPISettings     `json:"gmail_api"`
+	JWT          JWTSettings          `json:"jwt"`
+	Captcha      CaptchaSettings      `json:"captcha"`
 }
 
 // UpdateGoogleOAuthRequest represents Google OAuth update request
@@ -92,6 +111,21 @@ type UpdateGoogleOAuthRequest struct {
 	ClientID     string `json:"client_id" example:"your-client-id"`
 	ClientSecret string `json:"client_secret" example:"your-client-secret"`
 	RedirectURL  string `json:"redirect_url" example:"http://localhost:8080/api/auth/google/callback"`
+}
+
+// UpdateSteamOAuthRequest represents Steam OAuth update request
+type UpdateSteamOAuthRequest struct {
+	Enabled     bool   `json:"enabled" example:"true"`
+	APIKey      string `json:"api_key" example:"your-steam-api-key"`
+	RedirectURL string `json:"redirect_url" example:"http://localhost:8080/api/auth/steam/callback"`
+}
+
+// UpdateDiscordOAuthRequest represents Discord OAuth update request
+type UpdateDiscordOAuthRequest struct {
+	Enabled      bool   `json:"enabled" example:"true"`
+	ClientID     string `json:"client_id" example:"your-client-id"`
+	ClientSecret string `json:"client_secret" example:"your-client-secret"`
+	RedirectURL  string `json:"redirect_url" example:"http://localhost:8080/api/auth/discord/callback"`
 }
 
 // UpdateGmailAPIRequest represents Gmail API update request
@@ -115,7 +149,7 @@ type UpdateCaptchaRequest struct {
 }
 
 // NewAdminHandler creates a new AdminHandler
-func NewAdminHandler(cfg *config.Config, configRepo *repository.ConfigRepository, userRepo *repository.UserRepository, apiTokenRepo *repository.APITokenRepository, giftCardRepo *repository.GiftCardRepository, balanceLogRepo *repository.BalanceLogRepository) *AdminHandler {
+func NewAdminHandler(cfg *config.Config, configRepo *repository.ConfigRepository, userRepo *repository.UserRepository, apiTokenRepo *repository.APITokenRepository, giftCardRepo *repository.GiftCardRepository, balanceLogRepo *repository.BalanceLogRepository, sessionStore repository.SessionStore) *AdminHandler {
 	return &AdminHandler{
 		cfg:            cfg,
 		configRepo:     configRepo,
@@ -123,6 +157,7 @@ func NewAdminHandler(cfg *config.Config, configRepo *repository.ConfigRepository
 		apiTokenRepo:   apiTokenRepo,
 		giftCardRepo:   giftCardRepo,
 		balanceLogRepo: balanceLogRepo,
+		sessionStore:   sessionStore,
 	}
 }
 
@@ -190,9 +225,12 @@ func (h *AdminHandler) AdminDashboard(c *gin.Context) {
 	_ = users
 
 	c.HTML(http.StatusOK, "admin_dashboard.html", gin.H{
-		"lang":       lang,
-		"userCount":  total,
-		"activeMenu": "dashboard",
+		"lang":        lang,
+		"userCount":   total,
+		"activeMenu":  "dashboard",
+		"goVersion":   runtime.Version(),
+		"ginVersion":  gin.Version,
+		"dbType":      "MySQL",
 	})
 }
 
@@ -233,6 +271,23 @@ func (h *AdminHandler) GetSettings(c *gin.Context) {
 				"client_id":     h.cfg.GoogleOAuth.ClientID,
 				"client_secret": maskSecret(h.cfg.GoogleOAuth.ClientSecret),
 				"redirect_url":  h.cfg.GoogleOAuth.RedirectURL,
+				"allow_bind":    h.cfg.GoogleOAuth.AllowBind,
+				"allow_unbind":  h.cfg.GoogleOAuth.AllowUnbind,
+			},
+			"steam_oauth": gin.H{
+				"enabled":      h.cfg.SteamOAuth.Enabled,
+				"api_key":      maskSecret(h.cfg.SteamOAuth.APIKey),
+				"redirect_url": h.cfg.SteamOAuth.RedirectURL,
+				"allow_bind":   h.cfg.SteamOAuth.AllowBind,
+				"allow_unbind": h.cfg.SteamOAuth.AllowUnbind,
+			},
+			"discord_oauth": gin.H{
+				"enabled":       h.cfg.DiscordOAuth.Enabled,
+				"client_id":     h.cfg.DiscordOAuth.ClientID,
+				"client_secret": maskSecret(h.cfg.DiscordOAuth.ClientSecret),
+				"redirect_url":  h.cfg.DiscordOAuth.RedirectURL,
+				"allow_bind":    h.cfg.DiscordOAuth.AllowBind,
+				"allow_unbind":  h.cfg.DiscordOAuth.AllowUnbind,
 			},
 			"gmail_api": gin.H{
 				"enabled":       h.cfg.GmailAPI.Enabled,
@@ -270,6 +325,8 @@ func (h *AdminHandler) UpdateGoogleOAuth(c *gin.Context) {
 		ClientID     string `json:"client_id"`
 		ClientSecret string `json:"client_secret"`
 		RedirectURL  string `json:"redirect_url"`
+		AllowBind    bool   `json:"allow_bind"`
+		AllowUnbind  bool   `json:"allow_unbind"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -285,6 +342,8 @@ func (h *AdminHandler) UpdateGoogleOAuth(c *gin.Context) {
 		h.cfg.GoogleOAuth.ClientSecret = input.ClientSecret
 	}
 	h.cfg.GoogleOAuth.RedirectURL = input.RedirectURL
+	h.cfg.GoogleOAuth.AllowBind = input.AllowBind
+	h.cfg.GoogleOAuth.AllowUnbind = input.AllowUnbind
 
 	// Save to file
 	if err := config.Save("config.json"); err != nil {
@@ -298,6 +357,112 @@ func (h *AdminHandler) UpdateGoogleOAuth(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Google OAuth 设置已更新",
+	})
+}
+
+// UpdateSteamOAuth updates Steam OAuth settings
+// @Summary Update Steam OAuth settings
+// @Description Update Steam OAuth configuration
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body UpdateSteamOAuthRequest true "Steam OAuth settings"
+// @Success 200 {object} Response "Settings updated"
+// @Failure 400 {object} Response "Bad request"
+// @Failure 401 {object} Response "Unauthorized"
+// @Failure 500 {object} Response "Failed to save settings"
+// @Router /admin/settings/steam-oauth [put]
+func (h *AdminHandler) UpdateSteamOAuth(c *gin.Context) {
+	var input struct {
+		Enabled     bool   `json:"enabled"`
+		APIKey      string `json:"api_key"`
+		RedirectURL string `json:"redirect_url"`
+		AllowBind   bool   `json:"allow_bind"`
+		AllowUnbind bool   `json:"allow_unbind"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	h.cfg.SteamOAuth.Enabled = input.Enabled
+	if input.APIKey != "" && !isMasked(input.APIKey) {
+		h.cfg.SteamOAuth.APIKey = input.APIKey
+	}
+	h.cfg.SteamOAuth.RedirectURL = input.RedirectURL
+	h.cfg.SteamOAuth.AllowBind = input.AllowBind
+	h.cfg.SteamOAuth.AllowUnbind = input.AllowUnbind
+
+	// Save to file
+	if err := config.Save("config.json"); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "保存配置失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Steam OAuth 设置已更新",
+	})
+}
+
+// UpdateDiscordOAuth updates Discord OAuth settings
+// @Summary Update Discord OAuth settings
+// @Description Update Discord OAuth configuration
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body UpdateDiscordOAuthRequest true "Discord OAuth settings"
+// @Success 200 {object} Response "Settings updated"
+// @Failure 400 {object} Response "Bad request"
+// @Failure 401 {object} Response "Unauthorized"
+// @Failure 500 {object} Response "Failed to save settings"
+// @Router /admin/settings/discord-oauth [put]
+func (h *AdminHandler) UpdateDiscordOAuth(c *gin.Context) {
+	var input struct {
+		Enabled      bool   `json:"enabled"`
+		ClientID     string `json:"client_id"`
+		ClientSecret string `json:"client_secret"`
+		RedirectURL  string `json:"redirect_url"`
+		AllowBind    bool   `json:"allow_bind"`
+		AllowUnbind  bool   `json:"allow_unbind"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	h.cfg.DiscordOAuth.Enabled = input.Enabled
+	h.cfg.DiscordOAuth.ClientID = input.ClientID
+	if input.ClientSecret != "" && !isMasked(input.ClientSecret) {
+		h.cfg.DiscordOAuth.ClientSecret = input.ClientSecret
+	}
+	h.cfg.DiscordOAuth.RedirectURL = input.RedirectURL
+	h.cfg.DiscordOAuth.AllowBind = input.AllowBind
+	h.cfg.DiscordOAuth.AllowUnbind = input.AllowUnbind
+
+	// Save to file
+	if err := config.Save("config.json"); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "保存配置失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Discord OAuth 设置已更新",
 	})
 }
 
@@ -449,6 +614,104 @@ func (h *AdminHandler) UpdateCaptcha(c *gin.Context) {
 	})
 }
 
+// AccessSettings represents access control settings
+type AccessSettings struct {
+	RegistrationEnabled  bool   `json:"registration_enabled" example:"true"`
+	LoginEnabled         bool   `json:"login_enabled" example:"true"`
+	RegistrationMessage  string `json:"registration_message" example:"注册功能暂时关闭"`
+	LoginMessage         string `json:"login_message" example:"登录功能暂时关闭"`
+	RegistrationStartUID uint   `json:"registration_start_uid" example:"26000"` // Minimum UID for backend registration (0 = no restriction)
+	AllowEmailLogin      bool   `json:"allow_email_login" example:"true"`       // Allow login with email
+	AllowUsernameLogin   bool   `json:"allow_username_login" example:"false"`   // Allow login with username
+}
+
+// GetAccessSettings returns access control settings
+// @Summary Get access settings
+// @Description Get current registration and login access settings
+// @Tags admin
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} handler.Response{data=AccessSettings} "Access settings retrieved"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Router /admin/settings/access [get]
+func (h *AdminHandler) GetAccessSettings(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"registration_enabled":   h.cfg.Access.RegistrationEnabled,
+			"login_enabled":          h.cfg.Access.LoginEnabled,
+			"registration_message":   h.cfg.Access.RegistrationMessage,
+			"login_message":          h.cfg.Access.LoginMessage,
+			"registration_start_uid": h.cfg.Access.RegistrationStartUID,
+			"allow_email_login":      h.cfg.Access.AllowEmailLogin,
+			"allow_username_login":   h.cfg.Access.AllowUsernameLogin,
+		},
+	})
+}
+
+// UpdateAccessSettings updates access control settings
+// @Summary Update access settings
+// @Description Update registration and login access settings
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body AccessSettings true "Access settings"
+// @Success 200 {object} handler.Response "Settings updated"
+// @Failure 400 {object} handler.Response "Bad request"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Failure 500 {object} handler.Response "Failed to save settings"
+// @Router /admin/settings/access [put]
+func (h *AdminHandler) UpdateAccessSettings(c *gin.Context) {
+	var input struct {
+		RegistrationEnabled  bool   `json:"registration_enabled"`
+		LoginEnabled         bool   `json:"login_enabled"`
+		RegistrationMessage  string `json:"registration_message"`
+		LoginMessage         string `json:"login_message"`
+		RegistrationStartUID uint   `json:"registration_start_uid"`
+		AllowEmailLogin      bool   `json:"allow_email_login"`
+		AllowUsernameLogin   bool   `json:"allow_username_login"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	// Validate: at least one login method must be enabled when login is enabled
+	if input.LoginEnabled && !input.AllowEmailLogin && !input.AllowUsernameLogin {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "启用登录时，至少需要开启一种登录方式（邮箱或用户名）",
+		})
+		return
+	}
+
+	h.cfg.Access.RegistrationEnabled = input.RegistrationEnabled
+	h.cfg.Access.LoginEnabled = input.LoginEnabled
+	h.cfg.Access.RegistrationMessage = input.RegistrationMessage
+	h.cfg.Access.LoginMessage = input.LoginMessage
+	h.cfg.Access.RegistrationStartUID = input.RegistrationStartUID
+	h.cfg.Access.AllowEmailLogin = input.AllowEmailLogin
+	h.cfg.Access.AllowUsernameLogin = input.AllowUsernameLogin
+
+	// Save to file
+	if err := config.Save("config.json"); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "保存配置失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "访问控制设置已更新",
+	})
+}
+
 // Helper functions
 func maskSecret(s string) string {
 	if len(s) <= 8 {
@@ -460,6 +723,18 @@ func maskSecret(s string) string {
 func isMasked(s string) bool {
 	// Check if string contains consecutive asterisks (indicating it's masked)
 	return strings.Contains(s, "****")
+}
+
+// hasPermission checks if the permissions string contains the required permission
+// Permissions are stored as comma-separated values, e.g. "balance,vip,all"
+func hasPermission(permissions, required string) bool {
+	permList := strings.Split(permissions, ",")
+	for _, p := range permList {
+		if strings.TrimSpace(p) == required || strings.TrimSpace(p) == "all" {
+			return true
+		}
+	}
+	return false
 }
 
 // GetUser returns a specific user by ID
@@ -735,7 +1010,7 @@ func (h *AdminHandler) SetUserBalance(c *gin.Context) {
 	}
 
 	var input struct {
-		Balance float64 `json:"balance" binding:"required"`
+		Balance float64 `json:"balance"`
 		Reason  string  `json:"reason"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -857,6 +1132,76 @@ func (h *AdminHandler) SetUserVIPLevel(c *gin.Context) {
 	})
 }
 
+// SetUserVIPExpireAtRequest represents user VIP expire at set request
+type SetUserVIPExpireAtRequest struct {
+	VIPExpireAt string `json:"vip_expire_at" example:"2025-12-31T23:59:59Z"` // ISO 8601 format, empty means clear
+}
+
+// SetUserVIPExpireAt sets a user's VIP expiration time
+// @Summary Set user VIP expiration time
+// @Description Set user's VIP expiration time. Use empty string to clear expiration (permanent VIP).
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "User ID"
+// @Param request body SetUserVIPExpireAtRequest true "VIP expiration set request"
+// @Success 200 {object} handler.Response "VIP expiration set"
+// @Failure 400 {object} handler.Response "Bad request"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Failure 404 {object} handler.Response "User not found"
+// @Router /admin/users/{id}/vip-expire [put]
+func (h *AdminHandler) SetUserVIPExpireAt(c *gin.Context) {
+	idStr := c.Param("id")
+	var id uint
+	if _, err := parseUint(idStr, &id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "无效的用户ID",
+		})
+		return
+	}
+
+	var input struct {
+		VIPExpireAt string `json:"vip_expire_at"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	var expireAt *time.Time
+	if input.VIPExpireAt != "" {
+		t, err := time.Parse(time.RFC3339, input.VIPExpireAt)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "VIP到期时间格式错误，请使用ISO 8601格式，例如：2025-12-31T23:59:59Z",
+			})
+			return
+		}
+		expireAt = &t
+	}
+
+	user, err := h.userRepo.SetVIPExpireAt(id, expireAt)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"success": false,
+			"message": "用户不存在或更新失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "VIP到期时间设置成功",
+		"data":    user,
+	})
+}
+
 // SetUserStatus sets a user's active status
 // @Summary Set user status
 // @Description Enable or disable a user account
@@ -970,6 +1315,55 @@ func (h *AdminHandler) ResetUserPassword(c *gin.Context) {
 		"message":      "密码重置成功",
 		"new_password": newPassword,
 		"data":         user,
+	})
+}
+
+// LogoutUser forces logout of a specific user by deleting all their sessions
+// @Summary Force logout user
+// @Description Force logout a user by deleting all their active sessions
+// @Tags admin
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "User ID"
+// @Success 200 {object} handler.Response "User logged out"
+// @Failure 400 {object} handler.Response "Bad request"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Failure 404 {object} handler.Response "User not found"
+// @Failure 500 {object} handler.Response "Failed to logout user"
+// @Router /admin/users/{id}/logout [post]
+func (h *AdminHandler) LogoutUser(c *gin.Context) {
+	idStr := c.Param("id")
+	var id uint
+	if _, err := parseUint(idStr, &id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "无效的用户ID",
+		})
+		return
+	}
+
+	// Verify user exists
+	_, err := h.userRepo.FindByID(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"success": false,
+			"message": "用户不存在",
+		})
+		return
+	}
+
+	// Delete all sessions for the user
+	if err := h.sessionStore.DeleteByUserID(id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "注销用户登录失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "已注销用户所有登录会话",
 	})
 }
 
@@ -1348,6 +1742,98 @@ func (h *AdminHandler) GetPublicProfileNavigation(c *gin.Context) {
 	})
 }
 
+// ==================== Custom Settings (Global HTML/CSS, Footer) ====================
+
+// CustomSettings represents custom HTML/CSS and footer settings
+type CustomSettings struct {
+	GlobalCSS  string `json:"global_css" example:"/* custom CSS */"`
+	GlobalHTML string `json:"global_html" example:"<script>/* custom script */</script>"`
+	FooterText string `json:"footer_text" example:"© 2024 Your Company"`
+}
+
+// GetCustomSettings returns custom settings
+// @Summary Get custom settings
+// @Description Get custom HTML/CSS and footer configuration
+// @Tags admin
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} handler.Response "Custom settings retrieved"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Router /admin/settings/custom [get]
+func (h *AdminHandler) GetCustomSettings(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"global_css":  h.cfg.Custom.GlobalCSS,
+			"global_html": h.cfg.Custom.GlobalHTML,
+			"footer_text": h.cfg.Custom.FooterText,
+		},
+	})
+}
+
+// UpdateCustomSettings updates custom settings
+// @Summary Update custom settings
+// @Description Update custom HTML/CSS and footer configuration
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body CustomSettings true "Custom settings"
+// @Success 200 {object} handler.Response "Custom settings updated"
+// @Failure 400 {object} handler.Response "Bad request"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Failure 500 {object} handler.Response "Failed to save settings"
+// @Router /admin/settings/custom [put]
+func (h *AdminHandler) UpdateCustomSettings(c *gin.Context) {
+	var input struct {
+		GlobalCSS  string `json:"global_css"`
+		GlobalHTML string `json:"global_html"`
+		FooterText string `json:"footer_text"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	h.cfg.Custom.GlobalCSS = input.GlobalCSS
+	h.cfg.Custom.GlobalHTML = input.GlobalHTML
+	h.cfg.Custom.FooterText = input.FooterText
+
+	if err := config.Save("config.json"); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "保存配置失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "自定义设置已更新",
+	})
+}
+
+// GetPublicCustomSettings returns custom settings for public access
+// @Summary Get public custom settings
+// @Description Get custom HTML/CSS and footer configuration for frontend display
+// @Tags public
+// @Produce json
+// @Success 200 {object} handler.Response "Custom settings retrieved"
+// @Router /custom-settings [get]
+func (h *AdminHandler) GetPublicCustomSettings(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"global_css":  h.cfg.Custom.GlobalCSS,
+			"global_html": h.cfg.Custom.GlobalHTML,
+			"footer_text": h.cfg.Custom.FooterText,
+		},
+	})
+}
+
 // ==================== API Token Management ====================
 
 // CreateAPITokenRequest represents API token creation request
@@ -1723,6 +2209,89 @@ func (h *AdminHandler) DeleteGiftCard(c *gin.Context) {
 	})
 }
 
+// ExportUnusedGiftCards exports all unused gift cards
+// @Summary Export unused gift cards
+// @Description Get all unused gift cards for export
+// @Tags admin
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} handler.Response "Unused gift cards retrieved"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Failure 500 {object} handler.Response "Failed to get gift cards"
+// @Router /admin/gift-cards/export-unused [get]
+func (h *AdminHandler) ExportUnusedGiftCards(c *gin.Context) {
+	cards, err := h.giftCardRepo.ListUnused()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "获取未使用礼品卡失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"cards": cards,
+			"total": len(cards),
+		},
+	})
+}
+
+// BatchDeleteGiftCardsRequest represents batch delete gift cards request
+type BatchDeleteGiftCardsRequest struct {
+	IDs []uint `json:"ids" binding:"required" example:"[1, 2, 3]"`
+}
+
+// BatchDeleteGiftCards deletes multiple gift cards
+// @Summary Batch delete gift cards
+// @Description Delete multiple gift cards by IDs
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body BatchDeleteGiftCardsRequest true "Gift card IDs to delete"
+// @Success 200 {object} handler.Response "Gift cards deleted"
+// @Failure 400 {object} handler.Response "Bad request"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Failure 500 {object} handler.Response "Failed to delete gift cards"
+// @Router /admin/gift-cards/batch-delete [post]
+func (h *AdminHandler) BatchDeleteGiftCards(c *gin.Context) {
+	var input BatchDeleteGiftCardsRequest
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	if len(input.IDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请选择要删除的礼品卡",
+		})
+		return
+	}
+
+	deletedCount, err := h.giftCardRepo.BatchDelete(input.IDs)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "批量删除礼品卡失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "批量删除成功",
+		"data": gin.H{
+			"deleted_count": deletedCount,
+		},
+	})
+}
+
 // ==================== External API (Token Auth) ====================
 
 // APIUpdateBalanceRequest represents external API balance update request
@@ -1969,13 +2538,545 @@ func (h *AdminHandler) APIGetUser(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
-			"id":         user.ID,
-			"username":   user.Username,
-			"email":      user.Email,
-			"balance":    user.Balance,
-			"vip_level":  user.VIPLevel,
-			"is_active":  user.IsActive,
-			"created_at": user.CreatedAt,
+			"id":            user.ID,
+			"username":      user.Username,
+			"email":         user.Email,
+			"balance":       user.Balance,
+			"vip_level":     user.VIPLevel,
+			"vip_expire_at": user.VIPExpireAt,
+			"is_active":     user.IsActive,
+			"created_at":    user.CreatedAt,
+		},
+	})
+}
+
+// APISetPasswordRequest represents external API password set request
+type APISetPasswordRequest struct {
+	UserID   uint   `json:"user_id" binding:"required" example:"1"`
+	Password string `json:"password" binding:"required" example:"newpassword123"`
+}
+
+// APISetPassword sets a user's password via API token
+// @Summary Set user password (API Token)
+// @Description Set a user's password using API token authentication. Requires 'password' or 'all' permission.
+// @Tags external-api
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Param request body APISetPasswordRequest true "Password set request"
+// @Success 200 {object} handler.Response "Password set"
+// @Failure 400 {object} handler.Response "Bad request"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Failure 403 {object} handler.Response "Forbidden - no permission"
+// @Router /external/password [post]
+func (h *AdminHandler) APISetPassword(c *gin.Context) {
+	// Token is already validated by middleware
+	token, exists := c.Get("api_token")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"message": "未授权",
+		})
+		return
+	}
+
+	apiToken := token.(*model.APIToken)
+
+	// Check permission
+	if !hasPermission(apiToken.Permissions, "password") {
+		c.JSON(http.StatusForbidden, gin.H{
+			"success": false,
+			"message": "无权限执行此操作",
+		})
+		return
+	}
+
+	var input APISetPasswordRequest
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	// Validate password
+	if !utils.IsValidPassword(input.Password) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "密码长度至少6个字符",
+		})
+		return
+	}
+
+	// Hash the new password
+	hashedPassword, err := utils.HashPassword(input.Password)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "密码加密失败",
+		})
+		return
+	}
+
+	// Reset the user's password
+	user, err := h.userRepo.ResetPassword(input.UserID, hashedPassword)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"success": false,
+			"message": "用户不存在或更新失败",
+		})
+		return
+	}
+
+	// Update token last used time
+	h.apiTokenRepo.UpdateLastUsed(apiToken.ID)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "密码设置成功",
+		"data": gin.H{
+			"user_id": user.ID,
+		},
+	})
+}
+
+// APISetVIPExpireAtRequest represents external API VIP expiration set request
+type APISetVIPExpireAtRequest struct {
+	UserID      uint   `json:"user_id" binding:"required" example:"1"`
+	VIPExpireAt string `json:"vip_expire_at" example:"2025-12-31T23:59:59Z"` // ISO 8601 format, empty means clear
+}
+
+// APISetVIPExpireAt sets a user's VIP expiration time via API token
+// @Summary Set user VIP expiration time (API Token)
+// @Description Set a user's VIP expiration time using API token authentication. Requires 'vip' or 'all' permission.
+// @Tags external-api
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Param request body APISetVIPExpireAtRequest true "VIP expiration set request"
+// @Success 200 {object} handler.Response "VIP expiration set"
+// @Failure 400 {object} handler.Response "Bad request"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Failure 403 {object} handler.Response "Forbidden - no permission"
+// @Router /external/vip-expire [post]
+func (h *AdminHandler) APISetVIPExpireAt(c *gin.Context) {
+	// Token is already validated by middleware
+	token, exists := c.Get("api_token")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"message": "未授权",
+		})
+		return
+	}
+
+	apiToken := token.(*model.APIToken)
+
+	// Check permission
+	if !hasPermission(apiToken.Permissions, "vip") {
+		c.JSON(http.StatusForbidden, gin.H{
+			"success": false,
+			"message": "无权限执行此操作",
+		})
+		return
+	}
+
+	var input APISetVIPExpireAtRequest
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	var expireAt *time.Time
+	if input.VIPExpireAt != "" {
+		t, err := time.Parse(time.RFC3339, input.VIPExpireAt)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "VIP到期时间格式错误，请使用ISO 8601格式，例如：2025-12-31T23:59:59Z",
+			})
+			return
+		}
+		expireAt = &t
+	}
+
+	user, err := h.userRepo.SetVIPExpireAt(input.UserID, expireAt)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"success": false,
+			"message": "用户不存在或更新失败",
+		})
+		return
+	}
+
+	// Update token last used time
+	h.apiTokenRepo.UpdateLastUsed(apiToken.ID)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "VIP到期时间设置成功",
+		"data": gin.H{
+			"user_id":       user.ID,
+			"vip_level":     user.VIPLevel,
+			"vip_expire_at": user.VIPExpireAt,
+		},
+	})
+}
+
+// CreateUserRequest represents user creation request for both admin and external API
+type CreateUserRequest struct {
+	ID          *uint   `json:"id" example:"100"`                           // Optional: force specific ID
+	Email       string  `json:"email" binding:"required" example:"user@example.com"`
+	Username    string  `json:"username" binding:"required" example:"newuser"`
+	Password    string  `json:"password" binding:"required" example:"password123"`
+	DisplayName string  `json:"display_name" example:"New User"`
+	Balance     float64 `json:"balance" example:"100.00"`                   // Optional: initial balance
+	VIPLevel    int     `json:"vip_level" example:"1"`                      // Optional: VIP level
+	VIPExpireAt string  `json:"vip_expire_at" example:"2025-12-31T23:59:59Z"` // Optional: VIP expiration (ISO 8601)
+	IsActive    *bool   `json:"is_active" example:"true"`                   // Optional: active status, default true
+}
+
+// APICreateUserRequest is a type alias for external API endpoint documentation
+type APICreateUserRequest = CreateUserRequest
+
+// AdminCreateUserRequest is a type alias for admin API endpoint documentation
+type AdminCreateUserRequest = CreateUserRequest
+
+// APICreateUser creates a new user via API token
+// @Summary Create user (API Token)
+// @Description Create a new user with specific parameters using API token authentication. Requires 'user' or 'all' permission.
+// @Tags external-api
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Param request body APICreateUserRequest true "User creation request"
+// @Success 200 {object} handler.Response "User created"
+// @Failure 400 {object} handler.Response "Bad request"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Failure 403 {object} handler.Response "Forbidden - no permission"
+// @Failure 409 {object} handler.Response "Conflict - user ID/email/username already exists"
+// @Router /external/user [post]
+func (h *AdminHandler) APICreateUser(c *gin.Context) {
+	// Token is already validated by middleware
+	token, exists := c.Get("api_token")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"message": "未授权",
+		})
+		return
+	}
+
+	apiToken := token.(*model.APIToken)
+
+	// Check permission
+	if !hasPermission(apiToken.Permissions, "user") {
+		c.JSON(http.StatusForbidden, gin.H{
+			"success": false,
+			"message": "无权限执行此操作",
+		})
+		return
+	}
+
+	var input APICreateUserRequest
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	// Validate email format
+	if !utils.IsValidEmail(input.Email) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "无效的邮箱地址",
+		})
+		return
+	}
+
+	// Validate username
+	if !utils.IsValidUsername(input.Username) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "用户名只能包含字母、数字和下划线，长度2-32个字符",
+		})
+		return
+	}
+
+	// Validate password
+	if !utils.IsValidPassword(input.Password) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "密码长度至少6个字符",
+		})
+		return
+	}
+
+	// Check if specific ID is requested
+	if input.ID != nil {
+		if h.userRepo.ExistsByID(*input.ID) {
+			c.JSON(http.StatusConflict, gin.H{
+				"success": false,
+				"message": "用户ID已存在",
+			})
+			return
+		}
+	}
+
+	// Check if email exists
+	if h.userRepo.ExistsByEmail(input.Email) {
+		c.JSON(http.StatusConflict, gin.H{
+			"success": false,
+			"message": "邮箱已被注册",
+		})
+		return
+	}
+
+	// Check if username exists
+	if h.userRepo.ExistsByUsername(input.Username) {
+		c.JSON(http.StatusConflict, gin.H{
+			"success": false,
+			"message": "用户名已被使用",
+		})
+		return
+	}
+
+	// Hash password
+	hashedPassword, err := utils.HashPassword(input.Password)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "密码加密失败",
+		})
+		return
+	}
+
+	// Parse VIP expiration time
+	var vipExpireAt *time.Time
+	if input.VIPExpireAt != "" {
+		t, err := time.Parse(time.RFC3339, input.VIPExpireAt)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "VIP到期时间格式错误，请使用ISO 8601格式，例如：2025-12-31T23:59:59Z",
+			})
+			return
+		}
+		vipExpireAt = &t
+	}
+
+	// Create user
+	displayName := input.DisplayName
+	if displayName == "" {
+		displayName = input.Username
+	}
+
+	isActive := true
+	if input.IsActive != nil {
+		isActive = *input.IsActive
+	}
+
+	user := &model.User{
+		Email:       input.Email,
+		Username:    input.Username,
+		Password:    hashedPassword,
+		DisplayName: displayName,
+		IsActive:    isActive,
+		Balance:     input.Balance,
+		VIPLevel:    input.VIPLevel,
+		VIPExpireAt: vipExpireAt,
+	}
+
+	// Set specific ID if provided
+	if input.ID != nil {
+		user.ID = *input.ID
+	}
+
+	if err := h.userRepo.CreateWithID(user); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "创建用户失败: " + err.Error(),
+		})
+		return
+	}
+
+	// Update token last used time
+	h.apiTokenRepo.UpdateLastUsed(apiToken.ID)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "用户创建成功",
+		"data": gin.H{
+			"id":            user.ID,
+			"username":      user.Username,
+			"email":         user.Email,
+			"display_name":  user.DisplayName,
+			"balance":       user.Balance,
+			"vip_level":     user.VIPLevel,
+			"vip_expire_at": user.VIPExpireAt,
+			"is_active":     user.IsActive,
+			"created_at":    user.CreatedAt,
+		},
+	})
+}
+
+// AdminCreateUser creates a new user via admin panel
+// @Summary Create user (Admin)
+// @Description Create a new user with specific parameters via admin panel
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body AdminCreateUserRequest true "User creation request"
+// @Success 200 {object} handler.Response "User created"
+// @Failure 400 {object} handler.Response "Bad request"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Failure 409 {object} handler.Response "Conflict - user ID/email/username already exists"
+// @Router /admin/users [post]
+func (h *AdminHandler) AdminCreateUser(c *gin.Context) {
+	var input AdminCreateUserRequest
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	// Validate email format
+	if !utils.IsValidEmail(input.Email) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "无效的邮箱地址",
+		})
+		return
+	}
+
+	// Validate username
+	if !utils.IsValidUsername(input.Username) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "用户名只能包含字母、数字和下划线，长度2-32个字符",
+		})
+		return
+	}
+
+	// Validate password
+	if !utils.IsValidPassword(input.Password) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "密码长度至少6个字符",
+		})
+		return
+	}
+
+	// Check if specific ID is requested
+	if input.ID != nil {
+		if h.userRepo.ExistsByID(*input.ID) {
+			c.JSON(http.StatusConflict, gin.H{
+				"success": false,
+				"message": "用户ID已存在",
+			})
+			return
+		}
+	}
+
+	// Check if email exists
+	if h.userRepo.ExistsByEmail(input.Email) {
+		c.JSON(http.StatusConflict, gin.H{
+			"success": false,
+			"message": "邮箱已被注册",
+		})
+		return
+	}
+
+	// Check if username exists
+	if h.userRepo.ExistsByUsername(input.Username) {
+		c.JSON(http.StatusConflict, gin.H{
+			"success": false,
+			"message": "用户名已被使用",
+		})
+		return
+	}
+
+	// Hash password
+	hashedPassword, err := utils.HashPassword(input.Password)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "密码加密失败",
+		})
+		return
+	}
+
+	// Parse VIP expiration time
+	var vipExpireAt *time.Time
+	if input.VIPExpireAt != "" {
+		t, err := time.Parse(time.RFC3339, input.VIPExpireAt)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "VIP到期时间格式错误，请使用ISO 8601格式，例如：2025-12-31T23:59:59Z",
+			})
+			return
+		}
+		vipExpireAt = &t
+	}
+
+	// Create user
+	displayName := input.DisplayName
+	if displayName == "" {
+		displayName = input.Username
+	}
+
+	isActive := true
+	if input.IsActive != nil {
+		isActive = *input.IsActive
+	}
+
+	user := &model.User{
+		Email:       input.Email,
+		Username:    input.Username,
+		Password:    hashedPassword,
+		DisplayName: displayName,
+		IsActive:    isActive,
+		Balance:     input.Balance,
+		VIPLevel:    input.VIPLevel,
+		VIPExpireAt: vipExpireAt,
+	}
+
+	// Set specific ID if provided
+	if input.ID != nil {
+		user.ID = *input.ID
+	}
+
+	if err := h.userRepo.CreateWithID(user); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "创建用户失败: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "用户创建成功",
+		"data": gin.H{
+			"id":            user.ID,
+			"username":      user.Username,
+			"email":         user.Email,
+			"display_name":  user.DisplayName,
+			"balance":       user.Balance,
+			"vip_level":     user.VIPLevel,
+			"vip_expire_at": user.VIPExpireAt,
+			"is_active":     user.IsActive,
+			"created_at":    user.CreatedAt,
 		},
 	})
 }

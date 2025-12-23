@@ -10,63 +10,7 @@
 </head>
 <body>
     <div class="admin-wrapper">
-        <!-- Sidebar -->
-        <nav class="admin-sidebar">
-            <div class="sidebar-header">
-                <i class="bi bi-shield-lock-fill me-2"></i>
-                <span>管理后台</span>
-            </div>
-            <ul class="sidebar-nav">
-                <li class="nav-item {{if eq .activeMenu "dashboard"}}active{{end}}">
-                    <a href="/admin/dashboard" class="nav-link">
-                        <i class="bi bi-speedometer2"></i>
-                        <span>控制面板</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "users"}}active{{end}}">
-                    <a href="/admin/users" class="nav-link">
-                        <i class="bi bi-people"></i>
-                        <span>用户管理</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "vip"}}active{{end}}">
-                    <a href="/admin/vip" class="nav-link">
-                        <i class="bi bi-gem"></i>
-                        <span>VIP配置</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "profile-navigation"}}active{{end}}">
-                    <a href="/admin/profile-navigation" class="nav-link">
-                        <i class="bi bi-grid-3x3-gap"></i>
-                        <span>个人中心导航</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "api-tokens"}}active{{end}}">>
-                    <a href="/admin/api-tokens" class="nav-link">
-                        <i class="bi bi-key"></i>
-                        <span>API令牌</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "gift-cards"}}active{{end}}">
-                    <a href="/admin/gift-cards" class="nav-link">
-                        <i class="bi bi-gift"></i>
-                        <span>礼品卡</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "settings"}}active{{end}}">
-                    <a href="/admin/settings" class="nav-link">
-                        <i class="bi bi-gear"></i>
-                        <span>系统设置</span>
-                    </a>
-                </li>
-            </ul>
-            <div class="sidebar-footer">
-                <a href="/admin/logout" class="nav-link">
-                    <i class="bi bi-box-arrow-right"></i>
-                    <span>退出登录</span>
-                </a>
-            </div>
-        </nav>
+        {{template "admin_sidebar" .}}
 
         <!-- Main Content -->
         <main class="admin-main">
@@ -121,15 +65,15 @@
                                 <table class="table table-borderless mb-0">
                                     <tr>
                                         <td class="text-muted">框架版本</td>
-                                        <td>Gin v1.9.1</td>
+                                        <td>Gin v{{.ginVersion}}</td>
                                     </tr>
                                     <tr>
                                         <td class="text-muted">Go 版本</td>
-                                        <td>1.21+</td>
+                                        <td>{{.goVersion}}</td>
                                     </tr>
                                     <tr>
                                         <td class="text-muted">数据库</td>
-                                        <td>SQLite</td>
+                                        <td>{{.dbType}}</td>
                                     </tr>
                                     <tr>
                                         <td class="text-muted">认证方式</td>
@@ -155,7 +99,7 @@
                                     <a href="/" class="btn btn-outline-secondary" target="_blank">
                                         <i class="bi bi-box-arrow-up-right me-2"></i>访问前台
                                     </a>
-                                    <a href="/#features" class="btn btn-outline-info" target="_blank">
+                                    <a href="/swagger/index.html" class="btn btn-outline-info" target="_blank">
                                         <i class="bi bi-book me-2"></i>API 文档
                                     </a>
                                 </div>

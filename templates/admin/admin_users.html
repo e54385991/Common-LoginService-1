@@ -10,69 +10,7 @@
 </head>
 <body>
     <div class="admin-wrapper">
-        <!-- Sidebar -->
-        <nav class="admin-sidebar">
-            <div class="sidebar-header">
-                <i class="bi bi-shield-lock-fill me-2"></i>
-                <span>管理后台</span>
-            </div>
-            <ul class="sidebar-nav">
-                <li class="nav-item {{if eq .activeMenu "dashboard"}}active{{end}}">
-                    <a href="/admin/dashboard" class="nav-link">
-                        <i class="bi bi-speedometer2"></i>
-                        <span>控制面板</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "users"}}active{{end}}">
-                    <a href="/admin/users" class="nav-link">
-                        <i class="bi bi-people"></i>
-                        <span>用户管理</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "balance-logs"}}active{{end}}">
-                    <a href="/admin/balance-logs" class="nav-link">
-                        <i class="bi bi-journal-text"></i>
-                        <span>余额日志</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "vip"}}active{{end}}">
-                    <a href="/admin/vip" class="nav-link">
-                        <i class="bi bi-gem"></i>
-                        <span>VIP配置</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "profile-navigation"}}active{{end}}">
-                    <a href="/admin/profile-navigation" class="nav-link">
-                        <i class="bi bi-grid-3x3-gap"></i>
-                        <span>个人中心导航</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "api-tokens"}}active{{end}}">
-                    <a href="/admin/api-tokens" class="nav-link">
-                        <i class="bi bi-key"></i>
-                        <span>API令牌</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "gift-cards"}}active{{end}}">
-                    <a href="/admin/gift-cards" class="nav-link">
-                        <i class="bi bi-gift"></i>
-                        <span>礼品卡</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "settings"}}active{{end}}">
-                    <a href="/admin/settings" class="nav-link">
-                        <i class="bi bi-gear"></i>
-                        <span>系统设置</span>
-                    </a>
-                </li>
-            </ul>
-            <div class="sidebar-footer">
-                <a href="/admin/logout" class="nav-link">
-                    <i class="bi bi-box-arrow-right"></i>
-                    <span>退出登录</span>
-                </a>
-            </div>
-        </nav>
+        {{template "admin_sidebar" .}}
 
         <!-- Main Content -->
         <main class="admin-main">
@@ -183,6 +121,19 @@
                             <option value="9">VIP 9</option>
                             <option value="10">VIP 10</option>
                         </select>
+                    </div>
+                    
+                    <!-- VIP Expire Section -->
+                    <div class="mb-3">
+                        <label for="editVIPExpireAt" class="form-label">VIP有效期至</label>
+                        <input type="datetime-local" class="form-control" id="editVIPExpireAt">
+                        <div class="d-flex gap-2 mt-2">
+                            <button type="button" class="btn btn-sm btn-outline-success" onclick="addVIPDays(30)">+30天</button>
+                            <button type="button" class="btn btn-sm btn-outline-success" onclick="addVIPDays(90)">+90天</button>
+                            <button type="button" class="btn btn-sm btn-outline-success" onclick="addVIPDays(365)">+1年</button>
+                            <button type="button" class="btn btn-sm btn-outline-warning" onclick="clearVIPExpire()">永久</button>
+                        </div>
+                        <small class="text-muted mt-1 d-block">留空表示永久VIP。VIP等级为0时此设置无效。</small>
                     </div>
                     
                     <!-- Status Section -->
@@ -361,7 +312,7 @@
                     <td class="user-vip-level">
                         ${user.vip_level === 0 
                             ? '<span class="badge bg-secondary">普通用户</span>' 
-                            : `<span class="badge bg-warning">VIP ${user.vip_level}</span>`}
+                            : `<span class="badge bg-warning">VIP ${user.vip_level}</span>${user.vip_expire_at ? '<br><small class="text-muted">至 ' + formatDate(user.vip_expire_at) + '</small>' : '<br><small class="text-success">永久</small>'}`}
                     </td>
                     <td>
                         ${user.is_active 
@@ -371,8 +322,11 @@
                     </td>
                     <td>${formatDate(user.created_at)}</td>
                     <td>
-                        <button class="btn btn-sm btn-outline-primary" onclick="openEditModal(${user.id}, ${user.balance.toFixed(2)}, ${user.vip_level}, ${user.is_active})">
+                        <button class="btn btn-sm btn-outline-primary me-1" onclick="openEditModal(${user.id}, ${user.balance.toFixed(2)}, ${user.vip_level}, ${user.is_active}, '${user.vip_expire_at || ''}')" title="编辑">
                             <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="logoutUser(${user.id})" title="注销登录">
+                            <i class="bi bi-box-arrow-right"></i>
                         </button>
                     </td>
                 </tr>
@@ -427,12 +381,36 @@
             pagination.innerHTML = html;
         }
 
-        function openEditModal(userId, balance, vipLevel, isActive) {
+        function openEditModal(userId, balance, vipLevel, isActive, vipExpireAt) {
             document.getElementById('editUserId').value = userId;
             document.getElementById('editBalance').value = balance;
             document.getElementById('editVIPLevel').value = vipLevel;
             document.getElementById('editIsActive').checked = isActive;
+            
+            // Set VIP expire at
+            const expireInput = document.getElementById('editVIPExpireAt');
+            if (vipExpireAt && vipExpireAt !== 'null' && vipExpireAt !== '') {
+                // Convert ISO date to local datetime-local format
+                const date = new Date(vipExpireAt);
+                const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+                expireInput.value = localDate.toISOString().slice(0, 16);
+            } else {
+                expireInput.value = '';
+            }
+            
             editModal.show();
+        }
+
+        function addVIPDays(days) {
+            const expireInput = document.getElementById('editVIPExpireAt');
+            let baseDate = expireInput.value ? new Date(expireInput.value) : new Date();
+            baseDate.setDate(baseDate.getDate() + days);
+            const localDate = new Date(baseDate.getTime() - baseDate.getTimezoneOffset() * 60000);
+            expireInput.value = localDate.toISOString().slice(0, 16);
+        }
+
+        function clearVIPExpire() {
+            document.getElementById('editVIPExpireAt').value = '';
         }
 
         function adjustBalance(amount) {
@@ -456,6 +434,7 @@
             const balance = parseFloat(document.getElementById('editBalance').value);
             const vipLevel = parseInt(document.getElementById('editVIPLevel').value);
             const isActive = document.getElementById('editIsActive').checked;
+            const vipExpireAtInput = document.getElementById('editVIPExpireAt').value;
 
             // Client-side validation
             if (isNaN(balance)) {
@@ -494,6 +473,26 @@
                 if (!vipData.success) {
                     showToast('VIP等级更新失败: ' + vipData.message, true);
                     return;
+                }
+
+                // Update VIP expiration (only if VIP level > 0)
+                if (vipLevel > 0) {
+                    let expireAtValue = '';
+                    if (vipExpireAtInput) {
+                        // Convert local datetime to ISO 8601 format
+                        const localDate = new Date(vipExpireAtInput);
+                        expireAtValue = localDate.toISOString();
+                    }
+                    const vipExpireRes = await fetch(`/api/admin/users/${userId}/vip-expire`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ vip_expire_at: expireAtValue })
+                    });
+                    const vipExpireData = await vipExpireRes.json();
+                    if (!vipExpireData.success) {
+                        showToast('VIP有效期更新失败: ' + vipExpireData.message, true);
+                        return;
+                    }
                 }
 
                 // Update status
@@ -554,6 +553,28 @@
             passwordInput.select();
             document.execCommand('copy');
             showToast('密码已复制到剪贴板');
+        }
+
+        async function logoutUser(userId) {
+            if (!confirm('确定要注销此用户的所有登录会话吗？用户将需要重新登录。')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/admin/users/${userId}/logout`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast('已注销用户所有登录会话');
+                } else {
+                    showToast('注销失败: ' + data.message, true);
+                }
+            } catch (error) {
+                showToast('操作失败: ' + error.message, true);
+            }
         }
     </script>
 </body>

@@ -2,12 +2,19 @@ package utils
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"regexp"
 	"strings"
 
 	"golang.org/x/crypto/bcrypt"
 )
+
+// HashSHA256 creates a SHA256 hash of the input string
+func HashSHA256(input string) string {
+	hash := sha256.Sum256([]byte(input))
+	return hex.EncodeToString(hash[:])
+}
 
 // HashPassword hashes a password using bcrypt
 func HashPassword(password string) (string, error) {
@@ -36,9 +43,9 @@ func IsValidEmail(email string) bool {
 	return emailRegex.MatchString(email)
 }
 
-// IsValidUsername validates a username (alphanumeric, 3-30 chars)
+// IsValidUsername validates a username (alphanumeric and underscore, 2-32 chars)
 func IsValidUsername(username string) bool {
-	if len(username) < 3 || len(username) > 30 {
+	if len(username) < 2 || len(username) > 32 {
 		return false
 	}
 	usernameRegex := regexp.MustCompile(`^[a-zA-Z0-9_]+$`)

@@ -133,3 +133,20 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+// Language Switcher
+async function setLanguage(lang) {
+    try {
+        const response = await fetch('/api/i18n/set-language', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lang: lang })
+        });
+        const data = await response.json();
+        if (data.success) {
+            window.location.reload();
+        }
+    } catch (error) {
+        console.error('Failed to set language:', error);
+    }
+}

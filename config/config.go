@@ -11,11 +11,16 @@ type Config struct {
 	Server            ServerConfig            `json:"server"`
 	Database          DatabaseConfig          `json:"database"`
 	JWT               JWTConfig               `json:"jwt"`
+	Session           SessionConfig           `json:"session"`
 	GoogleOAuth       GoogleOAuthConfig       `json:"google_oauth"`
+	SteamOAuth        SteamOAuthConfig        `json:"steam_oauth"`
+	DiscordOAuth      DiscordOAuthConfig      `json:"discord_oauth"`
 	GmailAPI          GmailAPIConfig          `json:"gmail_api"`
 	Admin             AdminConfig             `json:"admin"`
 	Captcha           CaptchaConfig           `json:"captcha"`
 	Site              SiteConfig              `json:"site"`
+	Custom            CustomConfig            `json:"custom"`
+	Access            AccessConfig            `json:"access"`
 	Payment           PaymentConfig           `json:"payment"`
 	VIPLevels         []VIPLevelConfig        `json:"vip_levels"`
 	SignedURL         SignedURLConfig         `json:"signed_url"`
@@ -54,6 +59,24 @@ type SiteConfig struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	Logo        string `json:"logo"`
+}
+
+// CustomConfig holds custom HTML/CSS and footer text configuration
+type CustomConfig struct {
+	GlobalCSS  string `json:"global_css"`  // Custom CSS to inject in all pages
+	GlobalHTML string `json:"global_html"` // Custom HTML to inject in all pages (e.g., analytics scripts)
+	FooterText string `json:"footer_text"` // Custom footer text (supports HTML)
+}
+
+// AccessConfig holds access control configuration for registration and login
+type AccessConfig struct {
+	RegistrationEnabled  bool   `json:"registration_enabled"`
+	LoginEnabled         bool   `json:"login_enabled"`
+	RegistrationMessage  string `json:"registration_message"`   // Custom message when registration is disabled
+	LoginMessage         string `json:"login_message"`          // Custom message when login is disabled
+	RegistrationStartUID uint   `json:"registration_start_uid"` // Minimum UID for backend registration (0 = no restriction)
+	AllowEmailLogin      bool   `json:"allow_email_login"`      // Allow login with email (default: true)
+	AllowUsernameLogin   bool   `json:"allow_username_login"`   // Allow login with username (default: false)
 }
 
 // PaymentConfig holds payment gateway configuration
@@ -106,12 +129,54 @@ type JWTConfig struct {
 	ExpireHour int    `json:"expire_hour"`
 }
 
+// SessionConfig holds session storage configuration
+type SessionConfig struct {
+	// Storage type: "mysql" or "redis" (default: "mysql")
+	StorageType string `json:"storage_type"`
+	// Redis configuration (only used when storage_type is "redis")
+	Redis RedisConfig `json:"redis"`
+}
+
+// RedisConfig holds Redis connection configuration
+type RedisConfig struct {
+	Host     string `json:"host"`
+	Port     string `json:"port"`
+	Password string `json:"password"`
+	DB       int    `json:"db"`
+	// Key prefix for session keys in Redis
+	KeyPrefix string `json:"key_prefix"`
+}
+
 // GoogleOAuthConfig holds Google OAuth configuration
 type GoogleOAuthConfig struct {
-	Enabled      bool   `json:"enabled"`
-	ClientID     string `json:"client_id"`
-	ClientSecret string `json:"client_secret"`
-	RedirectURL  string `json:"redirect_url"`
+	Enabled         bool   `json:"enabled"`
+	ClientID        string `json:"client_id"`
+	ClientSecret    string `json:"client_secret"`
+	RedirectURL     string `json:"redirect_url"`
+	BindRedirectURL string `json:"bind_redirect_url"` // Redirect URL for account binding (if different from login)
+	AllowBind       bool   `json:"allow_bind"`        // Allow users to bind Google account in profile
+	AllowUnbind     bool   `json:"allow_unbind"`      // Allow users to unbind Google account in profile
+}
+
+// SteamOAuthConfig holds Steam OpenID configuration
+type SteamOAuthConfig struct {
+	Enabled         bool   `json:"enabled"`
+	APIKey          string `json:"api_key"`
+	RedirectURL     string `json:"redirect_url"`
+	BindRedirectURL string `json:"bind_redirect_url"` // Redirect URL for account binding (if different from login)
+	AllowBind       bool   `json:"allow_bind"`        // Allow users to bind Steam account in profile
+	AllowUnbind     bool   `json:"allow_unbind"`      // Allow users to unbind Steam account in profile
+}
+
+// DiscordOAuthConfig holds Discord OAuth configuration
+type DiscordOAuthConfig struct {
+	Enabled         bool   `json:"enabled"`
+	ClientID        string `json:"client_id"`
+	ClientSecret    string `json:"client_secret"`
+	RedirectURL     string `json:"redirect_url"`
+	BindRedirectURL string `json:"bind_redirect_url"` // Redirect URL for account binding (if different from login)
+	AllowBind       bool   `json:"allow_bind"`        // Allow users to bind Discord account in profile
+	AllowUnbind     bool   `json:"allow_unbind"`      // Allow users to unbind Discord account in profile
 }
 
 // GmailAPIConfig holds Gmail API configuration
@@ -163,8 +228,30 @@ func Load(configPath string) (*Config, error) {
 				Secret:     "your-secret-key-change-in-production",
 				ExpireHour: 24,
 			},
+			Session: SessionConfig{
+				StorageType: "mysql",
+				Redis: RedisConfig{
+					Host:      "127.0.0.1",
+					Port:      "6379",
+					Password:  "",
+					DB:        0,
+					KeyPrefix: "session:",
+				},
+			},
 			GoogleOAuth: GoogleOAuthConfig{
-				Enabled: false,
+				Enabled:     false,
+				AllowBind:   true,
+				AllowUnbind: true,
+			},
+			SteamOAuth: SteamOAuthConfig{
+				Enabled:     false,
+				AllowBind:   true,
+				AllowUnbind: true,
+			},
+			DiscordOAuth: DiscordOAuthConfig{
+				Enabled:     false,
+				AllowBind:   true,
+				AllowUnbind: true,
 			},
 			GmailAPI: GmailAPIConfig{
 				Enabled: false,
@@ -180,6 +267,20 @@ func Load(configPath string) (*Config, error) {
 				Title:       "Common Login Service",
 				Description: "统一身份认证服务",
 				Logo:        "",
+			},
+			Custom: CustomConfig{
+				GlobalCSS:  "",
+				GlobalHTML: "",
+				FooterText: "",
+			},
+			Access: AccessConfig{
+				RegistrationEnabled:  true,
+				LoginEnabled:         true,
+				RegistrationMessage:  "",
+				LoginMessage:         "",
+				RegistrationStartUID: 0,     // 0 = no restriction, set to e.g. 26000 to start UIDs from that value
+				AllowEmailLogin:      true,  // Allow login with email by default
+				AllowUsernameLogin:   false, // Allow login with username, disabled by default
 			},
 			Payment: PaymentConfig{
 				Enabled:    false,
@@ -256,6 +357,22 @@ func Load(configPath string) (*Config, error) {
 		if signedURLSecret := os.Getenv("SIGNED_URL_SECRET"); signedURLSecret != "" {
 			cfg.SignedURL.Secret = signedURLSecret
 			cfg.SignedURL.Enabled = true
+		}
+		// Session storage environment variables
+		if sessionStorageType := os.Getenv("SESSION_STORAGE_TYPE"); sessionStorageType != "" {
+			cfg.Session.StorageType = sessionStorageType
+		}
+		if redisHost := os.Getenv("REDIS_HOST"); redisHost != "" {
+			cfg.Session.Redis.Host = redisHost
+		}
+		if redisPort := os.Getenv("REDIS_PORT"); redisPort != "" {
+			cfg.Session.Redis.Port = redisPort
+		}
+		if redisPassword := os.Getenv("REDIS_PASSWORD"); redisPassword != "" {
+			cfg.Session.Redis.Password = redisPassword
+		}
+		if redisKeyPrefix := os.Getenv("REDIS_KEY_PREFIX"); redisKeyPrefix != "" {
+			cfg.Session.Redis.KeyPrefix = redisKeyPrefix
 		}
 	})
 	return cfg, err

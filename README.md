@@ -10,6 +10,7 @@ A unified authentication service built with Go Gin framework, featuring Google O
 - ✅ Google OAuth One-Click Login / Google OAuth 一键登录
 - ✅ Gmail API Password Reset / Gmail API 密码重置邮件
 - ✅ JWT Token Authentication / JWT Token 身份验证
+- ✅ Configurable Session Storage (MySQL/Redis) / 可配置会话存储（MySQL/Redis）
 - ✅ Admin Backend Configuration / 管理后台配置
 - ✅ User Balance Management / 用户余额管理
 - ✅ User VIP Level System / 用户 VIP 等级系统
@@ -21,8 +22,9 @@ A unified authentication service built with Go Gin framework, featuring Google O
 
 ### Requirements / 环境要求
 
-- Go 1.21+
+- Go 1.25+
 - MySQL 8.4+
+- Redis 6.0+ (optional, for Redis session storage) / Redis 6.0+（可选，用于 Redis 会话存储）
 
 ### Installation / 安装运行
 
@@ -72,6 +74,16 @@ Create a `config.json` file:
     "secret": "your-secret-key-change-in-production",
     "expire_hour": 24
   },
+  "session": {
+    "storage_type": "mysql",
+    "redis": {
+      "host": "127.0.0.1",
+      "port": "6379",
+      "password": "",
+      "db": 0,
+      "key_prefix": "session:"
+    }
+  },
   "google_oauth": {
     "enabled": true,
     "client_id": "your-google-client-id",
@@ -96,6 +108,33 @@ Create a `config.json` file:
 }
 ```
 
+### Session Storage / 会话存储
+
+User login sessions are stored server-side and can be configured to use either MySQL or Redis.
+
+用户登录会话存储在服务器端，可以配置使用 MySQL 或 Redis。
+
+**How Sessions Work / 会话工作原理：**
+- When a user logs in, a JWT token is generated and returned to the client
+- 用户登录时，会生成 JWT 令牌并返回给客户端
+- A SHA256 hash of the token is stored server-side (MySQL or Redis) for session tracking
+- 令牌的 SHA256 哈希值存储在服务器端（MySQL 或 Redis）用于会话跟踪
+- On each request, the token is validated and checked against the stored session
+- 每次请求时，令牌会被验证并与存储的会话进行核对
+- Sessions can be invalidated by deleting them from storage (e.g., on logout)
+- 会话可以通过从存储中删除来失效（例如，在退出登录时）
+
+**Storage Types / 存储类型：**
+- `mysql` (default): Sessions are stored in the MySQL database / 会话存储在 MySQL 数据库中
+- `redis`: Sessions are stored in Redis with automatic TTL expiration / 会话存储在 Redis 中，支持自动 TTL 过期
+
+**Encryption / 加密说明：**
+- JWT tokens are signed using HMAC-SHA256 algorithm / JWT 令牌使用 HMAC-SHA256 算法签名
+- The JWT secret key is configurable via `jwt.secret` in config or `JWT_SECRET` environment variable
+- JWT 密钥可通过配置文件中的 `jwt.secret` 或环境变量 `JWT_SECRET` 进行配置
+- User passwords are hashed using bcrypt / 用户密码使用 bcrypt 进行哈希处理
+- Session tokens are stored as SHA256 hashes (not plain text) / 会话令牌以 SHA256 哈希值存储（非明文）
+
 ### Environment Variables / 环境变量
 
 Configuration can also be done via environment variables:
@@ -111,6 +150,11 @@ Configuration can also be done via environment variables:
 - `DB_USER` - Database user / 数据库用户
 - `DB_PASSWORD` - Database password / 数据库密码
 - `DB_NAME` - Database name / 数据库名称
+- `SESSION_STORAGE_TYPE` - Session storage type (`mysql` or `redis`) / 会话存储类型
+- `REDIS_HOST` - Redis host / Redis 主机
+- `REDIS_PORT` - Redis port / Redis 端口
+- `REDIS_PASSWORD` - Redis password / Redis 密码
+- `REDIS_KEY_PREFIX` - Redis key prefix for sessions / Redis 会话键前缀
 - `SIGNED_URL_SECRET` - HMAC secret for signed URL callbacks / 签名URL回调的HMAC密钥
 
 ## API Documentation / API 接口文档
@@ -317,6 +361,177 @@ Content-Type: application/json
 
 {
   "is_active": true
+}
+```
+
+### External API (Token Authentication) / 外部API（令牌认证）
+
+These endpoints require API token authentication via `X-API-Key` header or `Authorization: Bearer <token>`.
+
+这些接口需要通过 `X-API-Key` 头或 `Authorization: Bearer <token>` 进行 API 令牌认证。
+
+#### Create API Token / 创建 API 令牌
+
+API tokens can be created in the admin panel at `/admin/api-tokens`. Available permissions:
+- `balance` - Update user balance / 更新用户余额
+- `vip` - Set VIP level and expiration / 设置 VIP 等级和到期时间
+- `password` - Set user password / 设置用户密码
+- `user` - Create new users / 创建新用户
+- `all` - All permissions / 所有权限
+
+#### Get User Info / 获取用户信息
+
+```http
+GET /api/external/user?user_id=123
+X-API-Key: your-api-token
+```
+
+Response / 响应:
+```json
+{
+  "success": true,
+  "data": {
+    "id": 123,
+    "username": "johndoe",
+    "email": "user@example.com",
+    "balance": 100.50,
+    "vip_level": 2,
+    "vip_expire_at": "2025-12-31T23:59:59Z",
+    "is_active": true,
+    "created_at": "2024-01-01T00:00:00Z"
+  }
+}
+```
+
+#### Update User Balance / 更新用户余额
+
+Requires `balance` or `all` permission.
+
+需要 `balance` 或 `all` 权限。
+
+```http
+POST /api/external/balance
+X-API-Key: your-api-token
+Content-Type: application/json
+
+{
+  "user_id": 123,
+  "amount": 50.00,
+  "reason": "API recharge"
+}
+```
+
+Use positive values to add balance, negative values to subtract.
+
+正数表示增加余额，负数表示减少余额。
+
+#### Set User VIP Level / 设置用户 VIP 等级
+
+Requires `vip` or `all` permission.
+
+需要 `vip` 或 `all` 权限。
+
+```http
+POST /api/external/vip-level
+X-API-Key: your-api-token
+Content-Type: application/json
+
+{
+  "user_id": 123,
+  "vip_level": 3
+}
+```
+
+#### Set User VIP Expiration / 设置用户 VIP 到期时间
+
+Requires `vip` or `all` permission.
+
+需要 `vip` 或 `all` 权限。
+
+```http
+POST /api/external/vip-expire
+X-API-Key: your-api-token
+Content-Type: application/json
+
+{
+  "user_id": 123,
+  "vip_expire_at": "2025-12-31T23:59:59Z"
+}
+```
+
+Set `vip_expire_at` to empty string to clear expiration (permanent VIP).
+
+将 `vip_expire_at` 设为空字符串可清除到期时间（永久 VIP）。
+
+#### Set User Password / 设置用户密码
+
+Requires `password` or `all` permission.
+
+需要 `password` 或 `all` 权限。
+
+```http
+POST /api/external/password
+X-API-Key: your-api-token
+Content-Type: application/json
+
+{
+  "user_id": 123,
+  "password": "newpassword123"
+}
+```
+
+#### Create User / 创建用户
+
+Requires `user` or `all` permission. Supports setting specific ID, initial balance, VIP level, and VIP expiration.
+
+需要 `user` 或 `all` 权限。支持设置指定 ID、初始余额、VIP 等级和 VIP 到期时间。
+
+```http
+POST /api/external/user
+X-API-Key: your-api-token
+Content-Type: application/json
+
+{
+  "id": 100,
+  "email": "newuser@example.com",
+  "username": "newuser",
+  "password": "password123",
+  "display_name": "New User",
+  "balance": 100.00,
+  "vip_level": 1,
+  "vip_expire_at": "2025-12-31T23:59:59Z",
+  "is_active": true
+}
+```
+
+| Parameter | Required | Description | 说明 |
+|-----------|----------|-------------|------|
+| `id` | No | Force specific user ID | 强制指定用户 ID |
+| `email` | Yes | User email address | 用户邮箱地址 |
+| `username` | Yes | Unique username (3-30 chars, alphanumeric and underscore) | 唯一用户名（3-30字符，字母数字下划线） |
+| `password` | Yes | Password (min 6 chars) | 密码（至少6个字符） |
+| `display_name` | No | Display name (defaults to username) | 显示名称（默认为用户名） |
+| `balance` | No | Initial balance (default 0) | 初始余额（默认0） |
+| `vip_level` | No | VIP level (default 0) | VIP 等级（默认0） |
+| `vip_expire_at` | No | VIP expiration time (ISO 8601 format) | VIP 到期时间（ISO 8601 格式） |
+| `is_active` | No | Account active status (default true) | 账户激活状态（默认 true） |
+
+Response / 响应:
+```json
+{
+  "success": true,
+  "message": "用户创建成功",
+  "data": {
+    "id": 100,
+    "username": "newuser",
+    "email": "newuser@example.com",
+    "display_name": "New User",
+    "balance": 100.00,
+    "vip_level": 1,
+    "vip_expire_at": "2025-12-31T23:59:59Z",
+    "is_active": true,
+    "created_at": "2024-01-15T10:30:00Z"
+  }
 }
 ```
 

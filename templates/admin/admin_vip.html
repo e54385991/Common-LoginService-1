@@ -49,6 +49,9 @@
             margin-bottom: 16px;
             min-height: 48px;
         }
+        .vip-description > *:first-child {
+            margin-top: 0 !important;
+        }
         .vip-duration {
             color: #888;
             font-size: 0.9rem;
@@ -72,63 +75,7 @@
 </head>
 <body>
     <div class="admin-wrapper">
-        <!-- Sidebar -->
-        <nav class="admin-sidebar">
-            <div class="sidebar-header">
-                <i class="bi bi-shield-lock-fill me-2"></i>
-                <span>管理后台</span>
-            </div>
-            <ul class="sidebar-nav">
-                <li class="nav-item {{if eq .activeMenu "dashboard"}}active{{end}}">
-                    <a href="/admin/dashboard" class="nav-link">
-                        <i class="bi bi-speedometer2"></i>
-                        <span>控制面板</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "users"}}active{{end}}">
-                    <a href="/admin/users" class="nav-link">
-                        <i class="bi bi-people"></i>
-                        <span>用户管理</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "vip"}}active{{end}}">
-                    <a href="/admin/vip" class="nav-link">
-                        <i class="bi bi-gem"></i>
-                        <span>VIP配置</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "profile-navigation"}}active{{end}}">
-                    <a href="/admin/profile-navigation" class="nav-link">
-                        <i class="bi bi-grid-3x3-gap"></i>
-                        <span>个人中心导航</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "api-tokens"}}active{{end}}">>
-                    <a href="/admin/api-tokens" class="nav-link">
-                        <i class="bi bi-key"></i>
-                        <span>API令牌</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "gift-cards"}}active{{end}}">
-                    <a href="/admin/gift-cards" class="nav-link">
-                        <i class="bi bi-gift"></i>
-                        <span>礼品卡</span>
-                    </a>
-                </li>
-                <li class="nav-item {{if eq .activeMenu "settings"}}active{{end}}">
-                    <a href="/admin/settings" class="nav-link">
-                        <i class="bi bi-gear"></i>
-                        <span>系统设置</span>
-                    </a>
-                </li>
-            </ul>
-            <div class="sidebar-footer">
-                <a href="/admin/logout" class="nav-link">
-                    <i class="bi bi-box-arrow-right"></i>
-                    <span>退出登录</span>
-                </a>
-            </div>
-        </nav>
+        {{template "admin_sidebar" .}}
 
         <!-- Main Content -->
         <main class="admin-main">
@@ -338,6 +285,14 @@
             notificationToast.show();
         }
 
+        // Helper function to escape HTML for textarea display
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         async function loadVIPLevels() {
             try {
                 const response = await fetch('/api/admin/settings/vip-levels');
@@ -415,8 +370,8 @@
                             </div>
                             <div class="row">
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label">描述</label>
-                                    <input type="text" class="form-control" value="${level.description}" onchange="updateVIPLevel(${index}, 'description', this.value)">
+                                    <label class="form-label">描述 <small class="text-muted">(支持HTML代码)</small></label>
+                                    <textarea class="form-control" rows="3" onchange="updateVIPLevel(${index}, 'description', this.value)" placeholder="支持HTML标签，如 &lt;b&gt;加粗&lt;/b&gt;、&lt;br&gt;换行等">${escapeHtml(level.description)}</textarea>
                                 </div>
                                 <div class="col-md-3 mb-3">
                                     <label class="form-label">图标 (Bootstrap Icons)</label>
@@ -468,7 +423,7 @@
                                 <div class="vip-price">¥${level.price}<small>/${level.duration > 0 ? level.duration + '天' : '永久'}</small></div>
                             </div>
                             <div class="vip-body text-center">
-                                <p class="vip-description">${level.description}</p>
+                                ${level.description ? `<p class="vip-description">${level.description}</p>` : ''}
                                 <p class="vip-duration">
                                     <i class="bi bi-clock me-1"></i>
                                     ${level.duration > 0 ? level.duration + ' 天' : '永久'}

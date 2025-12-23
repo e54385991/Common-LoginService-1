@@ -6,10 +6,34 @@ import (
 
 	"github.com/e54385991/Common-LoginService/config"
 	"github.com/e54385991/Common-LoginService/internal/i18n"
+	"github.com/e54385991/Common-LoginService/internal/model"
 	"github.com/e54385991/Common-LoginService/internal/repository"
 	"github.com/e54385991/Common-LoginService/internal/service"
 	"github.com/gin-gonic/gin"
 )
+
+// UserRepository interface for VIP expiration check
+type UserRepository interface {
+	CheckAndExpireVIP(user *model.User) (bool, error)
+}
+
+// userRepo holds the user repository reference for VIP expiration checks
+var userRepo UserRepository
+
+// SetUserRepository sets the user repository for middleware VIP expiration checks
+func SetUserRepository(repo UserRepository) {
+	userRepo = repo
+}
+
+// checkAndExpireVIP checks if user's VIP has expired and resets if necessary
+func checkAndExpireVIP(user *model.User) {
+	if userRepo == nil {
+		return
+	}
+	
+	// Delegate all VIP expiration logic to the repository
+	userRepo.CheckAndExpireVIP(user)
+}
 
 // AuthMiddleware creates authentication middleware
 func AuthMiddleware(authService *service.AuthService, cfg *config.Config) gin.HandlerFunc {
@@ -50,6 +74,9 @@ func AuthMiddleware(authService *service.AuthService, cfg *config.Config) gin.Ha
 			c.Abort()
 			return
 		}
+
+		// Check and auto-expire VIP if necessary
+		checkAndExpireVIP(user)
 
 		// Set user in context
 		c.Set("user", user)
@@ -127,6 +154,8 @@ func OptionalAuthMiddleware(authService *service.AuthService, cfg *config.Config
 		if tokenString != "" {
 			user, err := authService.ValidateToken(tokenString)
 			if err == nil {
+				// Check and auto-expire VIP if necessary
+				checkAndExpireVIP(user)
 				c.Set("user", user)
 				c.Set("userID", user.ID)
 			}

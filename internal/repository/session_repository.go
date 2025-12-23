@@ -1,13 +1,15 @@
 package repository
 
 import (
+	"errors"
 	"time"
 
 	"github.com/e54385991/Common-LoginService/internal/model"
 	"gorm.io/gorm"
 )
 
-// SessionRepository handles session database operations
+// SessionRepository handles session database operations using MySQL
+// It implements the SessionStore interface
 type SessionRepository struct {
 	db *gorm.DB
 }
@@ -27,6 +29,9 @@ func (r *SessionRepository) FindByToken(token string) (*model.Session, error) {
 	var session model.Session
 	err := r.db.Where("token = ? AND expires_at > ?", token, time.Now()).First(&session).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrSessionNotFound
+		}
 		return nil, err
 	}
 	return &session, nil
