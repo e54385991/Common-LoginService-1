@@ -121,7 +121,7 @@ func main() {
 	}
 
 	// Auto migrate
-	if err := db.AutoMigrate(&model.User{}, &model.Session{}, &model.SystemConfig{}, &model.PasswordResetRequest{}, &model.APIToken{}, &model.GiftCard{}, &model.PaymentOrder{}, &model.BalanceLog{}); err != nil {
+	if err := db.AutoMigrate(&model.User{}, &model.Session{}, &model.SystemConfig{}, &model.PasswordResetRequest{}, &model.APIToken{}, &model.GiftCard{}, &model.PaymentOrder{}, &model.BalanceLog{}, &model.LoginLog{}); err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
 
@@ -132,6 +132,7 @@ func main() {
 	giftCardRepo := repository.NewGiftCardRepository(db)
 	paymentOrderRepo := repository.NewPaymentOrderRepository(db)
 	balanceLogRepo := repository.NewBalanceLogRepository(db)
+	loginLogRepo := repository.NewLoginLogRepository(db)
 
 	// Initialize session store based on configuration
 	var sessionStore repository.SessionStore
@@ -149,6 +150,7 @@ func main() {
 
 	// Initialize services
 	authService := service.NewAuthService(userRepo, sessionStore, cfg)
+	authService.SetLoginLogRepo(loginLogRepo)
 	emailService := service.NewEmailService(cfg)
 	captchaService := service.NewCaptchaService()
 
@@ -161,6 +163,7 @@ func main() {
 	steamHandler := handler.NewSteamAuthHandler(authService, cfg)
 	discordHandler := handler.NewDiscordAuthHandler(authService, cfg)
 	adminHandler := handler.NewAdminHandler(cfg, configRepo, userRepo, apiTokenRepo, giftCardRepo, balanceLogRepo, sessionStore)
+	adminHandler.SetLoginLogRepo(loginLogRepo)
 	captchaHandler := handler.NewCaptchaHandler(captchaService, cfg)
 	paymentHandler := handler.NewPaymentHandler(cfg, paymentOrderRepo, userRepo, balanceLogRepo)
 
@@ -299,6 +302,7 @@ func main() {
 			adminProtected.GET("/gift-cards", adminHandler.AdminGiftCards)
 			adminProtected.GET("/profile-navigation", adminHandler.AdminProfileNavigation)
 			adminProtected.GET("/balance-logs", adminHandler.AdminBalanceLogs)
+			adminProtected.GET("/login-logs", adminHandler.AdminLoginLogs)
 		}
 	}
 
@@ -329,6 +333,8 @@ func main() {
 			adminAPIProtected.PUT("/settings/access", adminHandler.UpdateAccessSettings)
 			adminAPIProtected.GET("/settings/custom", adminHandler.GetCustomSettings)
 			adminAPIProtected.PUT("/settings/custom", adminHandler.UpdateCustomSettings)
+			adminAPIProtected.GET("/settings/login-protection", adminHandler.GetLoginProtectionSettings)
+			adminAPIProtected.PUT("/settings/login-protection", adminHandler.UpdateLoginProtectionSettings)
 
 			// User management routes
 			adminAPIProtected.GET("/users", adminHandler.ListUsers)
@@ -357,6 +363,9 @@ func main() {
 
 			// Balance log management routes
 			adminAPIProtected.GET("/balance-logs", adminHandler.ListBalanceLogs)
+
+			// Login log management routes
+			adminAPIProtected.GET("/login-logs", adminHandler.ListLoginLogs)
 		}
 	}
 

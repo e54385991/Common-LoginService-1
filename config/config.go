@@ -25,6 +25,15 @@ type Config struct {
 	VIPLevels         []VIPLevelConfig        `json:"vip_levels"`
 	SignedURL         SignedURLConfig         `json:"signed_url"`
 	ProfileNavigation ProfileNavigationConfig `json:"profile_navigation"`
+	LoginProtection   LoginProtectionConfig   `json:"login_protection"`
+}
+
+// LoginProtectionConfig holds configuration for login protection (IP-based rate limiting)
+type LoginProtectionConfig struct {
+	Enabled        bool `json:"enabled"`         // Whether login protection is enabled
+	MaxAttempts    int  `json:"max_attempts"`    // Maximum failed login attempts before freeze
+	FreezeSeconds  int  `json:"freeze_seconds"`  // Duration in seconds to freeze the IP after max attempts
+	WindowSeconds  int  `json:"window_seconds"`  // Time window in seconds to count failed attempts
 }
 
 // ProfileNavigationConfig holds configuration for profile page navigation items
@@ -308,6 +317,12 @@ func Load(configPath string) (*Config, error) {
 					{ID: "settings", Title: "账号设置", Icon: "bi-gear", URL: "", Type: "action", Color: "#667eea", GradientEnd: "#764ba2", Effect: "", NewTab: false, Visible: true, Order: 3},
 					{ID: "logout", Title: "退出登录", Icon: "bi-box-arrow-right", URL: "", Type: "action", Color: "#6c757d", GradientEnd: "#495057", Effect: "", NewTab: false, Visible: true, Order: 4},
 				},
+			},
+			LoginProtection: LoginProtectionConfig{
+				Enabled:       false,
+				MaxAttempts:   5,              // 5 failed attempts
+				FreezeSeconds: 300,            // 5 minutes freeze
+				WindowSeconds: 600,            // 10 minutes window to count failures
 			},
 		}
 

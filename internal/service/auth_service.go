@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -20,6 +21,7 @@ type AuthService struct {
 	userRepo     *repository.UserRepository
 	sessionStore repository.SessionStore
 	cfg          *config.Config
+	loginLogRepo *repository.LoginLogRepository
 }
 
 // NewAuthService creates a new AuthService
@@ -29,6 +31,11 @@ func NewAuthService(userRepo *repository.UserRepository, sessionStore repository
 		sessionStore: sessionStore,
 		cfg:          cfg,
 	}
+}
+
+// SetLoginLogRepo sets the login log repository for AuthService
+func (s *AuthService) SetLoginLogRepo(loginLogRepo *repository.LoginLogRepository) {
+	s.loginLogRepo = loginLogRepo
 }
 
 // RegisterInput represents registration input
@@ -44,6 +51,13 @@ type RegisterInput struct {
 type LoginInput struct {
 	Email    string `json:"email" binding:"required"` // Can be email or username
 	Password string `json:"password" binding:"required"`
+}
+
+// LoginInputWithContext represents login input with additional context (IP, User-Agent)
+type LoginInputWithContext struct {
+	LoginInput
+	IP        string
+	UserAgent string
 }
 
 // AuthResponse represents authentication response
@@ -144,10 +158,50 @@ func (s *AuthService) Register(input *RegisterInput) (*AuthResponse, error) {
 
 // Login authenticates a user
 func (s *AuthService) Login(input *LoginInput) (*AuthResponse, error) {
+	// Use LoginWithContext with empty IP/UserAgent for backward compatibility
+	return s.LoginWithContext(&LoginInputWithContext{
+		LoginInput: *input,
+		IP:         "",
+		UserAgent:  "",
+	})
+}
+
+// LoginWithContext authenticates a user with additional context (IP, User-Agent) for login protection
+func (s *AuthService) LoginWithContext(input *LoginInputWithContext) (*AuthResponse, error) {
+	identifier := strings.TrimSpace(input.Email)
+
+	// Helper function to log login attempt
+	logLoginAttempt := func(success bool, userID *uint, reason string) {
+		if s.loginLogRepo == nil {
+			return
+		}
+		log := &model.LoginLog{
+			IP:        input.IP,
+			UserAgent: input.UserAgent,
+			Username:  identifier,
+			UserID:    userID,
+			Success:   success,
+			Reason:    reason,
+		}
+		s.loginLogRepo.Create(log)
+	}
+
+	// Check IP freeze if login protection is enabled
+	if s.cfg.LoginProtection.Enabled && s.loginLogRepo != nil && input.IP != "" {
+		frozen, remainingSeconds, err := s.loginLogRepo.IsIPFrozen(
+			input.IP,
+			s.cfg.LoginProtection.MaxAttempts,
+			s.cfg.LoginProtection.WindowSeconds,
+			s.cfg.LoginProtection.FreezeSeconds,
+		)
+		if err == nil && frozen {
+			return nil, fmt.Errorf("登录尝试过于频繁，请在 %d 秒后重试", remainingSeconds)
+		}
+	}
+
 	// Determine login method based on input and configuration
 	var user *model.User
 	var err error
-	identifier := strings.TrimSpace(input.Email)
 
 	// Check if the identifier looks like an email
 	isEmail := utils.IsValidEmail(identifier)
@@ -155,12 +209,14 @@ func (s *AuthService) Login(input *LoginInput) (*AuthResponse, error) {
 	if isEmail {
 		// Login with email
 		if !s.cfg.Access.AllowEmailLogin {
+			logLoginAttempt(false, nil, "邮箱登录已被禁用")
 			return nil, errors.New("邮箱登录已被禁用")
 		}
 		user, err = s.userRepo.FindByEmail(identifier)
 	} else {
 		// Login with username
 		if !s.cfg.Access.AllowUsernameLogin {
+			logLoginAttempt(false, nil, "用户名登录已被禁用")
 			return nil, errors.New("用户名登录已被禁用")
 		}
 		user, err = s.userRepo.FindByUsername(identifier)
@@ -168,18 +224,22 @@ func (s *AuthService) Login(input *LoginInput) (*AuthResponse, error) {
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			logLoginAttempt(false, nil, "账号或密码错误")
 			return nil, errors.New("账号或密码错误")
 		}
+		logLoginAttempt(false, nil, "查询用户失败")
 		return nil, errors.New("查询用户失败")
 	}
 
 	// Check password
 	if !utils.CheckPassword(input.Password, user.Password) {
+		logLoginAttempt(false, &user.ID, "账号或密码错误")
 		return nil, errors.New("账号或密码错误")
 	}
 
 	// Check if user is active
 	if !user.IsActive {
+		logLoginAttempt(false, &user.ID, "账户已被禁用")
 		return nil, errors.New("账户已被禁用")
 	}
 
@@ -201,6 +261,7 @@ func (s *AuthService) Login(input *LoginInput) (*AuthResponse, error) {
 		s.cfg.JWT.ExpireHour,
 	)
 	if err != nil {
+		logLoginAttempt(false, &user.ID, "生成令牌失败")
 		return nil, errors.New("生成令牌失败")
 	}
 
@@ -215,6 +276,9 @@ func (s *AuthService) Login(input *LoginInput) (*AuthResponse, error) {
 	if err := s.sessionStore.Create(session); err != nil {
 		// Log error but don't fail login - session tracking is optional
 	}
+
+	// Log successful login
+	logLoginAttempt(true, &user.ID, "")
 
 	return &AuthResponse{
 		Token: token,

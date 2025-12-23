@@ -278,7 +278,14 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		}
 	}
 
-	response, err := h.authService.Login(&input.LoginInput)
+	// Use LoginWithContext to pass IP and User-Agent for login protection
+	loginInput := &service.LoginInputWithContext{
+		LoginInput: input.LoginInput,
+		IP:         c.ClientIP(),
+		UserAgent:  c.GetHeader("User-Agent"),
+	}
+
+	response, err := h.authService.LoginWithContext(loginInput)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"success": false,

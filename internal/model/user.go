@@ -123,3 +123,15 @@ type BalanceLog struct {
 	OperatorType  string    `gorm:"size:32" json:"operator_type"`    // admin, api_token, system, user
 	RelatedID     *uint     `json:"related_id"`                      // Related entity ID (gift card ID, order ID, etc.)
 }
+
+// LoginLog represents a login attempt log entry (independent of user sessions)
+type LoginLog struct {
+	ID        uint      `gorm:"primarykey" json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	IP        string    `gorm:"size:45;index" json:"ip"`          // IP address of the login attempt
+	UserAgent string    `gorm:"size:500" json:"user_agent"`       // User-Agent header
+	Username  string    `gorm:"size:255;index" json:"username"`   // Attempted username or email
+	UserID    *uint     `gorm:"index" json:"user_id"`             // User ID if login was successful
+	Success   bool      `gorm:"default:false;index" json:"success"` // Whether login was successful
+	Reason    string    `gorm:"size:255" json:"reason"`           // Failure reason if not successful
+}

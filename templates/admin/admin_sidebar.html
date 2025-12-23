@@ -24,6 +24,12 @@
                 <span>余额日志</span>
             </a>
         </li>
+        <li class="nav-item {{if eq .activeMenu "login-logs"}}active{{end}}">
+            <a href="/admin/login-logs" class="nav-link">
+                <i class="bi bi-box-arrow-in-right"></i>
+                <span>登录日志</span>
+            </a>
+        </li>
         <li class="nav-item {{if eq .activeMenu "vip"}}active{{end}}">
             <a href="/admin/vip" class="nav-link">
                 <i class="bi bi-gem"></i>

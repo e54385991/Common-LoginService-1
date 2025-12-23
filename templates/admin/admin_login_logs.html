@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录日志 - Common Login Service 管理后台</title>
+    <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="/static/css/admin.css" rel="stylesheet">
+</head>
+<body>
+    <div class="admin-wrapper">
+        {{template "admin_sidebar" .}}
+
+        <!-- Main Content -->
+        <main class="admin-main">
+            <header class="admin-header">
+                <h1 class="page-title"><i class="bi bi-box-arrow-in-right me-2"></i>登录日志</h1>
+            </header>
+
+            <div class="admin-content">
+                <!-- Login Protection Settings Card -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-shield-lock me-2"></i>登录保护设置
+                        </h5>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" id="login-protection-enabled" {{if .config.LoginProtection.Enabled}}checked{{end}}>
+                            <label class="form-check-label" for="login-protection-enabled">启用</label>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <form id="login-protection-form">
+                            <div class="alert alert-info mb-3">
+                                <i class="bi bi-info-circle me-2"></i>
+                                登录保护功能可以防止恶意暴力破解密码。当同一IP地址在指定时间窗口内登录失败次数超过阈值时，该IP将被临时冻结。
+                            </div>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="max-attempts" class="form-label">最大失败次数</label>
+                                        <input type="number" class="form-control" id="max-attempts" value="{{.config.LoginProtection.MaxAttempts}}" min="1" max="100">
+                                        <small class="text-muted">在时间窗口内允许的最大登录失败次数</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="freeze-seconds" class="form-label">冻结时长（秒）</label>
+                                        <input type="number" class="form-control" id="freeze-seconds" value="{{.config.LoginProtection.FreezeSeconds}}" min="1">
+                                        <small class="text-muted">超过最大失败次数后冻结的秒数</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="window-seconds" class="form-label">时间窗口（秒）</label>
+                                        <input type="number" class="form-control" id="window-seconds" value="{{.config.LoginProtection.WindowSeconds}}" min="1">
+                                        <small class="text-muted">统计失败次数的时间窗口</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save me-2"></i>保存登录保护设置
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Login Logs Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="row align-items-center">
+                            <div class="col-md-4">
+                                <h5 class="mb-0">登录日志列表</h5>
+                            </div>
+                            <div class="col-md-8">
+                                <div class="row g-2">
+                                    <div class="col-md-3">
+                                        <input type="text" class="form-control form-control-sm" id="filterIP" placeholder="IP地址">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="text" class="form-control form-control-sm" id="filterUsername" placeholder="用户名/邮箱">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <select class="form-select form-select-sm" id="filterSuccess">
+                                            <option value="">全部状态</option>
+                                            <option value="true">成功</option>
+                                            <option value="false">失败</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <button class="btn btn-primary btn-sm w-100" onclick="loadLogs()">
+                                            <i class="bi bi-search me-1"></i>筛选
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>时间</th>
+                                        <th>IP地址</th>
+                                        <th>用户名/邮箱</th>
+                                        <th>用户ID</th>
+                                        <th>状态</th>
+                                        <th>失败原因</th>
+                                        <th>User-Agent</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="logsTableBody">
+                                    <tr>
+                                        <td colspan="8" class="text-center text-muted py-4">
+                                            <i class="bi bi-hourglass-split fs-1 d-block mb-2"></i>
+                                            加载中...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                共 <span id="totalCount">0</span> 条记录
+                            </div>
+                            <nav>
+                                <ul class="pagination pagination-sm mb-0" id="pagination"></ul>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Result Modal -->
+    <div class="modal fade" id="resultModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-body text-center py-5">
+                    <i class="bi display-1 mb-3" id="modal-icon"></i>
+                    <h4 class="mb-3" id="modal-title"></h4>
+                    <p class="text-muted mb-0" id="modal-message"></p>
+                </div>
+                <div class="modal-footer justify-content-center border-0 pt-0">
+                    <button type="button" class="btn btn-primary px-4" data-bs-dismiss="modal">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentPage = 1;
+        const pageSize = 20;
+        let resultModal;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            resultModal = new bootstrap.Modal(document.getElementById('resultModal'));
+            loadLogs();
+        });
+
+        function showModal(type, message) {
+            const iconMap = {
+                'success': 'bi-check-circle-fill',
+                'danger': 'bi-exclamation-circle-fill',
+                'warning': 'bi-exclamation-triangle-fill'
+            };
+            const colorMap = {
+                'success': '#28a745',
+                'danger': '#dc3545',
+                'warning': '#ffc107'
+            };
+            const titleMap = {
+                'success': '保存成功',
+                'danger': '保存失败',
+                'warning': '警告'
+            };
+            
+            document.getElementById('modal-icon').className = `bi ${iconMap[type]} display-1 mb-3`;
+            document.getElementById('modal-icon').style.color = colorMap[type];
+            document.getElementById('modal-title').textContent = titleMap[type];
+            document.getElementById('modal-message').textContent = message;
+            
+            resultModal.show();
+        }
+
+        // Login Protection Form
+        document.getElementById('login-protection-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const data = {
+                enabled: document.getElementById('login-protection-enabled').checked,
+                max_attempts: parseInt(document.getElementById('max-attempts').value) || 5,
+                freeze_seconds: parseInt(document.getElementById('freeze-seconds').value) || 300,
+                window_seconds: parseInt(document.getElementById('window-seconds').value) || 600
+            };
+            
+            try {
+                const response = await fetch('/api/admin/settings/login-protection', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                showModal(result.success ? 'success' : 'danger', result.message);
+            } catch (error) {
+                showModal('danger', '网络错误，请稍后重试');
+            }
+        });
+
+        // Helper function to escape HTML to prevent XSS
+        function escapeHtml(text) {
+            if (text === null || text === undefined) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        }
+
+        function truncateUserAgent(ua) {
+            if (!ua) return '-';
+            // Escape HTML to prevent XSS
+            const escaped = escapeHtml(ua);
+            if (ua.length > 50) {
+                return `<span title="${escaped}">${escapeHtml(ua.substring(0, 50))}...</span>`;
+            }
+            return escaped;
+        }
+
+        async function loadLogs(page = 1) {
+            currentPage = page;
+            const ip = document.getElementById('filterIP').value;
+            const username = document.getElementById('filterUsername').value;
+            const success = document.getElementById('filterSuccess').value;
+
+            let url = `/api/admin/login-logs?page=${page}&page_size=${pageSize}`;
+            if (ip) url += `&ip=${encodeURIComponent(ip)}`;
+            if (username) url += `&username=${encodeURIComponent(username)}`;
+            if (success) url += `&success=${success}`;
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.success) {
+                    renderLogs(data.data.logs);
+                    renderPagination(data.data.total, data.data.page);
+                    document.getElementById('totalCount').textContent = data.data.total;
+                } else {
+                    const errorRow = document.createElement('tr');
+                    const errorCell = document.createElement('td');
+                    errorCell.colSpan = 8;
+                    errorCell.className = 'text-center text-danger py-4';
+                    errorCell.innerHTML = '<i class="bi bi-exclamation-circle fs-1 d-block mb-2"></i>';
+                    const errorText = document.createTextNode('加载失败: ' + (data.message || '未知错误'));
+                    errorCell.appendChild(errorText);
+                    errorRow.appendChild(errorCell);
+                    document.getElementById('logsTableBody').innerHTML = '';
+                    document.getElementById('logsTableBody').appendChild(errorRow);
+                }
+            } catch (error) {
+                const errorRow = document.createElement('tr');
+                const errorCell = document.createElement('td');
+                errorCell.colSpan = 8;
+                errorCell.className = 'text-center text-danger py-4';
+                errorCell.innerHTML = '<i class="bi bi-exclamation-circle fs-1 d-block mb-2"></i>';
+                const errorText = document.createTextNode('加载失败: ' + (error.message || '网络错误'));
+                errorCell.appendChild(errorText);
+                errorRow.appendChild(errorCell);
+                document.getElementById('logsTableBody').innerHTML = '';
+                document.getElementById('logsTableBody').appendChild(errorRow);
+            }
+        }
+
+        function renderLogs(logs) {
+            const tbody = document.getElementById('logsTableBody');
+            
+            if (!logs || logs.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                            暂无登录日志记录
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = logs.map(log => `
+                <tr>
+                    <td>${escapeHtml(String(log.id))}</td>
+                    <td>${formatDate(log.created_at)}</td>
+                    <td><code>${escapeHtml(log.ip || '-')}</code></td>
+                    <td>${escapeHtml(log.username || '-')}</td>
+                    <td>${log.user_id ? `<a href="/admin/users?keyword=${encodeURIComponent(log.user_id)}">${escapeHtml(String(log.user_id))}</a>` : '-'}</td>
+                    <td>
+                        ${log.success 
+                            ? '<span class="badge bg-success">成功</span>' 
+                            : '<span class="badge bg-danger">失败</span>'}
+                    </td>
+                    <td>${log.success ? '-' : escapeHtml(log.reason || '-')}</td>
+                    <td class="small">${truncateUserAgent(log.user_agent)}</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderPagination(total, currentPage) {
+            const pagination = document.getElementById('pagination');
+            const totalPages = Math.ceil(total / pageSize);
+            
+            if (totalPages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+
+            let html = '';
+            
+            // Previous button
+            html += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="loadLogs(${currentPage - 1}); return false;">上一页</a>
+            </li>`;
+
+            // Page numbers
+            const startPage = Math.max(1, currentPage - 2);
+            const endPage = Math.min(totalPages, currentPage + 2);
+
+            if (startPage > 1) {
+                html += `<li class="page-item"><a class="page-link" href="#" onclick="loadLogs(1); return false;">1</a></li>`;
+                if (startPage > 2) {
+                    html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                }
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                html += `<li class="page-item ${i === currentPage ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="loadLogs(${i}); return false;">${i}</a>
+                </li>`;
+            }
+
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                }
+                html += `<li class="page-item"><a class="page-link" href="#" onclick="loadLogs(${totalPages}); return false;">${totalPages}</a></li>`;
+            }
+
+            // Next button
+            html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="loadLogs(${currentPage + 1}); return false;">下一页</a>
+            </li>`;
+
+            pagination.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

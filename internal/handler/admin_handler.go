@@ -25,6 +25,7 @@ type AdminHandler struct {
 	giftCardRepo   *repository.GiftCardRepository
 	balanceLogRepo *repository.BalanceLogRepository
 	sessionStore   repository.SessionStore
+	loginLogRepo   *repository.LoginLogRepository
 }
 
 // AdminLoginRequest represents admin login request
@@ -159,6 +160,11 @@ func NewAdminHandler(cfg *config.Config, configRepo *repository.ConfigRepository
 		balanceLogRepo: balanceLogRepo,
 		sessionStore:   sessionStore,
 	}
+}
+
+// SetLoginLogRepo sets the login log repository for AdminHandler
+func (h *AdminHandler) SetLoginLogRepo(loginLogRepo *repository.LoginLogRepository) {
+	h.loginLogRepo = loginLogRepo
 }
 
 // AdminLoginPage renders the admin login page
@@ -3077,6 +3083,179 @@ func (h *AdminHandler) AdminCreateUser(c *gin.Context) {
 			"vip_expire_at": user.VIPExpireAt,
 			"is_active":     user.IsActive,
 			"created_at":    user.CreatedAt,
+		},
+	})
+}
+
+// ==================== Login Protection Settings ====================
+
+// LoginProtectionSettings represents login protection settings
+type LoginProtectionSettings struct {
+	Enabled       bool `json:"enabled" example:"true"`
+	MaxAttempts   int  `json:"max_attempts" example:"5"`
+	FreezeSeconds int  `json:"freeze_seconds" example:"300"`
+	WindowSeconds int  `json:"window_seconds" example:"600"`
+}
+
+// GetLoginProtectionSettings returns login protection settings
+// @Summary Get login protection settings
+// @Description Get current login protection configuration
+// @Tags admin
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} handler.Response{data=LoginProtectionSettings} "Login protection settings retrieved"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Router /admin/settings/login-protection [get]
+func (h *AdminHandler) GetLoginProtectionSettings(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"enabled":        h.cfg.LoginProtection.Enabled,
+			"max_attempts":   h.cfg.LoginProtection.MaxAttempts,
+			"freeze_seconds": h.cfg.LoginProtection.FreezeSeconds,
+			"window_seconds": h.cfg.LoginProtection.WindowSeconds,
+		},
+	})
+}
+
+// UpdateLoginProtectionSettings updates login protection settings
+// @Summary Update login protection settings
+// @Description Update login protection configuration
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body LoginProtectionSettings true "Login protection settings"
+// @Success 200 {object} handler.Response "Settings updated"
+// @Failure 400 {object} handler.Response "Bad request"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Failure 500 {object} handler.Response "Failed to save settings"
+// @Router /admin/settings/login-protection [put]
+func (h *AdminHandler) UpdateLoginProtectionSettings(c *gin.Context) {
+	var input struct {
+		Enabled       bool `json:"enabled"`
+		MaxAttempts   int  `json:"max_attempts"`
+		FreezeSeconds int  `json:"freeze_seconds"`
+		WindowSeconds int  `json:"window_seconds"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	// Validate input
+	if input.MaxAttempts < 1 {
+		input.MaxAttempts = 1
+	}
+	if input.FreezeSeconds < 1 {
+		input.FreezeSeconds = 1
+	}
+	if input.WindowSeconds < 1 {
+		input.WindowSeconds = 1
+	}
+
+	h.cfg.LoginProtection.Enabled = input.Enabled
+	h.cfg.LoginProtection.MaxAttempts = input.MaxAttempts
+	h.cfg.LoginProtection.FreezeSeconds = input.FreezeSeconds
+	h.cfg.LoginProtection.WindowSeconds = input.WindowSeconds
+
+	// Save to file
+	if err := config.Save("config.json"); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "保存配置失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "登录保护设置已更新",
+	})
+}
+
+// ==================== Login Logs ====================
+
+// AdminLoginLogs renders the admin login logs page
+func (h *AdminHandler) AdminLoginLogs(c *gin.Context) {
+	lang := c.GetString("lang")
+	c.HTML(http.StatusOK, "admin_login_logs.html", gin.H{
+		"lang":       lang,
+		"config":     h.cfg,
+		"activeMenu": "login-logs",
+	})
+}
+
+// ListLoginLogs returns login logs with pagination and optional filters
+// @Summary List login logs
+// @Description Get login logs with pagination and optional filters
+// @Tags admin
+// @Produce json
+// @Security BearerAuth
+// @Param page query int false "Page number" default(1)
+// @Param page_size query int false "Page size" default(20)
+// @Param ip query string false "Filter by IP address"
+// @Param success query string false "Filter by success status (true/false)"
+// @Param username query string false "Filter by username"
+// @Success 200 {object} handler.Response "Login logs retrieved"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Router /admin/login-logs [get]
+func (h *AdminHandler) ListLoginLogs(c *gin.Context) {
+	if h.loginLogRepo == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"data": gin.H{
+				"logs":      []model.LoginLog{},
+				"total":     0,
+				"page":      1,
+				"page_size": 20,
+			},
+		})
+		return
+	}
+
+	page := 1
+	pageSize := 20
+
+	if p := c.Query("page"); p != "" {
+		if v, err := strconv.Atoi(p); err == nil && v > 0 {
+			page = v
+		}
+	}
+	if ps := c.Query("page_size"); ps != "" {
+		if v, err := strconv.Atoi(ps); err == nil && v > 0 && v <= 100 {
+			pageSize = v
+		}
+	}
+
+	ip := c.Query("ip")
+	username := c.Query("username")
+
+	var success *bool
+	if s := c.Query("success"); s != "" {
+		val := s == "true"
+		success = &val
+	}
+
+	logs, total, err := h.loginLogRepo.List(page, pageSize, ip, success, username)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "获取登录日志失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"logs":      logs,
+			"total":     total,
+			"page":      page,
+			"page_size": pageSize,
 		},
 	})
 }
