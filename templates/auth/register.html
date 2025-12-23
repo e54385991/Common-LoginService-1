@@ -84,6 +84,7 @@
             color: #4caf50;
         }
     </style>
+    {{if .custom.GlobalCSS}}<style>{{.custom.GlobalCSS}}</style>{{end}}
 </head>
 <body class="auth-page">
     <!-- Language Switcher -->
@@ -554,5 +555,6 @@
         // Language switcher function
         // setLanguage function is now in /static/js/app.js
     </script>
+    {{if .custom.GlobalHTML}}{{.custom.GlobalHTML}}{{end}}
 </body>
 </html>

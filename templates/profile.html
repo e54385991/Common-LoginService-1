@@ -221,6 +221,7 @@
             }
         }
     </style>
+    {{if .custom.GlobalCSS}}<style>{{.custom.GlobalCSS}}</style>{{end}}
 </head>
 <body>
     <!-- Navigation -->
@@ -636,7 +637,7 @@
     <!-- Footer -->
     <footer class="bg-dark text-white py-4 mt-auto">
         <div class="container text-center">
-            <p class="mb-0">&copy; 2024 {{if .siteTitle}}{{.siteTitle}}{{else}}{{t .lang "app.name"}}{{end}}. All rights reserved.</p>
+            {{if .custom.FooterText}}<p class="mb-0">{{.custom.FooterText}}</p>{{else}}<p class="mb-0">&copy; 2024 {{if .siteTitle}}{{.siteTitle}}{{else}}{{t .lang "app.name"}}{{end}}. All rights reserved.</p>{{end}}
         </div>
     </footer>
 
@@ -1408,5 +1409,6 @@
             }
         }
     </script>
+    {{if .custom.GlobalHTML}}{{.custom.GlobalHTML}}{{end}}
 </body>
 </html>

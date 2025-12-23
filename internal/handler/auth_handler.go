@@ -653,6 +653,7 @@ func (h *AuthHandler) LoginPage(c *gin.Context) {
 		"loginDisabledMessage": loginDisabledMessage,
 		"allowEmailLogin":      h.cfg.Access.AllowEmailLogin,
 		"allowUsernameLogin":   h.cfg.Access.AllowUsernameLogin,
+		"custom":               h.cfg.Custom,
 	})
 }
 
@@ -681,6 +682,7 @@ func (h *AuthHandler) RegisterPage(c *gin.Context) {
 		"redirect":                    redirectURL,
 		"registrationEnabled":         h.cfg.Access.RegistrationEnabled,
 		"registrationDisabledMessage": registrationDisabledMessage,
+		"custom":                      h.cfg.Custom,
 	})
 }
 
@@ -688,7 +690,8 @@ func (h *AuthHandler) RegisterPage(c *gin.Context) {
 func (h *AuthHandler) ForgotPasswordPage(c *gin.Context) {
 	lang := c.GetString("lang")
 	c.HTML(http.StatusOK, "forgot_password.html", gin.H{
-		"lang": lang,
+		"lang":   lang,
+		"custom": h.cfg.Custom,
 	})
 }
 
@@ -697,8 +700,9 @@ func (h *AuthHandler) ResetPasswordPage(c *gin.Context) {
 	lang := c.GetString("lang")
 	token := c.Query("token")
 	c.HTML(http.StatusOK, "reset_password.html", gin.H{
-		"lang":  lang,
-		"token": token,
+		"lang":   lang,
+		"token":  token,
+		"custom": h.cfg.Custom,
 	})
 }
 
@@ -715,6 +719,7 @@ func (h *AuthHandler) HomePage(c *gin.Context) {
 		"user":      user,
 		"logged":    user != nil,
 		"siteTitle": h.cfg.Site.Title,
+		"custom":    h.cfg.Custom,
 	})
 }
 
@@ -731,6 +736,7 @@ func (h *AuthHandler) RechargePage(c *gin.Context) {
 		"user":      user,
 		"logged":    user != nil,
 		"siteTitle": h.cfg.Site.Title,
+		"custom":    h.cfg.Custom,
 	})
 }
 
@@ -747,6 +753,7 @@ func (h *AuthHandler) ProfilePage(c *gin.Context) {
 		"user":      user,
 		"logged":    user != nil,
 		"siteTitle": h.cfg.Site.Title,
+		"custom":    h.cfg.Custom,
 	})
 }
 
