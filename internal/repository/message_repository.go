@@ -32,15 +32,15 @@ func (r *MessageRepository) FindByUserID(userID uint, page, pageSize int) ([]mod
 	var messages []model.Message
 	var total int64
 
-	query := r.db.Model(&model.Message{}).Where("user_id = ?", userID)
-	
-	err := query.Count(&total).Error
+	// Count total messages for the user
+	err := r.db.Model(&model.Message{}).Where("user_id = ?", userID).Count(&total).Error
 	if err != nil {
 		return nil, 0, err
 	}
 
+	// Get paginated messages
 	offset := (page - 1) * pageSize
-	err = query.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&messages).Error
+	err = r.db.Model(&model.Message{}).Where("user_id = ?", userID).Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&messages).Error
 	return messages, total, err
 }
 
@@ -86,11 +86,8 @@ func (r *MessageRepository) Delete(id, userID uint) error {
 	return r.db.Where("id = ? AND user_id = ?", id, userID).Delete(&model.Message{}).Error
 }
 
-// DeleteBatch deletes multiple messages by IDs for a specific user
-func (r *MessageRepository) DeleteBatch(ids []uint, userID uint) (int64, error) {
-	if len(ids) == 0 {
-		return 0, nil
-	}
+// BatchDelete deletes multiple messages by IDs for a user
+func (r *MessageRepository) BatchDelete(ids []uint, userID uint) (int64, error) {
 	result := r.db.Where("id IN ? AND user_id = ?", ids, userID).Delete(&model.Message{})
 	return result.RowsAffected, result.Error
 }

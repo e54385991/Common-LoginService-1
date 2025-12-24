@@ -7,9 +7,34 @@
     {{template "darkmode" .}}
     {{template "head_assets" .}}
     <style>
-        .profile-hero {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .quick-actions-bar .quick-action-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s;
             color: white;
+            cursor: pointer;
+            min-width: 140px;
+        }
+        .quick-actions-bar .quick-action-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+            color: white;
+        }
+        .quick-actions-bar .quick-action-btn i {
+            margin-right: 8px;
+            font-size: 1.1rem;
+        }
+        @media (max-width: 768px) {
+            .quick-actions-bar .quick-action-btn {
+                min-width: 120px;
+                padding: 10px 16px;
+                font-size: 0.9rem;
+            }
         }
         .info-card {
             background: white;
@@ -371,6 +396,17 @@
             font-size: 0.75rem;
             white-space: nowrap;
         }
+        /* Message checkbox for batch select */
+        .message-item .message-checkbox {
+            display: none;
+            margin-right: 12px;
+        }
+        .message-item.batch-select-mode .message-checkbox {
+            display: block;
+        }
+        .message-item.selected {
+            background: rgba(102, 126, 234, 0.15) !important;
+        }
         .message-type-badge {
             font-size: 0.65rem;
             padding: 2px 8px;
@@ -553,11 +589,13 @@
     </nav>
 
     {{if .logged}}
-    <!-- Profile Hero -->
-    <section class="profile-hero" style="padding: 40px 0 40px;">
-        <div class="container text-center">
-            <h1 class="mb-2">{{t .lang "profile.hero_title"}}</h1>
-            <p class="opacity-75 mb-0">{{t .lang "profile.hero_subtitle"}}</p>
+    <!-- Quick Actions Bar (Replacing Profile Hero) -->
+    <section class="quick-actions-bar" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px 0;">
+        <div class="container">
+            <div class="d-flex flex-wrap justify-content-center gap-3" id="quick-actions-bar-container">
+                {{/* Server-side render profile quick actions */}}
+                {{template "profile_quick_actions" .}}
+            </div>
         </div>
     </section>
 
@@ -723,23 +761,6 @@
 
                     <!-- Right Column -->
                     <div class="col-lg-4">
-                        <!-- Quick Actions -->
-                        <div class="info-card">
-                            <div class="info-card-header">
-                                <div class="info-card-icon security">
-                                    <i class="bi bi-lightning"></i>
-                                </div>
-                                <div>
-                                    <div class="info-card-title">{{t .lang "profile.quick_actions"}}</div>
-                                    <div class="info-card-subtitle">{{t .lang "profile.quick_actions_subtitle"}}</div>
-                                </div>
-                            </div>
-                            <div class="quick-actions" id="quick-actions-container">
-                                {{/* Server-side render profile quick actions */}}
-                                {{template "profile_quick_actions" .}}
-                            </div>
-                        </div>
-
                         <!-- VIP Benefits Preview -->
                         <div class="info-card">
                             <div class="info-card-header">
@@ -956,8 +977,8 @@
                     <!-- Messages Header -->
                     <div class="d-flex justify-content-between align-items-center p-3 border-bottom" style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);">
                         <div class="d-flex align-items-center">
-                            <div class="form-check me-2" id="select-all-wrapper" style="display: none;">
-                                <input class="form-check-input" type="checkbox" id="select-all-messages" onchange="toggleSelectAll(this.checked)">
+                            <div class="form-check me-2" id="select-all-container" style="display: none;">
+                                <input class="form-check-input" type="checkbox" id="select-all-messages" onchange="toggleSelectAllMessages()">
                             </div>
                             <i class="bi bi-envelope-open me-2 text-primary"></i>
                             <span class="fw-semibold">
@@ -971,8 +992,11 @@
                             </span>
                         </div>
                         <div class="d-flex gap-2">
-                            <button class="btn btn-sm btn-outline-danger" onclick="deleteSelectedMessages()" id="batch-delete-btn" style="display: none;">
-                                <i class="bi bi-trash me-1"></i>{{t .lang "messages.delete_selected"}}
+                            <button class="btn btn-sm btn-outline-danger" onclick="batchDeleteMessages()" id="batch-delete-btn" style="display: none;">
+                                <i class="bi bi-trash me-1"></i>{{t .lang "messages.batch_delete"}}
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="toggleBatchSelectMode()" id="batch-select-btn">
+                                <i class="bi bi-check2-square me-1"></i>{{t .lang "messages.batch_select"}}
                             </button>
                             <button class="btn btn-sm btn-outline-primary" onclick="markAllMessagesAsRead()" id="mark-all-read-btn">
                                 <i class="bi bi-check-all me-1"></i>{{t .lang "messages.mark_all_read"}}
@@ -1044,8 +1068,12 @@
     </div>
     {{end}}
 
-    <!-- Mobile Bottom Toolbar (Server-side rendered) -->
-    {{template "mobile_toolbar" .}}
+    <!-- Mobile Bottom Toolbar -->
+    <nav class="mobile-toolbar" id="mobile-toolbar">
+        <div class="mobile-toolbar-items" id="mobile-toolbar-items">
+            <!-- Items will be loaded dynamically -->
+        </div>
+    </nav>
 
     {{template "footer" .}}
 
@@ -1067,10 +1095,18 @@
         // Initialize to -1 to distinguish first load from subsequent updates
         let previousUnreadCount = -1;
 
+        // Utility function to escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             loadVIPLevels();
             loadUserBalance();
             loadThirdPartyBindingStatus();
+            loadMobileToolbar();
             formatCreatedAt();
             initGiftCardInput();
             checkUrlMessages();
@@ -1252,6 +1288,44 @@
             } catch (error) {
                 showToast(bindingI18n.unbindError, true);
             }
+        }
+
+        async function loadMobileToolbar() {
+            try {
+                const response = await fetch('/api/mobile-toolbar');
+                const result = await response.json();
+                if (result.success && result.enabled) {
+                    renderMobileToolbar(result.data);
+                }
+            } catch (error) {
+                console.error('Failed to load mobile toolbar:', error);
+            }
+        }
+
+        function renderMobileToolbar(items) {
+            const toolbar = document.getElementById('mobile-toolbar');
+            const container = document.getElementById('mobile-toolbar-items');
+            if (!toolbar || !container || !items || items.length === 0) return;
+
+            toolbar.classList.add('enabled');
+            document.body.classList.add('has-mobile-toolbar');
+
+            // Sort by order
+            const sortedItems = [...items].sort((a, b) => a.order - b.order);
+            const currentPath = window.location.pathname;
+
+            container.innerHTML = sortedItems.map(item => {
+                const title = (item.title_i18n && item.title_i18n[currentLang]) || item.title;
+                const isActive = currentPath === item.url || (item.url !== '/' && currentPath.startsWith(item.url));
+                const activeClass = isActive ? 'active' : '';
+                const safeIcon = item.icon || 'bi-link';
+                const safeUrl = item.url || '#';
+                
+                return `<a href="${safeUrl}" class="mobile-toolbar-item ${activeClass}">
+                    <i class="${safeIcon}"></i>
+                    <span>${title}</span>
+                </a>`;
+            }).join('');
         }
 
         async function loadVIPLevels() {
@@ -2080,13 +2154,18 @@
             timeMinutesAgo: "{{t .lang "messages.time_minutes_ago"}}",
             timeHoursAgo: "{{t .lang "messages.time_hours_ago"}}",
             timeDaysAgo: "{{t .lang "messages.time_days_ago"}}",
-            selected: "{{t .lang "messages.selected"}}",
-            deleteSelected: "{{t .lang "messages.delete_selected"}}",
+            batchSelect: "{{t .lang "messages.batch_select"}}",
+            batchDelete: "{{t .lang "messages.batch_delete"}}",
             batchDeleteConfirm: "{{t .lang "messages.batch_delete_confirm"}}",
-            batchDeleteSuccess: "{{t .lang "messages.batch_delete_success"}}"
+            batchDeleteSuccess: "{{t .lang "messages.batch_delete_success"}}",
+            selected: "{{t .lang "messages.selected"}}",
+            cancelSelect: "{{t .lang "messages.cancel_select"}}",
+            deleteFailed: "{{t .lang "messages.delete_failed"}}",
+            selectMessage: "{{t .lang "messages.select_message"}}"
         };
 
-        // Track selected messages for batch delete
+        // Batch select mode state
+        let batchSelectMode = false;
         let selectedMessageIds = new Set();
 
         // Load unread message count
@@ -2215,11 +2294,6 @@
         // Render messages list
         function renderMessages(messages) {
             const container = document.getElementById('messages-list');
-            const selectAllWrapper = document.getElementById('select-all-wrapper');
-            
-            // Reset selection state
-            selectedMessageIds.clear();
-            updateSelectionUI();
             
             if (!messages || messages.length === 0) {
                 container.innerHTML = `
@@ -2229,16 +2303,8 @@
                         <p class="small mb-0">${messagesI18n.emptyDesc}</p>
                     </div>
                 `;
-                if (selectAllWrapper) selectAllWrapper.style.display = 'none';
                 return;
             }
-
-            // Show select-all checkbox when there are messages
-            if (selectAllWrapper) selectAllWrapper.style.display = 'block';
-            
-            // Reset select-all checkbox
-            const selectAllCheckbox = document.getElementById('select-all-messages');
-            if (selectAllCheckbox) selectAllCheckbox.checked = false;
 
             container.innerHTML = messages.map(msg => {
                 const isUnread = !msg.is_read;
@@ -2249,18 +2315,21 @@
                 const date = new Date(msg.created_at);
                 const timeStr = formatMessageTime(date);
                 const previewContent = escapeHtml(msg.content.substring(0, 100)) + (msg.content.length > 100 ? '...' : '');
+                const isSelected = selectedMessageIds.has(msg.id);
+                const batchModeClass = batchSelectMode ? 'batch-select-mode' : '';
+                const selectedClass = isSelected ? 'selected' : '';
                 
                 return `
-                    <div class="message-item ${isUnread ? 'unread' : ''}" data-message-id="${msg.id}">
+                    <div class="message-item ${isUnread ? 'unread' : ''} ${batchModeClass} ${selectedClass}" data-message-id="${msg.id}" onclick="handleMessageClick(event, ${msg.id})">
                         <div class="d-flex align-items-start">
-                            <div class="form-check me-2" onclick="event.stopPropagation();">
-                                <input class="form-check-input message-checkbox" type="checkbox" data-id="${msg.id}" onchange="toggleMessageSelection(${msg.id}, this.checked)">
+                            <div class="form-check message-checkbox" onclick="event.stopPropagation()">
+                                <input class="form-check-input" type="checkbox" id="msg-check-${msg.id}" aria-label="${messagesI18n.selectMessage}: ${escapeHtml(msg.title)}" ${isSelected ? 'checked' : ''} onchange="toggleMessageSelection(${msg.id})">
                             </div>
-                            <div class="flex-grow-1" onclick="openMessage(${msg.id})">
+                            <div class="flex-grow-1">
                                 <div class="d-flex justify-content-between align-items-start">
                                     <div class="message-title">
                                         ${isUnread ? '<span class="badge bg-danger message-new-badge">NEW</span>' : ''}
-                                        <span class="text-truncate" style="max-width: 280px;">${escapeHtml(msg.title)}</span>
+                                        <span class="text-truncate" style="max-width: 300px;">${escapeHtml(msg.title)}</span>
                                         <span class="badge ${typeClass} message-type-badge">${typeText}</span>
                                     </div>
                                     <span class="message-time">${timeStr}</span>
@@ -2273,86 +2342,146 @@
             }).join('');
         }
 
-        // Toggle single message selection
-        function toggleMessageSelection(messageId, isSelected) {
-            if (isSelected) {
-                selectedMessageIds.add(messageId);
+        // Handle message click - either open or toggle selection based on mode
+        function handleMessageClick(event, messageId) {
+            if (batchSelectMode) {
+                toggleMessageSelection(messageId);
             } else {
+                openMessage(messageId);
+            }
+        }
+
+        // Toggle batch select mode
+        function toggleBatchSelectMode() {
+            batchSelectMode = !batchSelectMode;
+            selectedMessageIds.clear();
+            
+            const selectAllContainer = document.getElementById('select-all-container');
+            const batchDeleteBtn = document.getElementById('batch-delete-btn');
+            const batchSelectBtn = document.getElementById('batch-select-btn');
+            const selectedCountBadge = document.getElementById('selected-count-badge');
+            
+            if (batchSelectMode) {
+                selectAllContainer.style.display = 'block';
+                batchSelectBtn.innerHTML = `<i class="bi bi-x-lg me-1"></i>${messagesI18n.cancelSelect}`;
+                batchSelectBtn.classList.remove('btn-outline-secondary');
+                batchSelectBtn.classList.add('btn-outline-warning');
+            } else {
+                selectAllContainer.style.display = 'none';
+                batchDeleteBtn.style.display = 'none';
+                selectedCountBadge.style.display = 'none';
+                batchSelectBtn.innerHTML = `<i class="bi bi-check2-square me-1"></i>${messagesI18n.batchSelect}`;
+                batchSelectBtn.classList.remove('btn-outline-warning');
+                batchSelectBtn.classList.add('btn-outline-secondary');
+                document.getElementById('select-all-messages').checked = false;
+            }
+            
+            // Re-render messages to show/hide checkboxes
+            renderMessages(messagesData);
+        }
+
+        // Toggle single message selection
+        function toggleMessageSelection(messageId) {
+            if (selectedMessageIds.has(messageId)) {
                 selectedMessageIds.delete(messageId);
+            } else {
+                selectedMessageIds.add(messageId);
             }
             updateSelectionUI();
         }
 
         // Toggle select all messages
-        function toggleSelectAll(isSelected) {
-            const checkboxes = document.querySelectorAll('.message-checkbox');
-            checkboxes.forEach(cb => {
-                const id = parseInt(cb.dataset.id);
-                cb.checked = isSelected;
-                if (isSelected) {
-                    selectedMessageIds.add(id);
-                } else {
-                    selectedMessageIds.delete(id);
-                }
-            });
+        function toggleSelectAllMessages() {
+            const selectAllCheckbox = document.getElementById('select-all-messages');
+            if (selectAllCheckbox.checked) {
+                messagesData.forEach(msg => selectedMessageIds.add(msg.id));
+            } else {
+                selectedMessageIds.clear();
+            }
             updateSelectionUI();
+            renderMessages(messagesData);
         }
 
-        // Update selection UI (badge and delete button)
+        // Update selection UI
         function updateSelectionUI() {
+            const batchDeleteBtn = document.getElementById('batch-delete-btn');
+            const selectedCountBadge = document.getElementById('selected-count-badge');
+            const selectedCountNumber = document.getElementById('selected-count-number');
+            const selectAllCheckbox = document.getElementById('select-all-messages');
+            
             const count = selectedMessageIds.size;
-            const badge = document.getElementById('selected-count-badge');
-            const countNumber = document.getElementById('selected-count-number');
-            const deleteBtn = document.getElementById('batch-delete-btn');
+            selectedCountNumber.textContent = count;
             
             if (count > 0) {
-                if (badge) {
-                    badge.style.display = 'inline-block';
-                    if (countNumber) countNumber.textContent = count;
-                }
-                if (deleteBtn) deleteBtn.style.display = 'inline-block';
+                batchDeleteBtn.style.display = 'inline-block';
+                selectedCountBadge.style.display = 'inline-block';
             } else {
-                if (badge) badge.style.display = 'none';
-                if (deleteBtn) deleteBtn.style.display = 'none';
+                batchDeleteBtn.style.display = 'none';
+                selectedCountBadge.style.display = 'none';
             }
             
-            // Update select-all checkbox state
-            const checkboxes = document.querySelectorAll('.message-checkbox');
-            const selectAllCheckbox = document.getElementById('select-all-messages');
-            if (selectAllCheckbox && checkboxes.length > 0) {
-                const allSelected = count === checkboxes.length && count > 0;
-                const someSelected = count > 0 && count < checkboxes.length;
-                selectAllCheckbox.checked = allSelected;
-                selectAllCheckbox.indeterminate = someSelected;
+            // Update select all checkbox state
+            if (messagesData.length > 0 && count === messagesData.length) {
+                selectAllCheckbox.checked = true;
+                selectAllCheckbox.indeterminate = false;
+            } else if (count > 0) {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = true;
+            } else {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = false;
             }
+            
+            // Update individual checkboxes
+            messagesData.forEach(msg => {
+                const checkbox = document.getElementById(`msg-check-${msg.id}`);
+                if (checkbox) {
+                    checkbox.checked = selectedMessageIds.has(msg.id);
+                }
+                const item = document.querySelector(`.message-item[data-message-id="${msg.id}"]`);
+                if (item) {
+                    if (selectedMessageIds.has(msg.id)) {
+                        item.classList.add('selected');
+                    } else {
+                        item.classList.remove('selected');
+                    }
+                }
+            });
         }
 
-        // Delete selected messages (batch delete)
-        async function deleteSelectedMessages() {
+        // Batch delete selected messages
+        async function batchDeleteMessages() {
             if (selectedMessageIds.size === 0) return;
             
-            const confirmMsg = messagesI18n.batchDeleteConfirm.replace('{n}', selectedMessageIds.size);
-            if (!confirm(confirmMsg)) return;
+            const confirmText = messagesI18n.batchDeleteConfirm.replace('{n}', selectedMessageIds.size);
+            if (!confirm(confirmText)) return;
+            
+            const ids = Array.from(selectedMessageIds);
             
             try {
                 const response = await fetch('/api/messages/batch-delete', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ids: Array.from(selectedMessageIds) })
+                    body: JSON.stringify({ ids: ids })
                 });
                 const result = await response.json();
+                
                 if (result.success) {
-                    showToast(messagesI18n.batchDeleteSuccess.replace('{n}', result.data?.deleted_count || selectedMessageIds.size), false);
-                    selectedMessageIds.clear();
-                    loadMessagesPage(currentMessagesPage);
-                    loadUnreadCount();
+                    const deletedCount = result.data?.deleted_count || ids.length;
+                    showToast(messagesI18n.batchDeleteSuccess.replace('{n}', deletedCount), false);
                 } else {
-                    showToast(result.message || 'Delete failed', true);
+                    showToast(result.message || messagesI18n.deleteFailed, true);
                 }
             } catch (error) {
-                console.error('Batch delete error:', error);
-                showToast('Delete failed', true);
+                showToast(messagesI18n.deleteFailed, true);
             }
+            
+            selectedMessageIds.clear();
+            
+            // Exit batch select mode and reload messages
+            toggleBatchSelectMode();
+            loadMessagesPage(currentMessagesPage);
+            loadUnreadCount();
         }
 
         // Format message time

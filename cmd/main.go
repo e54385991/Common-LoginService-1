@@ -323,8 +323,8 @@ func main() {
 			protected.GET("/messages/:id", messageHandler.GetMessage)
 			protected.POST("/messages/:id/read", messageHandler.MarkAsRead)
 			protected.POST("/messages/read-all", messageHandler.MarkAllAsRead)
-			protected.POST("/messages/batch-delete", messageHandler.DeleteMessagesBatch)
 			protected.DELETE("/messages/:id", messageHandler.DeleteMessage)
+			protected.POST("/messages/batch-delete", messageHandler.BatchDeleteMessages)
 		}
 
 		// Payment routes

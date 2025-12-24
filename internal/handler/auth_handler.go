@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -845,29 +844,6 @@ func (h *AuthHandler) getVisibleProfileNavItems() []config.ProfileNavItem {
 	return visibleItems
 }
 
-// getVisibleMobileToolbarItems returns visible mobile toolbar items if enabled, sorted by order
-func (h *AuthHandler) getVisibleMobileToolbarItems() []config.MobileNavItem {
-	if !h.cfg.MobileToolbar.Enabled {
-		return nil
-	}
-	var visibleItems []config.MobileNavItem
-	for _, item := range h.cfg.MobileToolbar.Items {
-		if item.Visible {
-			visibleItems = append(visibleItems, item)
-		}
-	}
-	// Sort by order using Go's efficient sort
-	sort.Slice(visibleItems, func(i, j int) bool {
-		return visibleItems[i].Order < visibleItems[j].Order
-	})
-	return visibleItems
-}
-
-// isMobileToolbarEnabled returns whether mobile toolbar is enabled
-func (h *AuthHandler) isMobileToolbarEnabled() bool {
-	return h.cfg.MobileToolbar.Enabled
-}
-
 // HomePage renders the home page
 func (h *AuthHandler) HomePage(c *gin.Context) {
 	lang := c.GetString("lang")
@@ -883,15 +859,13 @@ func (h *AuthHandler) HomePage(c *gin.Context) {
 	}
 
 	c.HTML(http.StatusOK, "home.html", gin.H{
-		"lang":                   lang,
-		"user":                   user,
-		"logged":                 user != nil,
-		"siteTitle":              h.getSiteTitle(lang),
-		"custom":                 h.cfg.Custom,
-		"darkMode":               h.cfg.Site.DarkMode,
-		"topNavItems":            h.getVisibleTopNavItems(),
-		"mobileToolbarEnabled":   h.isMobileToolbarEnabled(),
-		"mobileToolbarItems":     h.getVisibleMobileToolbarItems(),
+		"lang":      lang,
+		"user":      user,
+		"logged":    user != nil,
+		"siteTitle": h.getSiteTitle(lang),
+		"custom":    h.cfg.Custom,
+		"darkMode":  h.cfg.Site.DarkMode,
+		"topNavItems": h.getVisibleTopNavItems(),
 	})
 }
 
@@ -904,15 +878,13 @@ func (h *AuthHandler) RechargePage(c *gin.Context) {
 	}
 
 	c.HTML(http.StatusOK, "recharge.html", gin.H{
-		"lang":                   lang,
-		"user":                   user,
-		"logged":                 user != nil,
-		"siteTitle":              h.getSiteTitle(lang),
-		"custom":                 h.cfg.Custom,
-		"darkMode":               h.cfg.Site.DarkMode,
-		"topNavItems":            h.getVisibleTopNavItems(),
-		"mobileToolbarEnabled":   h.isMobileToolbarEnabled(),
-		"mobileToolbarItems":     h.getVisibleMobileToolbarItems(),
+		"lang":      lang,
+		"user":      user,
+		"logged":    user != nil,
+		"siteTitle": h.getSiteTitle(lang),
+		"custom":    h.cfg.Custom,
+		"darkMode":  h.cfg.Site.DarkMode,
+		"topNavItems": h.getVisibleTopNavItems(),
 	})
 }
 
@@ -925,15 +897,13 @@ func (h *AuthHandler) VIPPage(c *gin.Context) {
 	}
 
 	c.HTML(http.StatusOK, "vip.html", gin.H{
-		"lang":                   lang,
-		"user":                   user,
-		"logged":                 user != nil,
-		"siteTitle":              h.getSiteTitle(lang),
-		"custom":                 h.cfg.Custom,
-		"darkMode":               h.cfg.Site.DarkMode,
-		"topNavItems":            h.getVisibleTopNavItems(),
-		"mobileToolbarEnabled":   h.isMobileToolbarEnabled(),
-		"mobileToolbarItems":     h.getVisibleMobileToolbarItems(),
+		"lang":      lang,
+		"user":      user,
+		"logged":    user != nil,
+		"siteTitle": h.getSiteTitle(lang),
+		"custom":    h.cfg.Custom,
+		"darkMode":  h.cfg.Site.DarkMode,
+		"topNavItems": h.getVisibleTopNavItems(),
 	})
 }
 
@@ -946,16 +916,14 @@ func (h *AuthHandler) ProfilePage(c *gin.Context) {
 	}
 
 	c.HTML(http.StatusOK, "profile.html", gin.H{
-		"lang":                   lang,
-		"user":                   user,
-		"logged":                 user != nil,
-		"siteTitle":              h.getSiteTitle(lang),
-		"custom":                 h.cfg.Custom,
-		"darkMode":               h.cfg.Site.DarkMode,
-		"topNavItems":            h.getVisibleTopNavItems(),
-		"profileNavItems":        h.getVisibleProfileNavItems(),
-		"mobileToolbarEnabled":   h.isMobileToolbarEnabled(),
-		"mobileToolbarItems":     h.getVisibleMobileToolbarItems(),
+		"lang":      lang,
+		"user":      user,
+		"logged":    user != nil,
+		"siteTitle": h.getSiteTitle(lang),
+		"custom":    h.cfg.Custom,
+		"darkMode":  h.cfg.Site.DarkMode,
+		"topNavItems": h.getVisibleTopNavItems(),
+		"profileNavItems": h.getVisibleProfileNavItems(),
 	})
 }
 
@@ -1080,7 +1048,7 @@ func (h *AuthHandler) PurchaseVIP(c *gin.Context) {
 		// If no matching default found in specifications, use the config default
 	}
 	
-	// Get old VIP config for time compensation calculation
+	// Get old VIP config for prorated upgrade price calculation
 	var oldVIPConfig *config.VIPLevelConfig
 	if isUpgrade {
 		for _, v := range h.cfg.VIPLevels {
@@ -1091,19 +1059,30 @@ func (h *AuthHandler) PurchaseVIP(c *gin.Context) {
 		}
 	}
 
-	// Check for upgrade prices
-	if isUpgrade {
-		currentLevelStr := strconv.Itoa(currentUser.VIPLevel)
-		// First check specification upgrade prices, then fall back to VIPLevelConfig upgrade prices
-		if selectedSpec != nil && selectedSpec.UpgradePrices != nil {
-			if upgradePrice, ok := selectedSpec.UpgradePrices[currentLevelStr]; ok {
-				actualPrice = upgradePrice
-			}
-		} else if vipConfig.UpgradePrices != nil {
-			if upgradePrice, ok := vipConfig.UpgradePrices[currentLevelStr]; ok {
-				actualPrice = upgradePrice
-			}
+	// Calculate prorated upgrade price based on remaining days and upgrade coefficient
+	if isUpgrade && vipConfig.UpgradeCoefficient > 0 && oldVIPConfig != nil {
+		// Calculate remaining days from current VIP
+		remainingDays := 0.0
+		if currentUser.VIPExpireAt != nil && currentUser.VIPExpireAt.After(time.Now()) {
+			remainingDuration := currentUser.VIPExpireAt.Sub(time.Now())
+			remainingDays = remainingDuration.Hours() / 24
 		}
+		
+		// Calculate old VIP's daily price
+		oldDuration := float64(oldVIPConfig.Duration)
+		if oldDuration <= 0 {
+			oldDuration = 30 // Default to 30 days if not set
+		}
+		oldDailyPrice := oldVIPConfig.Price / oldDuration
+		
+		// Prorated upgrade price = new price - (remaining days * old daily price * coefficient)
+		credit := remainingDays * oldDailyPrice * vipConfig.UpgradeCoefficient
+		actualPrice = actualPrice - credit
+		if actualPrice < 0 {
+			actualPrice = 0
+		}
+		// Round to 2 decimal places
+		actualPrice = float64(int(actualPrice*100+0.5)) / 100
 	}
 
 	// Check if user has enough balance
@@ -1131,7 +1110,7 @@ func (h *AuthHandler) PurchaseVIP(c *gin.Context) {
 	// Store balance before deduction for logging
 	balanceBefore := currentUser.Balance
 
-	// Deduct balance (use actual price which may be upgrade price)
+	// Deduct balance (use actual price which may be prorated upgrade price)
 	updatedUser, err := h.userRepo.UpdateBalance(currentUser.ID, -actualPrice)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -1141,23 +1120,14 @@ func (h *AuthHandler) PurchaseVIP(c *gin.Context) {
 		return
 	}
 
-	// Set VIP level with duration
-	// For upgrades, use SetVIPLevelWithUpgrade to compensate remaining time
-	var bonusDays int
-	if isUpgrade && oldVIPConfig != nil {
-		updatedUser, bonusDays, err = h.userRepo.SetVIPLevelWithUpgrade(
-			currentUser.ID,
-			vipConfig.Level,
-			actualDuration,
-			oldVIPConfig.Price,
-			actualPrice,
-		)
+	// Set VIP level
+	// For upgrades, just change VIP level without modifying expiration time
+	// For new purchases, set VIP level with duration
+	if isUpgrade {
+		// Upgrade: only change VIP level, keep existing expiration time
+		updatedUser, err = h.userRepo.SetVIPLevel(currentUser.ID, vipConfig.Level)
 	} else {
-		// If upgrade but oldVIPConfig not found (config changed), log and proceed without time compensation
-		if isUpgrade && oldVIPConfig == nil {
-			log.Printf("PurchaseVIP: User %d upgrading from VIP level %d but old VIP config not found, proceeding without time compensation",
-				currentUser.ID, currentUser.VIPLevel)
-		}
+		// New purchase: set VIP level with duration
 		updatedUser, err = h.userRepo.SetVIPLevelWithDuration(currentUser.ID, vipConfig.Level, actualDuration)
 	}
 	if err != nil {
@@ -1199,9 +1169,6 @@ func (h *AuthHandler) PurchaseVIP(c *gin.Context) {
 	responseMessage := "VIP购买成功"
 	if isUpgrade {
 		responseMessage = "VIP升级成功"
-		if bonusDays > 0 {
-			responseMessage = "VIP升级成功，已补足剩余时间"
-		}
 	}
 
 	responseData := gin.H{
@@ -1211,11 +1178,6 @@ func (h *AuthHandler) PurchaseVIP(c *gin.Context) {
 		"balance":       updatedUser.Balance,
 		"is_upgrade":    isUpgrade,
 		"price_paid":    actualPrice,
-	}
-	
-	// Include bonus_days in response if it's an upgrade with time compensation
-	if isUpgrade && bonusDays > 0 {
-		responseData["bonus_days"] = bonusDays
 	}
 
 	c.JSON(http.StatusOK, gin.H{

@@ -21,6 +21,8 @@ const (
 	ProgressCleanupInterval = 1 * time.Hour
 	// MaxUsersFetchLimit is the maximum number of users to fetch for batch sending
 	MaxUsersFetchLimit = 100000
+	// MaxBatchDeleteLimit is the maximum number of messages that can be deleted in one batch request
+	MaxBatchDeleteLimit = 100
 )
 
 // MessageHandler handles message-related requests
@@ -97,6 +99,11 @@ func (h *MessageHandler) GetMessages(c *gin.Context) {
 			"message": "获取消息失败",
 		})
 		return
+	}
+
+	// Ensure messages is never null in JSON response
+	if messages == nil {
+		messages = []model.Message{}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -335,27 +342,35 @@ func (h *MessageHandler) DeleteMessage(c *gin.Context) {
 
 // BatchDeleteRequest represents a batch delete request
 type BatchDeleteRequest struct {
-	IDs []uint `json:"ids" binding:"required" example:"[1,2,3]"`
+	IDs []uint `json:"ids" binding:"required"`
 }
 
-// DeleteMessagesBatch deletes multiple messages
+// BatchDeleteMessages deletes multiple messages
 // @Summary Batch delete messages
-// @Description Delete multiple messages by their IDs
+// @Description Delete multiple messages by IDs
 // @Tags messages
 // @Accept json
 // @Produce json
 // @Security BearerAuth
 // @Param request body BatchDeleteRequest true "Message IDs to delete"
 // @Success 200 {object} Response "Messages deleted"
-// @Failure 400 {object} Response "Bad request"
 // @Failure 401 {object} Response "Unauthorized"
 // @Router /messages/batch-delete [post]
-func (h *MessageHandler) DeleteMessagesBatch(c *gin.Context) {
-	userID, exists := c.Get("userID")
+func (h *MessageHandler) BatchDeleteMessages(c *gin.Context) {
+	userIDValue, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"success": false,
 			"message": "请先登录",
+		})
+		return
+	}
+
+	userID, ok := userIDValue.(uint)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "用户ID类型错误",
 		})
 		return
 	}
@@ -377,8 +392,8 @@ func (h *MessageHandler) DeleteMessagesBatch(c *gin.Context) {
 		return
 	}
 
-	// Limit batch size to prevent abuse
-	if len(input.IDs) > 100 {
+	// Limit the number of messages that can be deleted at once
+	if len(input.IDs) > MaxBatchDeleteLimit {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
 			"message": "一次最多删除100条消息",
@@ -386,7 +401,7 @@ func (h *MessageHandler) DeleteMessagesBatch(c *gin.Context) {
 		return
 	}
 
-	deleted, err := h.messageRepo.DeleteBatch(input.IDs, userID.(uint))
+	deleted, err := h.messageRepo.BatchDelete(input.IDs, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,

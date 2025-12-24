@@ -555,7 +555,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
             <a class="navbar-brand" href="/">
-                <i class="bi bi-shield-lock-fill me-2"></i><span id="site-name">{{if .siteTitle}}{{.siteTitle}}{{else}}{{t .lang "app.name"}}{{end}}</span>
+                <i class="bi bi-shield-lock-fill me-2"></i><span id="site-name">{{t .lang "app.name"}}</span>
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -888,8 +888,12 @@
     </section>
     {{end}}
 
-    <!-- Mobile Bottom Toolbar (Server-side rendered) -->
-    {{template "mobile_toolbar" .}}
+    <!-- Mobile Bottom Toolbar -->
+    <nav class="mobile-toolbar" id="mobile-toolbar">
+        <div class="mobile-toolbar-items" id="mobile-toolbar-items">
+            <!-- Items will be loaded dynamically -->
+        </div>
+    </nav>
 
     {{template "footer" .}}
 
@@ -902,6 +906,11 @@
         let paymentMethod = 'alipay';
         // Get current user's VIP level from the page
         let currentUserVIPLevel = {{if .user}}{{.user.VIPLevel}}{{else}}0{{end}};
+        // Track user's VIP expiration and remaining days for prorated upgrade pricing
+        let currentUserVIPExpireAt = null;
+        let currentUserRemainingDays = 0;
+        // Track old VIP level's daily price for prorated upgrade calculation
+        let currentUserVIPDailyPrice = 0;
 
         // I18n strings
         const i18n = {
@@ -972,13 +981,209 @@
             paymentDemoNote: "{{t .lang "payment.demo_note"}}",
             paymentGoConfigure: "{{t .lang "payment.go_configure"}}",
             paymentErrorTitle: "{{t .lang "payment.error_title"}}",
-            paymentErrorMsg: "{{t .lang "payment.error_msg"}}"
+            paymentErrorMsg: "{{t .lang "payment.error_msg"}}",
+            alertOk: "{{t .lang "common.ok"}}",
+            confirmCancel: "{{t .lang "common.cancel"}}",
+            confirmOk: "{{t .lang "common.confirm"}}"
         };
 
+        // Utility function to escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Utility function to show alert modal (replaces native alert)
+        function showAlertModal(message, title = '') {
+            return new Promise(resolve => {
+                const escapedTitle = title ? escapeHtml(title) : '';
+                const escapedMessage = escapeHtml(message).replace(/\n/g, '<br>');
+                
+                const modalHtml = `
+                    <div class="modal fade" id="alertModal" tabindex="-1">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                ${escapedTitle ? `
+                                <div class="modal-header">
+                                    <h5 class="modal-title">${escapedTitle}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                ` : ''}
+                                <div class="modal-body py-4">
+                                    <p class="mb-0">${escapedMessage}</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">${escapeHtml(i18n.alertOk || 'OK')}</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                const existing = document.getElementById('alertModal');
+                if (existing) existing.remove();
+                
+                document.body.insertAdjacentHTML('beforeend', modalHtml);
+                const modalEl = document.getElementById('alertModal');
+                const modal = new bootstrap.Modal(modalEl);
+                
+                modalEl.addEventListener('hidden.bs.modal', () => {
+                    modalEl.remove();
+                    resolve();
+                }, { once: true });
+                
+                modal.show();
+            });
+        }
+
+        // Utility function to show confirm modal (replaces native confirm)
+        function showConfirmModal(message, title = '', options = {}) {
+            return new Promise(resolve => {
+                const confirmBtnClass = options.confirmBtnClass || 'btn-primary';
+                const confirmBtnText = escapeHtml(options.confirmBtnText || i18n.confirmOk || 'OK');
+                const cancelBtnText = escapeHtml(options.cancelBtnText || i18n.confirmCancel || 'Cancel');
+                const escapedTitle = title ? escapeHtml(title) : '';
+                const escapedMessage = escapeHtml(message).replace(/\n/g, '<br>');
+                
+                const modalHtml = `
+                    <div class="modal fade" id="confirmModal" tabindex="-1">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                ${escapedTitle ? `
+                                <div class="modal-header">
+                                    <h5 class="modal-title">${escapedTitle}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                ` : ''}
+                                <div class="modal-body py-4">
+                                    <p class="mb-0">${escapedMessage}</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="confirmCancelBtn">${cancelBtnText}</button>
+                                    <button type="button" class="btn ${escapeHtml(confirmBtnClass)}" id="confirmOkBtn">${confirmBtnText}</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                const existing = document.getElementById('confirmModal');
+                if (existing) existing.remove();
+                
+                document.body.insertAdjacentHTML('beforeend', modalHtml);
+                const modalEl = document.getElementById('confirmModal');
+                const modal = new bootstrap.Modal(modalEl);
+                
+                let resolved = false;
+                
+                document.getElementById('confirmOkBtn').addEventListener('click', () => {
+                    resolved = true;
+                    modal.hide();
+                });
+                
+                modalEl.addEventListener('hidden.bs.modal', () => {
+                    modalEl.remove();
+                    resolve(resolved);
+                }, { once: true });
+                
+                modal.show();
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
+            loadSiteSettings();
             loadVIPLevels();
+            loadMobileToolbar();
             setupPaymentMethods();
         });
+
+        // Load user's VIP expiration info for prorated upgrade pricing
+        async function loadUserVIPInfo() {
+            if (currentUserVIPLevel <= 0) return;
+            
+            try {
+                const response = await fetch('/api/auth/balance');
+                if (!response.ok) {
+                    console.error('Failed to load user VIP info: HTTP', response.status);
+                    return;
+                }
+                const result = await response.json();
+                if (result.success && result.data) {
+                    if (result.data.vip_expire_at) {
+                        currentUserVIPExpireAt = new Date(result.data.vip_expire_at);
+                        const now = new Date();
+                        if (currentUserVIPExpireAt > now) {
+                            // Calculate remaining days (rounded up for partial days)
+                            const diffMs = currentUserVIPExpireAt - now;
+                            currentUserRemainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                        }
+                    }
+                    
+                    // Calculate daily price of current VIP level
+                    const currentVIP = vipLevels.find(v => v.level === currentUserVIPLevel);
+                    if (currentVIP) {
+                        const duration = currentVIP.duration || 30;
+                        currentUserVIPDailyPrice = duration > 0 ? currentVIP.price / duration : 0;
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load user VIP info:', error);
+            }
+        }
+
+        async function loadMobileToolbar() {
+            try {
+                const response = await fetch('/api/mobile-toolbar');
+                const result = await response.json();
+                if (result.success && result.enabled) {
+                    renderMobileToolbar(result.data);
+                }
+            } catch (error) {
+                console.error('Failed to load mobile toolbar:', error);
+            }
+        }
+
+        function renderMobileToolbar(items) {
+            const toolbar = document.getElementById('mobile-toolbar');
+            const container = document.getElementById('mobile-toolbar-items');
+            if (!toolbar || !container || !items || items.length === 0) return;
+
+            toolbar.classList.add('enabled');
+            document.body.classList.add('has-mobile-toolbar');
+
+            const sortedItems = [...items].sort((a, b) => a.order - b.order);
+            const currentPath = window.location.pathname;
+
+            container.innerHTML = sortedItems.map(item => {
+                const title = (item.title_i18n && item.title_i18n[currentLang]) || item.title;
+                const isActive = currentPath === item.url || (item.url !== '/' && currentPath.startsWith(item.url));
+                const activeClass = isActive ? 'active' : '';
+                const safeIcon = item.icon || 'bi-link';
+                const safeUrl = item.url || '#';
+                
+                return `<a href="${safeUrl}" class="mobile-toolbar-item ${activeClass}">
+                    <i class="${safeIcon}"></i>
+                    <span>${title}</span>
+                </a>`;
+            }).join('');
+        }
+
+        async function loadSiteSettings() {
+            try {
+                const response = await fetch('/api/site-settings');
+                const result = await response.json();
+                if (result.success && result.data) {
+                    if (result.data.title) {
+                        document.getElementById('site-name').textContent = result.data.title;
+                        document.getElementById('footer-site-name').textContent = result.data.title;
+                        document.title = result.data.title + ' - ' + i18n.pageTitle;
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load site settings:', error);
+            }
+        }
 
         async function loadVIPLevels() {
             try {
@@ -988,6 +1193,8 @@
                     vipLevels = result.data || [];
                     renderVIPCards();
                     renderComparisonTable();
+                    // Load user VIP info after VIP levels are loaded (needed for daily price calculation)
+                    loadUserVIPInfo();
                 }
             } catch (error) {
                 console.error('Failed to load VIP levels:', error);
@@ -1366,31 +1573,31 @@
             const isUpgrade = currentUserVIPLevel > 0 && vip.level > currentUserVIPLevel;
             const currentLevelKey = String(currentUserVIPLevel);
             
+            // Get upgrade coefficient for prorated pricing (validate it's a valid number between 0 and 1)
+            const upgradeCoefficient = typeof vip.upgrade_coefficient === 'number' && 
+                                       !isNaN(vip.upgrade_coefficient) && 
+                                       vip.upgrade_coefficient > 0 && 
+                                       vip.upgrade_coefficient <= 1 
+                                       ? vip.upgrade_coefficient : 0;
+            
             let html = '';
             vip.specifications.forEach((spec, index) => {
-                let specPrice = spec.price;
-                let originalPrice = spec.price;
-                let discount = 0;
+                // Ensure spec.price is a valid number
+                let specPrice = typeof spec.price === 'number' && !isNaN(spec.price) ? spec.price : 0;
+                let originalPrice = specPrice;
                 
-                // Check for upgrade price
-                if (isUpgrade && spec.upgrade_prices && spec.upgrade_prices[currentLevelKey]) {
-                    specPrice = spec.upgrade_prices[currentLevelKey];
-                }
-                
-                // Calculate discount: compare price per day with first spec's price per day
-                // Only show discount if this spec offers a better deal per day
-                if (vip.specifications.length > 1 && index > 0) {
-                    const baseSpec = vip.specifications[0];
-                    const baseDuration = baseSpec.duration || DAYS_PER_MONTH;
-                    const specDuration = spec.duration || DAYS_PER_MONTH;
-                    
-                    // Calculate expected price based on first spec's rate
-                    const basePricePerDay = baseSpec.price / baseDuration;
-                    const expectedPrice = basePricePerDay * specDuration;
-                    
-                    // Only show positive discount (savings)
-                    if (expectedPrice > spec.price) {
-                        discount = Math.round(expectedPrice - spec.price);
+                // Calculate upgrade price based on remaining days if coefficient is set
+                if (isUpgrade && upgradeCoefficient > 0 && currentUserRemainingDays > 0 && currentUserVIPDailyPrice > 0) {
+                    // Prorated upgrade price = new price - (remaining days * old daily price * coefficient)
+                    const credit = currentUserRemainingDays * currentUserVIPDailyPrice * upgradeCoefficient;
+                    specPrice = Math.max(0, specPrice - credit);
+                    // Round to 2 decimal places
+                    specPrice = Math.round(specPrice * 100) / 100;
+                } else if (isUpgrade && spec.upgrade_prices && spec.upgrade_prices[currentLevelKey]) {
+                    // Fall back to fixed upgrade price if set
+                    const fixedUpgradePrice = spec.upgrade_prices[currentLevelKey];
+                    if (typeof fixedUpgradePrice === 'number' && !isNaN(fixedUpgradePrice)) {
+                        specPrice = fixedUpgradePrice;
                     }
                 }
                 
@@ -1404,12 +1611,10 @@
                              data-duration="${spec.duration}" 
                              data-price="${specPrice}" 
                              data-original-price="${originalPrice}"
-                             data-discount="${discount}"
                              onclick="${canAfford || modalPurchaseType !== 'balance' ? 'selectDurationOption(this)' : ''}"
                              style="cursor: ${canAfford || modalPurchaseType !== 'balance' ? 'pointer' : 'not-allowed'}; transition: all 0.2s;">
                             <span class="d-block fw-medium">${durationText}</span>
-                            <span class="d-block fw-bold" style="color: ${vip.color || '#6366F1'}">¥${specPrice}</span>
-                            ${discount > 0 ? `<span class="text-success small">${i18n.modalSave}¥${discount}</span>` : ''}
+                            <span class="d-block fw-bold" style="color: ${vip.color || '#6366F1'}">¥${specPrice.toFixed(2)}</span>
                             ${!canAfford && modalPurchaseType === 'balance' ? `<small class="text-danger d-block">${i18n.insufficientBalance}</small>` : ''}
                         </div>
                     </div>
@@ -1428,10 +1633,6 @@
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <span class="text-muted">${i18n.modalUnitPrice}</span>
                     <span class="fw-medium" id="unit-price-display">¥${unitPrice}/${i18n.month}</span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="text-muted">${i18n.modalDiscount}</span>
-                    <span class="text-success fw-medium" id="discount-display">¥0.00</span>
                 </div>
                 <div class="border-top pt-3 mt-3 d-flex justify-content-between align-items-center">
                     <span class="fw-bold">${i18n.modalTotal}</span>
@@ -1509,7 +1710,6 @@
             // Get selected values
             const duration = parseInt(element.dataset.duration);
             const price = parseFloat(element.dataset.price);
-            const discount = parseFloat(element.dataset.discount) || 0;
             
             modalCurrentPeriod = duration;
             
@@ -1518,11 +1718,9 @@
             const unitPrice = (price / months).toFixed(2);
             
             const unitPriceEl = document.getElementById('unit-price-display');
-            const discountEl = document.getElementById('discount-display');
             const totalEl = document.getElementById('total-price-display');
             
             if (unitPriceEl) unitPriceEl.textContent = `¥${unitPrice}/${i18n.month}`;
-            if (discountEl) discountEl.textContent = `¥${discount.toFixed(2)}`;
             if (totalEl) {
                 totalEl.textContent = `¥${price.toFixed(2)}`;
                 totalEl.style.color = vip.color || '#6366F1';
@@ -1539,7 +1737,7 @@
         function confirmSpecificationPurchase(level, purchaseType) {
             const selectedSpec = document.querySelector('#duration-options .duration-item.selected');
             if (!selectedSpec) {
-                alert(i18n.pleaseSelectDuration);
+                showAlertModal(i18n.pleaseSelectDuration);
                 return;
             }
             
@@ -1908,9 +2106,6 @@
             let actualDuration = vip.duration;
             let originalPrice = vip.price;
             
-            // Use string key for upgrade_prices lookup (JSON uses string keys)
-            const currentLevelKey = String(currentUserVIPLevel);
-            
             // If duration is specified and specifications exist, find matching spec
             if (duration > 0 && vip.specifications && vip.specifications.length > 0) {
                 const spec = vip.specifications.find(s => s.duration === duration);
@@ -1918,14 +2113,16 @@
                     actualPrice = spec.price;
                     originalPrice = spec.price;
                     actualDuration = spec.duration;
-                    
-                    // Check for upgrade price in specification
-                    if (isUpgrade && spec.upgrade_prices && spec.upgrade_prices[currentLevelKey]) {
-                        actualPrice = spec.upgrade_prices[currentLevelKey];
-                    }
                 }
-            } else if (isUpgrade && vip.upgrade_prices && vip.upgrade_prices[currentLevelKey]) {
-                actualPrice = vip.upgrade_prices[currentLevelKey];
+            }
+            
+            // Calculate prorated upgrade price based on remaining days and coefficient
+            if (isUpgrade && vip.upgrade_coefficient > 0 && currentUserRemainingDays > 0 && currentUserVIPDailyPrice > 0) {
+                // Prorated upgrade price = new price - (remaining days * old daily price * coefficient)
+                const credit = currentUserRemainingDays * currentUserVIPDailyPrice * vip.upgrade_coefficient;
+                actualPrice = Math.max(0, actualPrice - credit);
+                // Round to 2 decimal places
+                actualPrice = Math.round(actualPrice * 100) / 100;
             }
 
             const durationText = actualDuration > 0 ? `${actualDuration}${i18n.days}` : i18n.permanent;
@@ -1936,7 +2133,11 @@
                 ? `${i18n.upgradePriceLabel}：¥${actualPrice.toFixed(2)}（${i18n.originalPrice}：¥${originalPrice.toFixed(2)}）`
                 : `${i18n.priceLabel}：¥${actualPrice.toFixed(2)}`;
 
-            if (!confirm(`${confirmMsg}\n\n${priceText}`)) {
+            const confirmed = await showConfirmModal(`${confirmMsg}\n\n${priceText}`, '', {
+                confirmBtnClass: 'btn-success',
+                confirmBtnText: i18n.confirmBtn
+            });
+            if (!confirmed) {
                 return;
             }
 
@@ -1963,11 +2164,11 @@
                     showPurchaseSuccessModal(vip.name, result.data?.balance || 0, result.data?.is_upgrade || false);
                     renderVIPCards(); // Re-render to update button states
                 } else {
-                    alert(result.message || i18n.paymentErrorMsg);
+                    showAlertModal(result.message || i18n.paymentErrorMsg, i18n.paymentErrorTitle);
                 }
             } catch (error) {
                 console.error('Purchase error:', error);
-                alert(i18n.paymentErrorMsg);
+                showAlertModal(i18n.paymentErrorMsg, i18n.paymentErrorTitle);
             }
         }
 
@@ -2026,7 +2227,11 @@
             const confirmMsg = i18n.renewConfirm.replace('%s', `${vip.name} (${durationText})`);
             const priceText = `${i18n.priceLabel}：¥${actualPrice.toFixed(2)}`;
 
-            if (!confirm(`${confirmMsg}\n\n${priceText}`)) {
+            const confirmed = await showConfirmModal(`${confirmMsg}\n\n${priceText}`, '', {
+                confirmBtnClass: 'btn-info',
+                confirmBtnText: i18n.confirmBtn
+            });
+            if (!confirmed) {
                 return;
             }
 
@@ -2048,11 +2253,11 @@
                     showRenewalSuccessModal(vip.name, result.data?.balance || 0, result.data?.vip_expire_at);
                     renderVIPCards(); // Re-render to update button states
                 } else {
-                    alert(result.message || i18n.paymentErrorMsg);
+                    showAlertModal(result.message || i18n.paymentErrorMsg, i18n.paymentErrorTitle);
                 }
             } catch (error) {
                 console.error('Renewal error:', error);
-                alert(i18n.paymentErrorMsg);
+                showAlertModal(i18n.paymentErrorMsg, i18n.paymentErrorTitle);
             }
         }
 

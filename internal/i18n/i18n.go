@@ -12,6 +12,9 @@ var translations = map[string]map[string]string{
 		"app.name":        "Common Login Service",
 		"app.title":       "Unified Authentication Service",
 		"app.description": "Secure and convenient user authentication solution. Supports multiple login methods, easily integrates into your system.",
+		"common.ok":       "OK",
+		"common.cancel":   "Cancel",
+		"common.confirm":  "Confirm",
 
 		// Navigation
 		"nav.home":           "Home",
@@ -481,10 +484,14 @@ var translations = map[string]map[string]string{
 		"messages.time_minutes_ago":         "{n}m ago",
 		"messages.time_hours_ago":           "{n}h ago",
 		"messages.time_days_ago":            "{n}d ago",
-		"messages.selected":                 "selected",
-		"messages.delete_selected":          "Delete Selected",
+		"messages.batch_select":             "Select",
+		"messages.batch_delete":             "Delete Selected",
 		"messages.batch_delete_confirm":     "Are you sure you want to delete {n} selected messages?",
 		"messages.batch_delete_success":     "{n} messages deleted",
+		"messages.selected":                 "Selected",
+		"messages.cancel_select":            "Cancel",
+		"messages.delete_failed":            "Delete failed",
+		"messages.select_message":           "Select message",
 
 		// Admin Messages
 		"admin.messages":                    "Message Management",
@@ -518,6 +525,9 @@ var translations = map[string]map[string]string{
 		"app.name":        "Common Login Service",
 		"app.title":       "统一身份认证服务",
 		"app.description": "安全、便捷的用户认证解决方案。支持多种登录方式，轻松集成到您的系统中。",
+		"common.ok":       "确定",
+		"common.cancel":   "取消",
+		"common.confirm":  "确认",
 
 		// Navigation
 		"nav.home":           "首页",
@@ -987,10 +997,14 @@ var translations = map[string]map[string]string{
 		"messages.time_minutes_ago":         "{n}分钟前",
 		"messages.time_hours_ago":           "{n}小时前",
 		"messages.time_days_ago":            "{n}天前",
-		"messages.selected":                 "条已选",
-		"messages.delete_selected":          "删除选中",
+		"messages.batch_select":             "选择",
+		"messages.batch_delete":             "删除所选",
 		"messages.batch_delete_confirm":     "确定要删除选中的 {n} 条消息吗？",
 		"messages.batch_delete_success":     "已删除 {n} 条消息",
+		"messages.selected":                 "已选择",
+		"messages.cancel_select":            "取消选择",
+		"messages.delete_failed":            "删除失败",
+		"messages.select_message":           "选择消息",
 
 		// Admin Messages
 		"admin.messages":                    "消息管理",

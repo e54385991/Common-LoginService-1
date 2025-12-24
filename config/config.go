@@ -169,17 +169,18 @@ type VIPFeature struct {
 
 // VIPLevelConfig holds VIP level configuration
 type VIPLevelConfig struct {
-	Level          int                `json:"level"`
-	Name           string             `json:"name"`
-	Description    string             `json:"description"`
-	Price          float64            `json:"price"`                     // Default price (kept for backward compatibility)
-	Duration       int                `json:"duration"`                  // Default duration in days, 0 = permanent (kept for backward compatibility)
-	Icon           string             `json:"icon"`
-	Color          string             `json:"color"`
-	Features       []VIPFeature       `json:"features,omitempty"`        // List of features for this VIP level
-	UpgradePrices  map[string]float64 `json:"upgrade_prices,omitempty"`  // Upgrade prices from other VIP levels (key: from level as string, value: upgrade price) (kept for backward compatibility)
-	Specifications []VIPSpecification `json:"specifications,omitempty"`  // Multiple duration/price options for this VIP level
-	AllowRenewal   bool               `json:"allow_renewal,omitempty"`   // Allow users to renew this VIP level (add time to existing expiration)
+	Level             int                `json:"level"`
+	Name              string             `json:"name"`
+	Description       string             `json:"description"`
+	Price             float64            `json:"price"`                        // Default price (kept for backward compatibility)
+	Duration          int                `json:"duration"`                     // Default duration in days, 0 = permanent (kept for backward compatibility)
+	Icon              string             `json:"icon"`
+	Color             string             `json:"color"`
+	Features          []VIPFeature       `json:"features,omitempty"`           // List of features for this VIP level
+	UpgradePrices     map[string]float64 `json:"upgrade_prices,omitempty"`     // Upgrade prices from other VIP levels (key: from level as string, value: upgrade price) (kept for backward compatibility)
+	Specifications    []VIPSpecification `json:"specifications,omitempty"`     // Multiple duration/price options for this VIP level
+	AllowRenewal      bool               `json:"allow_renewal,omitempty"`      // Allow users to renew this VIP level (add time to existing expiration)
+	UpgradeCoefficient float64           `json:"upgrade_coefficient,omitempty"` // Coefficient for calculating upgrade price based on remaining days (e.g., 0.7 means 70% value for remaining time). 0 or empty means no prorated upgrade pricing.
 }
 
 // CaptchaConfig holds captcha configuration
