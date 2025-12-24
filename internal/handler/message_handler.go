@@ -67,7 +67,7 @@ func NewMessageHandler(messageRepo *repository.MessageRepository, batchTaskRepo 
 // @Failure 401 {object} Response "Unauthorized"
 // @Router /messages [get]
 func (h *MessageHandler) GetMessages(c *gin.Context) {
-	userID, exists := c.Get("user_id")
+	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"success": false,
@@ -120,7 +120,7 @@ func (h *MessageHandler) GetMessages(c *gin.Context) {
 // @Failure 401 {object} Response "Unauthorized"
 // @Router /messages/unread-count [get]
 func (h *MessageHandler) GetUnreadCount(c *gin.Context) {
-	userID, exists := c.Get("user_id")
+	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"success": false,
@@ -158,7 +158,7 @@ func (h *MessageHandler) GetUnreadCount(c *gin.Context) {
 // @Failure 404 {object} Response "Message not found"
 // @Router /messages/{id} [get]
 func (h *MessageHandler) GetMessage(c *gin.Context) {
-	userID, exists := c.Get("user_id")
+	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"success": false,
@@ -220,7 +220,7 @@ func (h *MessageHandler) GetMessage(c *gin.Context) {
 // @Failure 401 {object} Response "Unauthorized"
 // @Router /messages/{id}/read [post]
 func (h *MessageHandler) MarkAsRead(c *gin.Context) {
-	userID, exists := c.Get("user_id")
+	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"success": false,
@@ -264,7 +264,7 @@ func (h *MessageHandler) MarkAsRead(c *gin.Context) {
 // @Failure 401 {object} Response "Unauthorized"
 // @Router /messages/read-all [post]
 func (h *MessageHandler) MarkAllAsRead(c *gin.Context) {
-	userID, exists := c.Get("user_id")
+	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"success": false,
@@ -299,7 +299,7 @@ func (h *MessageHandler) MarkAllAsRead(c *gin.Context) {
 // @Failure 401 {object} Response "Unauthorized"
 // @Router /messages/{id} [delete]
 func (h *MessageHandler) DeleteMessage(c *gin.Context) {
-	userID, exists := c.Get("user_id")
+	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"success": false,

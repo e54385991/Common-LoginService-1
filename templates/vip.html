@@ -4,30 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{if .siteTitle}}{{.siteTitle}}{{else}}{{t .lang "app.name"}}{{end}} - {{t .lang "vip.page_title"}}</title>
-    <!-- Inline script to prevent white flash on page load -->
-    <script>
-        (function() {
-            var serverDarkMode = '{{.darkMode}}';
-            var theme = 'light';
-            if (serverDarkMode === 'dark') {
-                theme = 'dark';
-            } else if (serverDarkMode === 'light') {
-                theme = 'light';
-            } else {
-                var stored = localStorage.getItem('dark-mode-preference');
-                if (stored !== null) {
-                    theme = stored === 'true' ? 'dark' : 'light';
-                } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                    theme = 'dark';
-                }
-            }
-            document.documentElement.setAttribute('data-theme', theme);
-            window.serverDarkModeSetting = serverDarkMode;
-        })();
-    </script>
-    <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
-    <link href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
-    <link href="/static/css/style.css" rel="stylesheet">
+    {{template "darkmode" .}}
+    {{template "head_assets" .}}
     <style>
         /* Hero Section - Enhanced Modern Design */
         .vip-hero-enhanced {
@@ -584,19 +562,9 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="/"><i class="bi bi-house me-1"></i>{{t .lang "nav.home"}}</a>
-                    </li>
+                    {{/* Server-side render top navigation items */}}
+                    {{template "top_nav_items" .}}
                     {{if .logged}}
-                    <li class="nav-item">
-                        <a class="nav-link" href="/profile"><i class="bi bi-person me-1"></i>{{t .lang "nav.profile_center"}}</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/recharge"><i class="bi bi-wallet2 me-1"></i>{{t .lang "nav.recharge"}}</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="/vip"><i class="bi bi-gem me-1"></i>{{t .lang "nav.vip"}}</a>
-                    </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
                             {{if .user.Avatar}}
@@ -927,15 +895,9 @@
         </div>
     </nav>
 
-    <!-- Footer -->
-    <footer class="footer py-4 bg-dark text-white">
-        <div class="container text-center">
-            {{if .custom.FooterText}}<p class="mb-0">{{.custom.FooterText}}</p>{{else}}<p class="mb-0">&copy; 2024 <span id="footer-site-name">{{t .lang "app.name"}}</span>. {{t .lang "home.footer"}}</p>{{end}}
-        </div>
-    </footer>
+    {{template "footer" .}}
 
-    <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
-    <script src="/static/js/app.js"></script>
+    {{template "common_scripts" .}}
     <script>
         const currentLang = "{{.lang}}";
         let vipLevels = [];

@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>顶部导航栏配置 - {{.config.Site.Title}} 管理后台</title>
+    <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="/static/css/admin.css" rel="stylesheet">
+    <style>
+        .nav-item-card {
+            border-radius: 12px;
+            overflow: hidden;
+            transition: transform 0.3s, box-shadow 0.3s;
+            margin-bottom: 16px;
+        }
+        .nav-item-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+        }
+        .nav-item-card.dragging {
+            opacity: 0.5;
+        }
+        .nav-preview-container {
+            background: #667eea;
+            padding: 10px 20px;
+            border-radius: 12px;
+        }
+        .nav-preview-list {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .nav-preview-item {
+            display: flex;
+            align-items: center;
+            color: rgba(255,255,255,0.9);
+            text-decoration: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        .nav-preview-item:hover {
+            background: rgba(255,255,255,0.15);
+            color: white;
+        }
+        .nav-preview-item i {
+            margin-right: 6px;
+        }
+        .drag-handle {
+            cursor: grab;
+            color: #999;
+            padding: 8px;
+        }
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-wrapper">
+        {{template "admin_sidebar" .}}
+
+        <!-- Main Content -->
+        <main class="admin-main">
+            <header class="admin-header">
+                <h1 class="page-title"><i class="bi bi-layout-text-window-reverse me-2"></i>顶部导航栏配置</h1>
+            </header>
+
+            <div class="admin-content">
+                <div id="alert-container"></div>
+
+                <!-- Preview Section -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-eye me-2"></i>实时预览</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted mb-3">以下是顶部导航栏的预览效果（用于首页、个人中心等页面的右上角导航）</p>
+                        <div class="nav-preview-container">
+                            <div class="nav-preview-list" id="nav-preview">
+                                <!-- Preview items will be rendered here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Navigation Items Configuration -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>导航项配置</h5>
+                        <button type="button" class="btn btn-success btn-sm" onclick="addNavItem()">
+                            <i class="bi bi-plus-lg me-1"></i>添加导航项
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info mb-3">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>提示：</strong>
+                            <ul class="mb-0 mt-2">
+                                <li><strong>图标：</strong>使用 Bootstrap Icons，如 bi-house, bi-person, bi-wallet2, bi-gem 等</li>
+                                <li><strong>链接：</strong>可以是站内链接（如 /recharge）或站外链接（如 https://example.com）</li>
+                                <li><strong>多语言标题：</strong>支持设置中文和英文标题，根据用户语言自动显示</li>
+                            </ul>
+                        </div>
+                        <form id="nav-items-form">
+                            <div id="nav-items-container">
+                                <!-- Navigation items will be rendered here -->
+                            </div>
+                            <button type="submit" class="btn btn-primary mt-3">
+                                <i class="bi bi-save me-2"></i>保存配置
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast for notifications -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="notificationToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <i class="bi bi-bell me-2"></i>
+                <strong class="me-auto">通知</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body" id="toastMessage"></div>
+        </div>
+    </div>
+
+    <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+    <script>
+        let navItems = [];
+        let notificationToast;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            notificationToast = new bootstrap.Toast(document.getElementById('notificationToast'));
+            loadNavItems();
+        });
+
+        function showToast(message, isError = false) {
+            const toastEl = document.getElementById('notificationToast');
+            const toastBody = document.getElementById('toastMessage');
+            toastBody.textContent = message;
+            toastEl.classList.remove('bg-success', 'bg-danger');
+            toastEl.classList.add(isError ? 'bg-danger' : 'bg-success');
+            toastEl.classList.add('text-white');
+            notificationToast.show();
+        }
+
+        function showModal(type, message) {
+            const iconMap = {
+                'success': 'bi-check-circle-fill',
+                'danger': 'bi-exclamation-circle-fill',
+                'warning': 'bi-exclamation-triangle-fill'
+            };
+            const colorMap = {
+                'success': '#28a745',
+                'danger': '#dc3545',
+                'warning': '#ffc107'
+            };
+            const titleMap = {
+                'success': '保存成功',
+                'danger': '保存失败',
+                'warning': '警告'
+            };
+            
+            const existingModal = document.getElementById('resultModal');
+            if (existingModal) existingModal.remove();
+            
+            const modalHtml = `
+                <div class="modal fade" id="resultModal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-body text-center py-5">
+                                <i class="bi ${iconMap[type]} display-1 mb-3" style="color: ${colorMap[type]}"></i>
+                                <h4 class="mb-3">${titleMap[type]}</h4>
+                                <p class="text-muted mb-0">${message}</p>
+                            </div>
+                            <div class="modal-footer justify-content-center border-0 pt-0">
+                                <button type="button" class="btn btn-primary px-4" data-bs-dismiss="modal">确定</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            const modal = new bootstrap.Modal(document.getElementById('resultModal'));
+            modal.show();
+        }
+
+        async function loadNavItems() {
+            try {
+                const response = await fetch('/api/admin/settings/top-navigation');
+                const result = await response.json();
+                if (result.success) {
+                    navItems = result.data.items || [];
+                    // Sort by order
+                    navItems.sort((a, b) => a.order - b.order);
+                    renderNavItems();
+                    renderPreview();
+                }
+            } catch (error) {
+                console.error('Failed to load navigation items:', error);
+            }
+        }
+
+        function renderNavItems() {
+            const container = document.getElementById('nav-items-container');
+            container.innerHTML = '';
+            
+            navItems.forEach((item, index) => {
+                container.innerHTML += `
+                    <div class="card nav-item-card" data-index="${index}" draggable="true" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="drop(event)">
+                        <div class="card-header d-flex justify-content-between align-items-center py-2">
+                            <div class="d-flex align-items-center">
+                                <span class="drag-handle me-2"><i class="bi bi-grip-vertical"></i></span>
+                                <i class="${item.icon || 'bi-link'}" style="color: #667eea; font-size: 1.2rem;"></i>
+                                <span class="ms-2 fw-bold">${item.title}</span>
+                                <span class="badge ${item.visible ? 'bg-success' : 'bg-secondary'} ms-2">${item.visible ? '显示' : '隐藏'}</span>
+                            </div>
+                            <div>
+                                <button type="button" class="btn btn-outline-${item.visible ? 'warning' : 'success'} btn-sm me-1" onclick="toggleVisibility(${index})">
+                                    <i class="bi bi-${item.visible ? 'eye-slash' : 'eye'}"></i>
+                                </button>
+                                <button type="button" class="btn btn-danger btn-sm" onclick="removeNavItem(${index})">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label">ID</label>
+                                    <input type="text" class="form-control" value="${item.id}" onchange="updateNavItem(${index}, 'id', this.value)" placeholder="唯一标识">
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label">默认标题</label>
+                                    <input type="text" class="form-control" value="${item.title}" onchange="updateNavItem(${index}, 'title', this.value)" placeholder="显示标题">
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label">英文标题</label>
+                                    <input type="text" class="form-control" value="${(item.title_i18n && item.title_i18n.en) || ''}" onchange="updateNavItemI18n(${index}, 'en', this.value)" placeholder="English title">
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label">中文标题</label>
+                                    <input type="text" class="form-control" value="${(item.title_i18n && item.title_i18n.zh) || ''}" onchange="updateNavItemI18n(${index}, 'zh', this.value)" placeholder="中文标题">
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">图标</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="${item.icon || 'bi-link'}"></i></span>
+                                        <input type="text" class="form-control" value="${item.icon || ''}" onchange="updateNavItem(${index}, 'icon', this.value)" placeholder="bi-house">
+                                    </div>
+                                </div>
+                                <div class="col-md-5 mb-3">
+                                    <label class="form-label">链接URL</label>
+                                    <input type="text" class="form-control" value="${item.url || ''}" onchange="updateNavItem(${index}, 'url', this.value)" placeholder="/recharge 或 https://...">
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label">新标签页</label>
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input" type="checkbox" ${item.new_tab ? 'checked' : ''} onchange="updateNavItem(${index}, 'new_tab', this.checked)">
+                                        <label class="form-check-label">新窗口打开</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function renderPreview() {
+            const container = document.getElementById('nav-preview');
+            container.innerHTML = '';
+            
+            const visibleItems = navItems.filter(item => item.visible).sort((a, b) => a.order - b.order);
+            
+            visibleItems.forEach(item => {
+                const target = item.new_tab ? 'target="_blank" rel="noopener"' : '';
+                const safeIcon = item.icon || 'bi-link';
+                const safeUrl = item.url || '#';
+                
+                container.innerHTML += `
+                    <a href="${safeUrl}" class="nav-preview-item" ${target}>
+                        <i class="${safeIcon}"></i>${item.title}
+                    </a>
+                `;
+            });
+            
+            if (visibleItems.length === 0) {
+                container.innerHTML = '<span class="text-white-50">暂无可显示的导航项</span>';
+            }
+        }
+
+        function updateNavItem(index, field, value) {
+            navItems[index][field] = value;
+            renderNavItems();
+            renderPreview();
+        }
+
+        function updateNavItemI18n(index, lang, value) {
+            if (!navItems[index].title_i18n) {
+                navItems[index].title_i18n = {};
+            }
+            navItems[index].title_i18n[lang] = value;
+        }
+
+        function toggleVisibility(index) {
+            navItems[index].visible = !navItems[index].visible;
+            renderNavItems();
+            renderPreview();
+        }
+
+        function addNavItem() {
+            const maxOrder = navItems.length > 0 ? Math.max(...navItems.map(i => i.order)) : 0;
+            const newId = 'topnav_' + Date.now();
+            navItems.push({
+                id: newId,
+                title: '新导航项',
+                title_i18n: {},
+                icon: 'bi-link',
+                url: '',
+                new_tab: false,
+                visible: true,
+                order: maxOrder + 1
+            });
+            renderNavItems();
+            renderPreview();
+        }
+
+        function removeNavItem(index) {
+            if (confirm('确定要删除此导航项吗？')) {
+                navItems.splice(index, 1);
+                // Reorder remaining items
+                navItems.forEach((item, i) => item.order = i + 1);
+                renderNavItems();
+                renderPreview();
+            }
+        }
+
+        // Drag and drop functionality
+        let draggedIndex = null;
+
+        function dragStart(e) {
+            draggedIndex = parseInt(e.target.closest('.nav-item-card').dataset.index);
+            e.target.closest('.nav-item-card').classList.add('dragging');
+        }
+
+        function dragOver(e) {
+            e.preventDefault();
+        }
+
+        function drop(e) {
+            e.preventDefault();
+            const dropTarget = e.target.closest('.nav-item-card');
+            if (dropTarget) {
+                const dropIndex = parseInt(dropTarget.dataset.index);
+                if (draggedIndex !== dropIndex) {
+                    // Reorder items
+                    const draggedItem = navItems[draggedIndex];
+                    navItems.splice(draggedIndex, 1);
+                    navItems.splice(dropIndex, 0, draggedItem);
+                    // Update order values
+                    navItems.forEach((item, i) => item.order = i + 1);
+                    renderNavItems();
+                    renderPreview();
+                }
+            }
+            document.querySelectorAll('.nav-item-card').forEach(card => card.classList.remove('dragging'));
+        }
+
+        // Form submission
+        document.getElementById('nav-items-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            try {
+                const response = await fetch('/api/admin/settings/top-navigation', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: navItems })
+                });
+                
+                const result = await response.json();
+                showModal(result.success ? 'success' : 'danger', result.message);
+            } catch (error) {
+                showModal('danger', '网络错误，请稍后重试');
+            }
+        });
+    </script>
+</body>
+</html>

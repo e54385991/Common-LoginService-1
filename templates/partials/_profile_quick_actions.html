@@ -1,0 +1,40 @@
+{{define "profile_quick_actions"}}
+{{/* Server-side render profile quick action items if configured */}}
+{{if .profileNavItems}}
+    {{range .profileNavItems}}
+    {{if eq .Type "action"}}
+        {{if eq .ID "settings"}}
+        <a href="#" class="quick-action-btn{{if .Effect}} effect-{{.Effect}}{{end}}" style="background: linear-gradient(135deg, {{if safeColor .Color}}{{safeColor .Color}}{{else}}#667eea{{end}} 0%, {{if safeColor .GradientEnd}}{{safeColor .GradientEnd}}{{else}}#764ba2{{end}} 100%);" data-bs-toggle="modal" data-bs-target="#editProfileModal">
+            <i class="{{.Icon}}"></i>{{if and .TitleI18n (index .TitleI18n $.lang)}}{{index .TitleI18n $.lang}}{{else}}{{.Title}}{{end}}
+        </a>
+        {{else if eq .ID "logout"}}
+        <a href="#" onclick="logout()" class="quick-action-btn{{if .Effect}} effect-{{.Effect}}{{end}}" style="background: linear-gradient(135deg, {{if safeColor .Color}}{{safeColor .Color}}{{else}}#6c757d{{end}} 0%, {{if safeColor .GradientEnd}}{{safeColor .GradientEnd}}{{else}}#495057{{end}} 100%);">
+            <i class="{{.Icon}}"></i>{{if and .TitleI18n (index .TitleI18n $.lang)}}{{index .TitleI18n $.lang}}{{else}}{{.Title}}{{end}}
+        </a>
+        {{else}}
+        <a href="{{safeURL .URL}}" class="quick-action-btn{{if .Effect}} effect-{{.Effect}}{{end}}" style="background: linear-gradient(135deg, {{if safeColor .Color}}{{safeColor .Color}}{{else}}#667eea{{end}} 0%, {{if safeColor .GradientEnd}}{{safeColor .GradientEnd}}{{else}}#764ba2{{end}} 100%);"{{if .NewTab}} target="_blank" rel="noopener"{{end}}>
+            <i class="{{.Icon}}"></i>{{if and .TitleI18n (index .TitleI18n $.lang)}}{{index .TitleI18n $.lang}}{{else}}{{.Title}}{{end}}
+        </a>
+        {{end}}
+    {{else}}
+    <a href="{{safeURL .URL}}" class="quick-action-btn{{if .Effect}} effect-{{.Effect}}{{end}}" style="background: linear-gradient(135deg, {{if safeColor .Color}}{{safeColor .Color}}{{else}}#667eea{{end}} 0%, {{if safeColor .GradientEnd}}{{safeColor .GradientEnd}}{{else}}#764ba2{{end}} 100%);"{{if .NewTab}} target="_blank" rel="noopener"{{end}}>
+        <i class="{{.Icon}}"></i>{{if and .TitleI18n (index .TitleI18n $.lang)}}{{index .TitleI18n $.lang}}{{else}}{{.Title}}{{end}}
+    </a>
+    {{end}}
+    {{end}}
+{{else}}
+    {{/* Default quick actions if no custom items configured */}}
+    <a href="/recharge" class="quick-action-btn" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
+        <i class="bi bi-wallet2"></i>{{t .lang "profile.recharge_center"}}
+    </a>
+    <a href="/vip" class="quick-action-btn" style="background: linear-gradient(135deg, #ffd700 0%, #ffb300 100%); color: #333;">
+        <i class="bi bi-gem"></i>{{t .lang "profile.vip_membership"}}
+    </a>
+    <a href="#" class="quick-action-btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);" data-bs-toggle="modal" data-bs-target="#editProfileModal">
+        <i class="bi bi-gear"></i>{{t .lang "profile.account_settings"}}
+    </a>
+    <a href="#" onclick="logout()" class="quick-action-btn" style="background: linear-gradient(135deg, #6c757d 0%, #495057 100%);">
+        <i class="bi bi-box-arrow-right"></i>{{t .lang "profile.logout"}}
+    </a>
+{{end}}
+{{end}}

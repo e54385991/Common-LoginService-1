@@ -1,0 +1,8 @@
+{{define "footer"}}
+    <!-- Footer -->
+    <footer class="footer py-4 bg-dark text-white">
+        <div class="container text-center">
+            {{if .custom.FooterText}}<p class="mb-0">{{.custom.FooterText}}</p>{{else}}<p class="mb-0">&copy; 2024 <span id="footer-site-name">{{if .siteTitle}}{{.siteTitle}}{{else}}{{t .lang "app.name"}}{{end}}</span>. {{t .lang "home.footer"}}</p>{{end}}
+        </div>
+    </footer>
+{{end}}

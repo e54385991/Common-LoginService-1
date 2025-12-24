@@ -1,0 +1,28 @@
+{{define "top_nav_items"}}
+{{/* Server-side render top navigation items if configured */}}
+{{if .topNavItems}}
+    {{range .topNavItems}}
+    <li class="nav-item">
+        <a class="nav-link" href="{{safeURL .URL}}"{{if .NewTab}} target="_blank" rel="noopener"{{end}}>
+            <i class="{{.Icon}} me-1"></i>{{if and .TitleI18n (index .TitleI18n $.lang)}}{{index .TitleI18n $.lang}}{{else}}{{.Title}}{{end}}
+        </a>
+    </li>
+    {{end}}
+{{else}}
+    {{/* Default navigation if no custom items configured */}}
+    <li class="nav-item">
+        <a class="nav-link" href="/"><i class="bi bi-house me-1"></i>{{t .lang "nav.home"}}</a>
+    </li>
+    {{if .logged}}
+    <li class="nav-item">
+        <a class="nav-link" href="/profile"><i class="bi bi-person me-1"></i>{{t .lang "nav.profile_center"}}</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="/recharge"><i class="bi bi-wallet2 me-1"></i>{{t .lang "nav.recharge"}}</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="/vip"><i class="bi bi-gem me-1"></i>{{t .lang "nav.vip"}}</a>
+    </li>
+    {{end}}
+{{end}}
+{{end}}

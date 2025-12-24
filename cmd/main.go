@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/e54385991/Common-LoginService/config"
@@ -73,6 +74,36 @@ func loadTemplates(templatesDir string) (*template.Template, error) {
 		// hasSuffix checks if a string ends with a given suffix
 		"hasSuffix": func(s, suffix string) bool {
 			return strings.HasSuffix(s, suffix)
+		},
+		// safeURL sanitizes a URL to prevent javascript:, data:, and vbscript: injection
+		"safeURL": func(s string) string {
+			lowerURL := strings.ToLower(strings.TrimSpace(s))
+			if strings.HasPrefix(lowerURL, "javascript:") || strings.HasPrefix(lowerURL, "data:") || strings.HasPrefix(lowerURL, "vbscript:") {
+				return "#"
+			}
+			return s
+		},
+		// safeColor sanitizes a color value to prevent CSS injection
+		// Only allows valid hex colors (#rrggbb) and common color names
+		"safeColor": func(s string) string {
+			if s == "" {
+				return ""
+			}
+			// Allow valid hex colors
+			hexPattern := regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
+			if hexPattern.MatchString(s) {
+				return s
+			}
+			// Allow common color names
+			validColors := map[string]bool{
+				"red": true, "blue": true, "green": true, "yellow": true,
+				"orange": true, "purple": true, "pink": true, "white": true,
+				"black": true, "gray": true, "grey": true,
+			}
+			if validColors[strings.ToLower(s)] {
+				return s
+			}
+			return ""
 		},
 	})
 
@@ -327,6 +358,7 @@ func main() {
 			adminProtected.GET("/api-tokens", adminHandler.AdminAPITokens)
 			adminProtected.GET("/gift-cards", adminHandler.AdminGiftCards)
 			adminProtected.GET("/profile-navigation", adminHandler.AdminProfileNavigation)
+			adminProtected.GET("/top-navigation", adminHandler.AdminTopNavigation)
 			adminProtected.GET("/mobile-toolbar", adminHandler.AdminMobileToolbar)
 			adminProtected.GET("/balance-logs", adminHandler.AdminBalanceLogs)
 			adminProtected.GET("/login-logs", adminHandler.AdminLoginLogs)
@@ -358,6 +390,8 @@ func main() {
 			adminAPIProtected.PUT("/settings/vip-levels", adminHandler.UpdateVIPLevels)
 			adminAPIProtected.GET("/settings/profile-navigation", adminHandler.GetProfileNavigation)
 			adminAPIProtected.PUT("/settings/profile-navigation", adminHandler.UpdateProfileNavigation)
+			adminAPIProtected.GET("/settings/top-navigation", adminHandler.GetTopNavigation)
+			adminAPIProtected.PUT("/settings/top-navigation", adminHandler.UpdateTopNavigation)
 			adminAPIProtected.GET("/settings/mobile-toolbar", adminHandler.GetMobileToolbar)
 			adminAPIProtected.PUT("/settings/mobile-toolbar", adminHandler.UpdateMobileToolbar)
 			adminAPIProtected.GET("/settings/access", adminHandler.GetAccessSettings)
@@ -425,6 +459,7 @@ func main() {
 	api.GET("/vip-levels", adminHandler.GetPublicVIPLevels)
 	api.GET("/site-settings", adminHandler.GetPublicSiteSettings)
 	api.GET("/profile-navigation", adminHandler.GetPublicProfileNavigation)
+	api.GET("/top-navigation", adminHandler.GetPublicTopNavigation)
 	api.GET("/mobile-toolbar", adminHandler.GetPublicMobileToolbar)
 	api.GET("/custom-settings", adminHandler.GetPublicCustomSettings)
 

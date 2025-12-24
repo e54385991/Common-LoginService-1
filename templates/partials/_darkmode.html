@@ -1,0 +1,23 @@
+{{define "darkmode"}}
+    <!-- Inline script to prevent white flash on page load -->
+    <script>
+        (function() {
+            var serverDarkMode = '{{.darkMode}}';
+            var theme = 'light';
+            if (serverDarkMode === 'dark') {
+                theme = 'dark';
+            } else if (serverDarkMode === 'light') {
+                theme = 'light';
+            } else {
+                var stored = localStorage.getItem('dark-mode-preference');
+                if (stored !== null) {
+                    theme = stored === 'true' ? 'dark' : 'light';
+                } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    theme = 'dark';
+                }
+            }
+            document.documentElement.setAttribute('data-theme', theme);
+            window.serverDarkModeSetting = serverDarkMode;
+        })();
+    </script>
+{{end}}

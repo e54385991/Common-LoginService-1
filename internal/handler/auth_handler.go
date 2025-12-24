@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -814,6 +815,36 @@ func (h *AuthHandler) ResetPasswordPage(c *gin.Context) {
 	})
 }
 
+// getVisibleTopNavItems returns only visible top navigation items sorted by order
+func (h *AuthHandler) getVisibleTopNavItems() []config.TopNavItem {
+	var visibleItems []config.TopNavItem
+	for _, item := range h.cfg.TopNavigation.Items {
+		if item.Visible {
+			visibleItems = append(visibleItems, item)
+		}
+	}
+	// Sort by order using Go's efficient sort
+	sort.Slice(visibleItems, func(i, j int) bool {
+		return visibleItems[i].Order < visibleItems[j].Order
+	})
+	return visibleItems
+}
+
+// getVisibleProfileNavItems returns only visible profile navigation items sorted by order
+func (h *AuthHandler) getVisibleProfileNavItems() []config.ProfileNavItem {
+	var visibleItems []config.ProfileNavItem
+	for _, item := range h.cfg.ProfileNavigation.Items {
+		if item.Visible {
+			visibleItems = append(visibleItems, item)
+		}
+	}
+	// Sort by order using Go's efficient sort
+	sort.Slice(visibleItems, func(i, j int) bool {
+		return visibleItems[i].Order < visibleItems[j].Order
+	})
+	return visibleItems
+}
+
 // HomePage renders the home page
 func (h *AuthHandler) HomePage(c *gin.Context) {
 	lang := c.GetString("lang")
@@ -835,6 +866,7 @@ func (h *AuthHandler) HomePage(c *gin.Context) {
 		"siteTitle": h.getSiteTitle(lang),
 		"custom":    h.cfg.Custom,
 		"darkMode":  h.cfg.Site.DarkMode,
+		"topNavItems": h.getVisibleTopNavItems(),
 	})
 }
 
@@ -853,6 +885,7 @@ func (h *AuthHandler) RechargePage(c *gin.Context) {
 		"siteTitle": h.getSiteTitle(lang),
 		"custom":    h.cfg.Custom,
 		"darkMode":  h.cfg.Site.DarkMode,
+		"topNavItems": h.getVisibleTopNavItems(),
 	})
 }
 
@@ -871,6 +904,7 @@ func (h *AuthHandler) VIPPage(c *gin.Context) {
 		"siteTitle": h.getSiteTitle(lang),
 		"custom":    h.cfg.Custom,
 		"darkMode":  h.cfg.Site.DarkMode,
+		"topNavItems": h.getVisibleTopNavItems(),
 	})
 }
 
@@ -889,6 +923,8 @@ func (h *AuthHandler) ProfilePage(c *gin.Context) {
 		"siteTitle": h.getSiteTitle(lang),
 		"custom":    h.cfg.Custom,
 		"darkMode":  h.cfg.Site.DarkMode,
+		"topNavItems": h.getVisibleTopNavItems(),
+		"profileNavItems": h.getVisibleProfileNavItems(),
 	})
 }
 

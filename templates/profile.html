@@ -3,31 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{if .siteTitle}}{{.siteTitle}}{{else}}{{t .lang "app.name"}}{{end}} - 个人中心</title>
-    <!-- Inline script to prevent white flash on page load -->
-    <script>
-        (function() {
-            var serverDarkMode = '{{.darkMode}}';
-            var theme = 'light';
-            if (serverDarkMode === 'dark') {
-                theme = 'dark';
-            } else if (serverDarkMode === 'light') {
-                theme = 'light';
-            } else {
-                var stored = localStorage.getItem('dark-mode-preference');
-                if (stored !== null) {
-                    theme = stored === 'true' ? 'dark' : 'light';
-                } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                    theme = 'dark';
-                }
-            }
-            document.documentElement.setAttribute('data-theme', theme);
-            window.serverDarkModeSetting = serverDarkMode;
-        })();
-    </script>
-    <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
-    <link href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
-    <link href="/static/css/style.css" rel="stylesheet">
+    <title>{{if .siteTitle}}{{.siteTitle}}{{else}}{{t .lang "app.name"}}{{end}} - {{t .lang "profile.page_title"}}</title>
+    {{template "darkmode" .}}
+    {{template "head_assets" .}}
     <style>
         .profile-hero {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -341,24 +319,41 @@
         }
         /* Message Box Styles */
         .message-item {
-            padding: 15px;
+            padding: 16px 20px;
             border-bottom: 1px solid #eee;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: all 0.3s ease;
+            position: relative;
         }
         .message-item:hover {
-            background: #f8f9fa;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.03) 0%, rgba(118, 75, 162, 0.03) 100%);
+            transform: translateX(4px);
         }
         .message-item.unread {
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
-            border-left: 3px solid #667eea;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
+            border-left: 4px solid #667eea;
+        }
+        .message-item.unread::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+            animation: pulse-border 2s infinite;
+        }
+        @keyframes pulse-border {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
         }
         .message-item .message-title {
             font-weight: 600;
-            margin-bottom: 4px;
+            margin-bottom: 6px;
             display: flex;
             align-items: center;
             gap: 8px;
+            flex-wrap: wrap;
         }
         .message-item.unread .message-title {
             color: #333;
@@ -369,26 +364,120 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            margin-top: 4px;
         }
         .message-item .message-time {
             color: #999;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
+            white-space: nowrap;
         }
         .message-type-badge {
-            font-size: 0.7rem;
+            font-size: 0.65rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 500;
+        }
+        .message-new-badge {
+            font-size: 0.6rem;
             padding: 2px 6px;
+            animation: pulse-new 1.5s infinite;
+        }
+        @keyframes pulse-new {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
         }
         [data-theme="dark"] .message-item:hover {
-            background: rgba(255,255,255,0.05);
+            background: rgba(102, 126, 234, 0.08);
         }
         [data-theme="dark"] .message-item.unread {
-            background: rgba(102, 126, 234, 0.1);
+            background: rgba(102, 126, 234, 0.15);
         }
         [data-theme="dark"] .message-item .message-preview {
             color: #aaa;
         }
+        [data-theme="dark"] .message-item .message-title {
+            color: #e0e0e0;
+        }
+        /* Notification Badge Animation */
         #unread-badge {
             transform: translate(-25%, -25%) !important;
+            min-width: 18px;
+            height: 18px;
+            align-items: center;
+            justify-content: center;
+        }
+        /* Badge pulse animation - applied via JavaScript when badge is visible */
+        #unread-badge.badge-visible {
+            animation: badge-pulse 2s infinite;
+        }
+        /* Badge bounce animation for new notifications */
+        #unread-badge.badge-bounce {
+            animation: badge-pulse 2s infinite, badge-bounce 0.5s ease;
+        }
+        @keyframes badge-pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+            50% { box-shadow: 0 0 0 8px rgba(220, 53, 69, 0); }
+        }
+        @keyframes badge-bounce {
+            0% { transform: translate(-25%, -25%) scale(0); }
+            50% { transform: translate(-25%, -25%) scale(1.2); }
+            100% { transform: translate(-25%, -25%) scale(1); }
+        }
+        /* Message Pagination */
+        .messages-pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            padding: 16px;
+            border-top: 1px solid #eee;
+            background: #f8f9fa;
+        }
+        .messages-pagination .btn {
+            min-width: 36px;
+            height: 36px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+        .messages-pagination .page-info {
+            font-size: 0.85rem;
+            color: #666;
+            margin: 0 12px;
+        }
+        [data-theme="dark"] .messages-pagination {
+            background: rgba(255,255,255,0.03);
+            border-color: rgba(255,255,255,0.1);
+        }
+        [data-theme="dark"] .messages-pagination .page-info {
+            color: #aaa;
+        }
+        /* Message Detail Modal Styling */
+        .message-detail-content {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 12px;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        [data-theme="dark"] .message-detail-content {
+            background: rgba(255,255,255,0.05);
+            color: #e0e0e0;
+        }
+        /* Bell icon shake animation for new messages */
+        .bell-shake {
+            animation: bell-shake 0.5s ease-in-out;
+        }
+        @keyframes bell-shake {
+            0%, 100% { transform: rotate(0); }
+            20% { transform: rotate(15deg); }
+            40% { transform: rotate(-15deg); }
+            60% { transform: rotate(10deg); }
+            80% { transform: rotate(-10deg); }
         }
     </style>
     {{if .custom.GlobalCSS}}<style>{{.custom.GlobalCSS}}</style>{{end}}
@@ -404,19 +493,9 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="/"><i class="bi bi-house me-1"></i>{{t .lang "nav.home"}}</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="/profile"><i class="bi bi-person me-1"></i>{{t .lang "nav.profile_center"}}</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/recharge"><i class="bi bi-wallet2 me-1"></i>{{t .lang "nav.recharge"}}</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/vip"><i class="bi bi-gem me-1"></i>{{t .lang "nav.vip"}}</a>
-                    </li>
+                <ul class="navbar-nav ms-auto" id="top-nav-items">
+                    {{/* Server-side render top navigation items */}}
+                    {{template "top_nav_items" .}}
                     {{if .logged}}
                     <!-- Message Box -->
                     <li class="nav-item">
@@ -656,19 +735,8 @@
                                 </div>
                             </div>
                             <div class="quick-actions" id="quick-actions-container">
-                                <!-- Dynamic navigation items will be rendered here -->
-                                <a href="/recharge" class="quick-action-btn" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
-                                    <i class="bi bi-wallet2"></i>{{t .lang "profile.recharge_center"}}
-                                </a>
-                                <a href="/vip" class="quick-action-btn" style="background: linear-gradient(135deg, #ffd700 0%, #ffb300 100%); color: #333;">
-                                    <i class="bi bi-gem"></i>{{t .lang "profile.vip_membership"}}
-                                </a>
-                                <a href="#" class="quick-action-btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);" data-bs-toggle="modal" data-bs-target="#editProfileModal">
-                                    <i class="bi bi-gear"></i>{{t .lang "profile.account_settings"}}
-                                </a>
-                                <a href="#" onclick="logout()" class="quick-action-btn" style="background: linear-gradient(135deg, #6c757d 0%, #495057 100%);">
-                                    <i class="bi bi-box-arrow-right"></i>{{t .lang "profile.logout"}}
-                                </a>
+                                {{/* Server-side render profile quick actions */}}
+                                {{template "profile_quick_actions" .}}
                             </div>
                         </div>
 
@@ -878,29 +946,47 @@
 
     <!-- Messages Modal -->
     <div class="modal fade" id="messagesModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-                    <h5 class="modal-title"><i class="bi bi-bell me-2"></i>{{t .lang "messages.title"}}</h5>
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content" style="border-radius: 16px; overflow: hidden;">
+                <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+                    <h5 class="modal-title"><i class="bi bi-bell-fill me-2"></i>{{t .lang "messages.title"}}</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-0">
                     <!-- Messages Header -->
-                    <div class="d-flex justify-content-between align-items-center p-3 border-bottom bg-light">
-                        <span class="text-muted">
-                            <span id="messages-count">0</span> {{t .lang "messages.inbox"}}
-                        </span>
-                        <button class="btn btn-sm btn-outline-primary" onclick="markAllMessagesAsRead()">
+                    <div class="d-flex justify-content-between align-items-center p-3 border-bottom" style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-envelope-open me-2 text-primary"></i>
+                            <span class="fw-semibold">
+                                <span id="messages-count">0</span> {{t .lang "messages.inbox"}}
+                            </span>
+                            <span class="badge bg-primary ms-2" id="unread-count-header" style="display: none;">
+                                <span id="unread-count-number">0</span> {{t .lang "messages.unread"}}
+                            </span>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary" onclick="markAllMessagesAsRead()" id="mark-all-read-btn">
                             <i class="bi bi-check-all me-1"></i>{{t .lang "messages.mark_all_read"}}
                         </button>
                     </div>
                     <!-- Messages List -->
-                    <div id="messages-list" style="max-height: 400px; overflow-y: auto;">
+                    <div id="messages-list" style="max-height: 450px; overflow-y: auto;">
                         <div class="text-center py-5 text-muted" id="messages-empty">
-                            <i class="bi bi-inbox display-4 d-block mb-3"></i>
+                            <i class="bi bi-inbox display-4 d-block mb-3" style="opacity: 0.3;"></i>
                             <h6>{{t .lang "messages.empty_title"}}</h6>
-                            <p class="small">{{t .lang "messages.empty_desc"}}</p>
+                            <p class="small mb-0">{{t .lang "messages.empty_desc"}}</p>
                         </div>
+                    </div>
+                    <!-- Messages Pagination -->
+                    <div class="messages-pagination" id="messages-pagination" style="display: none;">
+                        <button class="btn btn-outline-secondary" id="msg-prev-btn" onclick="loadMessagesPage(currentMessagesPage - 1)" disabled>
+                            <i class="bi bi-chevron-left"></i>
+                        </button>
+                        <span class="page-info">
+                            <span id="msg-current-page">1</span> / <span id="msg-total-pages">1</span>
+                        </span>
+                        <button class="btn btn-outline-secondary" id="msg-next-btn" onclick="loadMessagesPage(currentMessagesPage + 1)" disabled>
+                            <i class="bi bi-chevron-right"></i>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -910,20 +996,22 @@
     <!-- Message Detail Modal -->
     <div class="modal fade" id="messageDetailModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
+            <div class="modal-content" style="border-radius: 16px; overflow: hidden;">
+                <div class="modal-header" style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);">
                     <h5 class="modal-title" id="message-detail-title"></h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <div id="message-detail-meta" class="text-muted small mb-3"></div>
-                    <div id="message-detail-content"></div>
+                    <div id="message-detail-content" class="message-detail-content"></div>
                 </div>
                 <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" onclick="backToMessagesList()">
+                        <i class="bi bi-arrow-left me-1"></i>{{t .lang "messages.inbox"}}
+                    </button>
                     <button type="button" class="btn btn-outline-danger" onclick="deleteCurrentMessage()">
                         <i class="bi bi-trash me-1"></i>{{t .lang "messages.delete"}}
                     </button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{t .lang "profile.cancel"}}</button>
                 </div>
             </div>
         </div>
@@ -952,29 +1040,29 @@
         </div>
     </nav>
 
-    <!-- Footer -->
-    <footer class="bg-dark text-white py-4 mt-auto">
-        <div class="container text-center">
-            {{if .custom.FooterText}}<p class="mb-0">{{.custom.FooterText}}</p>{{else}}<p class="mb-0">&copy; 2024 {{if .siteTitle}}{{.siteTitle}}{{else}}{{t .lang "app.name"}}{{end}}. All rights reserved.</p>{{end}}
-        </div>
-    </footer>
+    {{template "footer" .}}
 
-    <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
-    <script src="/static/js/app.js"></script>
+    {{template "common_scripts" .}}
     <script>
         const currentLang = "{{.lang}}";
         let vipLevels = [];
-        let navItems = [];
         let bindingStatus = {};
         let selectedRechargeAmount = 0;
         let paymentMethod = 'alipay';
         let currentMessageId = null;
         let messagesData = [];
+        // Pagination state for messages
+        let currentMessagesPage = 1;
+        let totalMessagesPages = 1;
+        let messagesPerPage = 10;
+        let totalMessagesCount = 0;
+        // Track previous unread count for new message notifications
+        // Initialize to -1 to distinguish first load from subsequent updates
+        let previousUnreadCount = -1;
 
         document.addEventListener('DOMContentLoaded', function() {
             loadVIPLevels();
             loadUserBalance();
-            loadProfileNavigation();
             loadThirdPartyBindingStatus();
             loadMobileToolbar();
             formatCreatedAt();
@@ -1196,108 +1284,6 @@
                     <span>${title}</span>
                 </a>`;
             }).join('');
-        }
-
-        async function loadProfileNavigation() {
-            try {
-                const response = await fetch('/api/profile-navigation');
-                const result = await response.json();
-                if (result.success && result.data) {
-                    navItems = result.data;
-                    renderQuickActions();
-                }
-            } catch (error) {
-                console.error('Failed to load profile navigation:', error);
-            }
-        }
-
-        function renderQuickActions() {
-            const container = document.getElementById('quick-actions-container');
-            if (!container || navItems.length === 0) return;
-            
-            container.innerHTML = '';
-            
-            // Sort by order
-            const sortedItems = [...navItems].sort((a, b) => a.order - b.order);
-            
-            sortedItems.forEach(item => {
-                const effectClass = item.effect ? `effect-${item.effect}` : '';
-                // Sanitize color values to prevent CSS injection
-                const safeColor = sanitizeColor(item.color) || '#667eea';
-                const safeGradientEnd = sanitizeColor(item.gradient_end) || '#764ba2';
-                const gradient = `linear-gradient(135deg, ${safeColor} 0%, ${safeGradientEnd} 100%)`;
-                const target = item.new_tab ? 'target="_blank" rel="noopener"' : '';
-                // Sanitize icon class to prevent injection
-                const safeIcon = sanitizeIconClass(item.icon) || 'bi-link';
-                // Get i18n title if available, otherwise use default title
-                const titleText = (item.title_i18n && item.title_i18n[currentLang]) || item.title;
-                // Escape HTML in title
-                const safeTitle = escapeHtml(titleText);
-                
-                let element;
-                if (item.type === 'action') {
-                    // Special actions
-                    if (item.id === 'logout') {
-                        element = `<a href="#" onclick="logout()" class="quick-action-btn ${effectClass}" style="background: ${gradient};">
-                            <i class="${safeIcon}"></i>${safeTitle}
-                        </a>`;
-                    } else if (item.id === 'settings') {
-                        element = `<a href="#" class="quick-action-btn ${effectClass}" style="background: ${gradient};" data-bs-toggle="modal" data-bs-target="#editProfileModal">
-                            <i class="${safeIcon}"></i>${safeTitle}
-                        </a>`;
-                    } else {
-                        const safeUrl = sanitizeUrl(item.url) || '#';
-                        element = `<a href="${safeUrl}" class="quick-action-btn ${effectClass}" style="background: ${gradient};" ${target}>
-                            <i class="${safeIcon}"></i>${safeTitle}
-                        </a>`;
-                    }
-                } else {
-                    // Regular links
-                    const safeUrl = sanitizeUrl(item.url) || '#';
-                    element = `<a href="${safeUrl}" class="quick-action-btn ${effectClass}" style="background: ${gradient};" ${target}>
-                        <i class="${safeIcon}"></i>${safeTitle}
-                    </a>`;
-                }
-                container.innerHTML += element;
-            });
-        }
-
-        // Sanitize color values to prevent CSS injection
-        function sanitizeColor(color) {
-            if (!color) return null;
-            // Only allow valid hex colors
-            const hexPattern = /^#[0-9A-Fa-f]{6}$/;
-            if (hexPattern.test(color)) return color;
-            // Also allow common color names
-            const validColors = ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink', 'white', 'black', 'gray', 'grey'];
-            if (validColors.includes(color.toLowerCase())) return color;
-            return null;
-        }
-
-        // Sanitize icon class to prevent injection
-        function sanitizeIconClass(iconClass) {
-            if (!iconClass) return null;
-            // Only allow alphanumeric, hyphens, and spaces (for multiple classes)
-            const pattern = /^[a-zA-Z0-9\s-]+$/;
-            if (pattern.test(iconClass)) return iconClass;
-            return null;
-        }
-
-        // Sanitize URL to prevent javascript: injection
-        function sanitizeUrl(url) {
-            if (!url) return null;
-            // Block javascript: and data: URLs
-            const lowerUrl = url.toLowerCase().trim();
-            if (lowerUrl.startsWith('javascript:') || lowerUrl.startsWith('data:')) return '#';
-            return url;
-        }
-
-        // Escape HTML to prevent XSS
-        function escapeHtml(text) {
-            if (!text) return '';
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
         }
 
         async function loadVIPLevels() {
@@ -2116,6 +2102,7 @@
             deleteSuccess: "{{t .lang "messages.delete_success"}}",
             markReadSuccess: "{{t .lang "messages.mark_read_success"}}",
             markAllReadSuccess: "{{t .lang "messages.mark_all_read_success"}}",
+            newMessages: "{{t .lang "messages.new_messages"}}",
             emptyTitle: "{{t .lang "messages.empty_title"}}",
             emptyDesc: "{{t .lang "messages.empty_desc"}}",
             typeNormal: "{{t .lang "messages.type_normal"}}",
@@ -2135,46 +2122,131 @@
                 if (result.success && result.data) {
                     const count = result.data.unread_count || 0;
                     const badge = document.getElementById('unread-badge');
+                    const bellIcon = document.querySelector('a[data-bs-target="#messagesModal"] i');
+                    
                     if (badge) {
                         if (count > 0) {
                             badge.textContent = count > 99 ? '99+' : count;
-                            badge.style.display = 'inline-block';
+                            badge.style.display = 'flex';
+                            badge.classList.add('badge-visible');
+                            
+                            // Only show animations/notifications for new messages after initial load
+                            // previousUnreadCount === -1 means this is the first load
+                            if (previousUnreadCount !== -1 && count > previousUnreadCount) {
+                                // Add bounce animation class
+                                badge.classList.remove('badge-bounce');
+                                // Force DOM reflow to restart the CSS animation
+                                void badge.offsetWidth;
+                                badge.classList.add('badge-bounce');
+                                
+                                // Animate bell icon when there are new messages
+                                if (bellIcon) {
+                                    bellIcon.classList.remove('bell-shake');
+                                    // Force DOM reflow to restart the CSS animation
+                                    void bellIcon.offsetWidth;
+                                    bellIcon.classList.add('bell-shake');
+                                }
+                                // Show toast notification for new messages
+                                const newCount = count - previousUnreadCount;
+                                if (newCount > 0) {
+                                    showToast(`${newCount} ${messagesI18n.newMessages}`, false);
+                                }
+                            }
                         } else {
                             badge.style.display = 'none';
+                            badge.classList.remove('badge-visible', 'badge-bounce');
                         }
                     }
+                    previousUnreadCount = count;
                 }
             } catch (error) {
                 console.error('Failed to load unread count:', error);
             }
         }
 
-        // Load messages
+        // Load messages with pagination
         async function loadMessages() {
+            loadMessagesPage(1);
+        }
+
+        // Load messages for specific page
+        async function loadMessagesPage(page) {
+            if (page < 1) page = 1;
+            
             try {
-                const response = await fetch('/api/messages?page_size=50');
+                const response = await fetch(`/api/messages?page=${page}&page_size=${messagesPerPage}`);
                 const result = await response.json();
                 if (result.success && result.data) {
                     messagesData = result.data.messages || [];
+                    totalMessagesCount = result.data.total || 0;
+                    currentMessagesPage = page;
+                    totalMessagesPages = Math.ceil(totalMessagesCount / messagesPerPage) || 1;
+                    
+                    // Update UI
+                    document.getElementById('messages-count').textContent = totalMessagesCount;
                     renderMessages(messagesData);
-                    document.getElementById('messages-count').textContent = result.data.total || 0;
+                    updatePagination();
+                    updateUnreadHeader();
                 }
             } catch (error) {
                 console.error('Failed to load messages:', error);
             }
         }
 
+        // Update pagination controls
+        function updatePagination() {
+            const paginationDiv = document.getElementById('messages-pagination');
+            const prevBtn = document.getElementById('msg-prev-btn');
+            const nextBtn = document.getElementById('msg-next-btn');
+            const currentPageSpan = document.getElementById('msg-current-page');
+            const totalPagesSpan = document.getElementById('msg-total-pages');
+            
+            if (totalMessagesPages <= 1) {
+                paginationDiv.style.display = 'none';
+            } else {
+                paginationDiv.style.display = 'flex';
+                currentPageSpan.textContent = currentMessagesPage;
+                totalPagesSpan.textContent = totalMessagesPages;
+                prevBtn.disabled = currentMessagesPage <= 1;
+                nextBtn.disabled = currentMessagesPage >= totalMessagesPages;
+            }
+        }
+
+        // Update unread count header in messages modal
+        async function updateUnreadHeader() {
+            try {
+                const response = await fetch('/api/messages/unread-count');
+                const result = await response.json();
+                if (result.success && result.data) {
+                    const count = result.data.unread_count || 0;
+                    const unreadHeader = document.getElementById('unread-count-header');
+                    const unreadNumber = document.getElementById('unread-count-number');
+                    const markAllBtn = document.getElementById('mark-all-read-btn');
+                    
+                    if (count > 0) {
+                        unreadHeader.style.display = 'inline-block';
+                        unreadNumber.textContent = count;
+                        markAllBtn.disabled = false;
+                    } else {
+                        unreadHeader.style.display = 'none';
+                        markAllBtn.disabled = true;
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to update unread header:', error);
+            }
+        }
+
         // Render messages list
         function renderMessages(messages) {
             const container = document.getElementById('messages-list');
-            const emptyState = document.getElementById('messages-empty');
             
             if (!messages || messages.length === 0) {
                 container.innerHTML = `
                     <div class="text-center py-5 text-muted">
-                        <i class="bi bi-inbox display-4 d-block mb-3"></i>
+                        <i class="bi bi-inbox display-4 d-block mb-3" style="opacity: 0.3;"></i>
                         <h6>${messagesI18n.emptyTitle}</h6>
-                        <p class="small">${messagesI18n.emptyDesc}</p>
+                        <p class="small mb-0">${messagesI18n.emptyDesc}</p>
                     </div>
                 `;
                 return;
@@ -2183,7 +2255,7 @@
             container.innerHTML = messages.map(msg => {
                 const isUnread = !msg.is_read;
                 const typeClass = msg.type === 'system' ? 'bg-info' : 
-                                 msg.type === 'announcement' ? 'bg-warning' : 'bg-secondary';
+                                 msg.type === 'announcement' ? 'bg-warning text-dark' : 'bg-secondary';
                 const typeText = msg.type === 'system' ? messagesI18n.typeSystem : 
                                 msg.type === 'announcement' ? messagesI18n.typeAnnouncement : messagesI18n.typeNormal;
                 const date = new Date(msg.created_at);
@@ -2194,13 +2266,13 @@
                     <div class="message-item ${isUnread ? 'unread' : ''}" onclick="openMessage(${msg.id})">
                         <div class="d-flex justify-content-between align-items-start">
                             <div class="message-title">
-                                ${isUnread ? '<span class="badge bg-primary" style="font-size: 0.65rem;">NEW</span>' : ''}
-                                ${escapeHtml(msg.title)}
+                                ${isUnread ? '<span class="badge bg-danger message-new-badge">NEW</span>' : ''}
+                                <span class="text-truncate" style="max-width: 300px;">${escapeHtml(msg.title)}</span>
                                 <span class="badge ${typeClass} message-type-badge">${typeText}</span>
                             </div>
                             <span class="message-time">${timeStr}</span>
                         </div>
-                        <div class="message-preview">${previewContent}</div>
+                        <div class="message-preview mt-1">${previewContent}</div>
                     </div>
                 `;
             }).join('');
@@ -2239,10 +2311,10 @@
                                     msg.type === 'announcement' ? messagesI18n.typeAnnouncement : messagesI18n.typeNormal;
                     const date = new Date(msg.created_at).toLocaleString(currentLang === 'zh' ? 'zh-CN' : 'en-US');
                     document.getElementById('message-detail-meta').innerHTML = `
-                        <span class="badge ${msg.type === 'system' ? 'bg-info' : msg.type === 'announcement' ? 'bg-warning' : 'bg-secondary'}">${typeText}</span>
-                        <span class="ms-2">${date}</span>
+                        <span class="badge ${msg.type === 'system' ? 'bg-info' : msg.type === 'announcement' ? 'bg-warning text-dark' : 'bg-secondary'}">${typeText}</span>
+                        <span class="ms-2"><i class="bi bi-clock me-1"></i>${date}</span>
                     `;
-                    document.getElementById('message-detail-content').innerHTML = escapeHtml(msg.content).replace(/\n/g, '<br>');
+                    document.getElementById('message-detail-content').textContent = msg.content;
                     
                     // Hide messages modal and show detail modal
                     bootstrap.Modal.getInstance(document.getElementById('messagesModal')).hide();
@@ -2252,11 +2324,19 @@
                     
                     // Refresh unread count and messages list
                     loadUnreadCount();
-                    loadMessages();
+                    loadMessagesPage(currentMessagesPage);
                 }
             } catch (error) {
                 console.error('Failed to open message:', error);
             }
+        }
+
+        // Back to messages list from detail
+        function backToMessagesList() {
+            bootstrap.Modal.getInstance(document.getElementById('messageDetailModal')).hide();
+            setTimeout(() => {
+                new bootstrap.Modal(document.getElementById('messagesModal')).show();
+            }, 200);
         }
 
         // Delete current message
@@ -2273,7 +2353,10 @@
                 if (result.success) {
                     bootstrap.Modal.getInstance(document.getElementById('messageDetailModal')).hide();
                     showToast(messagesI18n.deleteSuccess, false);
-                    loadMessages();
+                    setTimeout(() => {
+                        new bootstrap.Modal(document.getElementById('messagesModal')).show();
+                        loadMessagesPage(currentMessagesPage);
+                    }, 200);
                     loadUnreadCount();
                 } else {
                     showToast(result.message || 'Delete failed', true);
@@ -2292,7 +2375,7 @@
                 const result = await response.json();
                 if (result.success) {
                     showToast(messagesI18n.markAllReadSuccess, false);
-                    loadMessages();
+                    loadMessagesPage(currentMessagesPage);
                     loadUnreadCount();
                 }
             } catch (error) {

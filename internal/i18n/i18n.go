@@ -116,8 +116,25 @@ var translations = map[string]map[string]string{
 		"home.api.forgot":       "Forgot Password",
 		"home.api.reset":        "Reset Password",
 		"home.footer":           "All rights reserved.",
+		// Home - Quick Services (for logged-in users)
+		"home.quick_services":          "Quick Services",
+		"home.quick_services_desc":     "One-stop management for your account, balance and membership benefits",
+		"home.service_recharge_title":  "Recharge Center",
+		"home.service_recharge_desc":   "Recharge your account, supporting multiple payment methods",
+		"home.service_recharge_btn":    "Recharge Now",
+		"home.service_vip_title":       "VIP Membership",
+		"home.service_vip_desc":        "Activate VIP to enjoy exclusive privileges and premium services",
+		"home.service_vip_btn":         "Activate VIP",
+		"home.service_profile_title":   "Profile Center",
+		"home.service_profile_desc":    "Manage your account information and view benefits",
+		"home.service_profile_btn":     "Enter Center",
+		// Home - Welcome Section Buttons (for logged-in users)
+		"home.btn_profile":             "Profile Center",
+		"home.btn_recharge":            "Recharge Center",
+		"home.btn_vip":                 "Activate VIP",
 
 		// Profile
+		"profile.page_title":              "Profile Center",
 		"profile.title":                   "Profile",
 		"profile.close":                   "Close",
 		"profile.registered":              "Registered on",
@@ -601,8 +618,25 @@ var translations = map[string]map[string]string{
 		"home.api.forgot":       "忘记密码",
 		"home.api.reset":        "重置密码",
 		"home.footer":           "版权所有。",
+		// Home - Quick Services (for logged-in users)
+		"home.quick_services":          "快捷服务",
+		"home.quick_services_desc":     "一站式管理您的账户、余额和会员权益",
+		"home.service_recharge_title":  "充值中心",
+		"home.service_recharge_desc":   "为您的账户充值，支持多种支付方式",
+		"home.service_recharge_btn":    "立即充值",
+		"home.service_vip_title":       "VIP会员",
+		"home.service_vip_desc":        "开通VIP享受专属特权和优质服务",
+		"home.service_vip_btn":         "开通VIP",
+		"home.service_profile_title":   "个人中心",
+		"home.service_profile_desc":    "管理您的账户信息和查看权益",
+		"home.service_profile_btn":     "进入中心",
+		// Home - Welcome Section Buttons (for logged-in users)
+		"home.btn_profile":             "个人中心",
+		"home.btn_recharge":            "充值中心",
+		"home.btn_vip":                 "开通VIP",
 
 		// Profile
+		"profile.page_title":              "个人中心",
 		"profile.title":                   "个人资料",
 		"profile.close":                   "关闭",
 		"profile.registered":              "注册于",

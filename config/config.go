@@ -25,6 +25,7 @@ type Config struct {
 	VIPLevels              []VIPLevelConfig             `json:"vip_levels"`
 	SignedURL              SignedURLConfig              `json:"signed_url"`
 	ProfileNavigation      ProfileNavigationConfig      `json:"profile_navigation"`
+	TopNavigation          TopNavigationConfig          `json:"top_navigation"`
 	MobileToolbar          MobileToolbarConfig          `json:"mobile_toolbar"`
 	LoginProtection        LoginProtectionConfig        `json:"login_protection"`
 	RegistrationProtection RegistrationProtectionConfig `json:"registration_protection"`
@@ -64,6 +65,23 @@ type ProfileNavItem struct {
 	NewTab      bool              `json:"new_tab"`                 // Open in new tab
 	Visible     bool              `json:"visible"`                 // Whether the item is visible
 	Order       int               `json:"order"`                   // Display order
+}
+
+// TopNavigationConfig holds configuration for top navigation bar items
+type TopNavigationConfig struct {
+	Items []TopNavItem `json:"items"`
+}
+
+// TopNavItem represents a single navigation item in the top navigation bar
+type TopNavItem struct {
+	ID        string            `json:"id"`                    // Unique identifier
+	Title     string            `json:"title"`                 // Display title (default)
+	TitleI18n map[string]string `json:"title_i18n,omitempty"`  // I18n titles (e.g., {"en": "Home", "zh": "首页"})
+	Icon      string            `json:"icon"`                  // Bootstrap icon class (e.g., "bi-house")
+	URL       string            `json:"url"`                   // Link URL
+	NewTab    bool              `json:"new_tab"`               // Open in new tab
+	Visible   bool              `json:"visible"`               // Whether the item is visible
+	Order     int               `json:"order"`                 // Display order
 }
 
 // MobileToolbarConfig holds configuration for mobile bottom toolbar

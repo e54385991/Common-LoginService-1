@@ -48,6 +48,12 @@
                 <span>个人中心导航</span>
             </a>
         </li>
+        <li class="nav-item {{if eq .activeMenu "top-navigation"}}active{{end}}">
+            <a href="/admin/top-navigation" class="nav-link">
+                <i class="bi bi-layout-text-window-reverse"></i>
+                <span>顶部导航栏</span>
+            </a>
+        </li>
         <li class="nav-item {{if eq .activeMenu "mobile-toolbar"}}active{{end}}">
             <a href="/admin/mobile-toolbar" class="nav-link">
                 <i class="bi bi-phone"></i>

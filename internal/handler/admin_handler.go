@@ -3592,3 +3592,91 @@ func (h *AdminHandler) ListLoginLogs(c *gin.Context) {
 		},
 	})
 }
+
+// ==================== Top Navigation Settings ====================
+
+// AdminTopNavigation renders the admin top navigation settings page
+func (h *AdminHandler) AdminTopNavigation(c *gin.Context) {
+	lang := c.GetString("lang")
+	c.HTML(http.StatusOK, "admin_top_navigation.html", gin.H{
+		"lang":       lang,
+		"config":     h.cfg,
+		"activeMenu": "top-navigation",
+	})
+}
+
+// GetTopNavigation returns top navigation settings
+// @Summary Get top navigation settings
+// @Description Get top navigation bar configuration
+// @Tags admin
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} handler.Response "Top navigation settings retrieved"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Router /admin/settings/top-navigation [get]
+func (h *AdminHandler) GetTopNavigation(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    h.cfg.TopNavigation,
+	})
+}
+
+// UpdateTopNavigation updates top navigation settings
+// @Summary Update top navigation settings
+// @Description Update top navigation bar configuration
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body config.TopNavigationConfig true "Top navigation settings"
+// @Success 200 {object} handler.Response "Top navigation settings updated"
+// @Failure 400 {object} handler.Response "Bad request"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Failure 500 {object} handler.Response "Failed to save settings"
+// @Router /admin/settings/top-navigation [put]
+func (h *AdminHandler) UpdateTopNavigation(c *gin.Context) {
+	var input config.TopNavigationConfig
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	h.cfg.TopNavigation = input
+
+	if err := config.Save("config.json"); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "保存配置失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "顶部导航栏配置已更新",
+	})
+}
+
+// GetPublicTopNavigation returns top navigation for public access
+// @Summary Get public top navigation
+// @Description Get top navigation configuration for frontend display
+// @Tags public
+// @Produce json
+// @Success 200 {object} handler.Response "Top navigation retrieved"
+// @Router /top-navigation [get]
+func (h *AdminHandler) GetPublicTopNavigation(c *gin.Context) {
+	// Only return visible items, sorted by order
+	var visibleItems []config.TopNavItem
+	for _, item := range h.cfg.TopNavigation.Items {
+		if item.Visible {
+			visibleItems = append(visibleItems, item)
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    visibleItems,
+	})
+}

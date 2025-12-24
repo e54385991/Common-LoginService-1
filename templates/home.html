@@ -4,30 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{t .lang "nav.home"}} - {{t .lang "app.name"}}</title>
-    <!-- Inline script to prevent white flash on page load -->
-    <script>
-        (function() {
-            var serverDarkMode = '{{.darkMode}}';
-            var theme = 'light';
-            if (serverDarkMode === 'dark') {
-                theme = 'dark';
-            } else if (serverDarkMode === 'light') {
-                theme = 'light';
-            } else {
-                var stored = localStorage.getItem('dark-mode-preference');
-                if (stored !== null) {
-                    theme = stored === 'true' ? 'dark' : 'light';
-                } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                    theme = 'dark';
-                }
-            }
-            document.documentElement.setAttribute('data-theme', theme);
-            window.serverDarkModeSetting = serverDarkMode;
-        })();
-    </script>
-    <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
-    <link href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
-    <link href="/static/css/style.css" rel="stylesheet">
+    {{template "darkmode" .}}
+    {{template "head_assets" .}}
     <style>
         .service-card:hover {
             transform: translateY(-8px);
@@ -48,16 +26,9 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
+                    {{/* Server-side render top navigation items */}}
+                    {{template "top_nav_items" .}}
                     {{if .logged}}
-                    <li class="nav-item">
-                        <a class="nav-link" href="/profile"><i class="bi bi-person me-1"></i>{{t .lang "nav.profile_center"}}</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/recharge"><i class="bi bi-wallet2 me-1"></i>{{t .lang "nav.recharge"}}</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/vip"><i class="bi bi-gem me-1"></i>{{t .lang "nav.vip"}}</a>
-                    </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
                             {{if .user.Avatar}}
@@ -137,13 +108,13 @@
                         </div>
                         <div class="d-flex gap-2 flex-wrap">
                             <a href="/profile" class="btn btn-outline-primary">
-                                <i class="bi bi-person me-1"></i>个人中心
+                                <i class="bi bi-person me-1"></i>{{t .lang "home.btn_profile"}}
                             </a>
                             <a href="/recharge" class="btn btn-success">
-                                <i class="bi bi-wallet2 me-1"></i>充值中心
+                                <i class="bi bi-wallet2 me-1"></i>{{t .lang "home.btn_recharge"}}
                             </a>
                             <a href="/vip" class="btn btn-warning">
-                                <i class="bi bi-gem me-1"></i>开通VIP
+                                <i class="bi bi-gem me-1"></i>{{t .lang "home.btn_vip"}}
                             </a>
                         </div>
                     </div>
@@ -162,8 +133,8 @@
     <!-- Quick Services Section for Logged In Users -->
     <section class="py-5 bg-light">
         <div class="container">
-            <h2 class="text-center mb-2">快捷服务</h2>
-            <p class="text-center text-muted mb-5">一站式管理您的账户、余额和会员权益</p>
+            <h2 class="text-center mb-2">{{t .lang "home.quick_services"}}</h2>
+            <p class="text-center text-muted mb-5">{{t .lang "home.quick_services_desc"}}</p>
             <div class="row g-4 justify-content-center">
                 <div class="col-md-4">
                     <a href="/recharge" class="text-decoration-none">
@@ -172,10 +143,10 @@
                                 <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px; background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
                                     <i class="bi bi-wallet2 text-white" style="font-size: 2rem;"></i>
                                 </div>
-                                <h4 class="text-dark mb-2">充值中心</h4>
-                                <p class="text-muted mb-3">为您的账户充值，支持多种支付方式</p>
+                                <h4 class="text-dark mb-2">{{t .lang "home.service_recharge_title"}}</h4>
+                                <p class="text-muted mb-3">{{t .lang "home.service_recharge_desc"}}</p>
                                 <span class="btn btn-outline-success">
-                                    <i class="bi bi-plus-circle me-2"></i>立即充值
+                                    <i class="bi bi-plus-circle me-2"></i>{{t .lang "home.service_recharge_btn"}}
                                 </span>
                             </div>
                         </div>
@@ -188,10 +159,10 @@
                                 <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px; background: linear-gradient(135deg, #ffd700 0%, #ffb300 100%);">
                                     <i class="bi bi-gem text-dark" style="font-size: 2rem;"></i>
                                 </div>
-                                <h4 class="text-dark mb-2">VIP会员</h4>
-                                <p class="text-muted mb-3">开通VIP享受专属特权和优质服务</p>
+                                <h4 class="text-dark mb-2">{{t .lang "home.service_vip_title"}}</h4>
+                                <p class="text-muted mb-3">{{t .lang "home.service_vip_desc"}}</p>
                                 <span class="btn btn-outline-warning text-dark">
-                                    <i class="bi bi-gem me-2"></i>开通VIP
+                                    <i class="bi bi-gem me-2"></i>{{t .lang "home.service_vip_btn"}}
                                 </span>
                             </div>
                         </div>
@@ -204,10 +175,10 @@
                                 <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
                                     <i class="bi bi-person-badge text-white" style="font-size: 2rem;"></i>
                                 </div>
-                                <h4 class="text-dark mb-2">个人中心</h4>
-                                <p class="text-muted mb-3">管理您的账户信息和查看权益</p>
+                                <h4 class="text-dark mb-2">{{t .lang "home.service_profile_title"}}</h4>
+                                <p class="text-muted mb-3">{{t .lang "home.service_profile_desc"}}</p>
                                 <span class="btn btn-outline-primary">
-                                    <i class="bi bi-person me-2"></i>进入中心
+                                    <i class="bi bi-person me-2"></i>{{t .lang "home.service_profile_btn"}}
                                 </span>
                             </div>
                         </div>
@@ -329,12 +300,7 @@
         </div>
     </section>
 
-    <!-- Footer -->
-    <footer class="footer py-4 bg-dark text-white">
-        <div class="container text-center">
-            {{if .custom.FooterText}}<p class="mb-0">{{.custom.FooterText}}</p>{{else}}<p class="mb-0">&copy; 2024 {{t .lang "app.name"}}. {{t .lang "home.footer"}}</p>{{end}}
-        </div>
-    </footer>
+    {{template "footer" .}}
 
     {{if .logged}}
     <!-- Profile Modal -->
@@ -376,8 +342,7 @@
     </div>
     {{end}}
 
-    <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
-    <script src="/static/js/app.js"></script>
+    {{template "common_scripts" .}}
     <script>
         async function logout() {
             try {
