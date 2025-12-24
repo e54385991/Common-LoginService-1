@@ -286,11 +286,62 @@
                                     </div>
                                 </div>
                             </div>
+                            <!-- Email Verification Settings -->
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                                <h6 class="mb-0"><i class="bi bi-envelope-check me-2"></i>强制邮箱验证</h6>
+                                                <div class="form-check form-switch mb-0">
+                                                    <input class="form-check-input" type="checkbox" id="require-email-verification" {{if .config.Access.RequireEmailVerification}}checked{{end}}>
+                                                    <label class="form-check-label" for="require-email-verification">启用</label>
+                                                </div>
+                                            </div>
+                                            <div class="alert alert-info mb-0">
+                                                <i class="bi bi-info-circle me-2"></i>
+                                                启用后，未验证邮箱的用户将被重定向到邮箱验证页面。用户可以在该页面设置或更换邮箱，每60秒只能发送1次验证邮件，需要验证码。
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                             <div class="mt-3">
                                 <button type="submit" class="btn btn-primary">
                                     <i class="bi bi-save me-2"></i>保存访问控制设置
                                 </button>
                             </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Appearance Settings (Dark Mode) -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-palette me-2"></i>外观设置
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="appearance-form">
+                            <div class="mb-3">
+                                <label for="dark-mode" class="form-label">暗色模式</label>
+                                <select class="form-select" id="dark-mode">
+                                    <option value="system" {{if eq .config.Site.DarkMode "system"}}selected{{end}}>跟随系统</option>
+                                    <option value="dark" {{if eq .config.Site.DarkMode "dark"}}selected{{end}}>默认暗色</option>
+                                    <option value="light" {{if eq .config.Site.DarkMode "light"}}selected{{end}}>默认亮色</option>
+                                </select>
+                                <small class="text-muted">
+                                    <ul class="mb-0 ps-3 mt-2">
+                                        <li><strong>跟随系统</strong>：用户可以手动切换暗色/亮色模式，默认跟随浏览器/系统设置</li>
+                                        <li><strong>默认暗色</strong>：强制使用暗色模式，隐藏切换按钮</li>
+                                        <li><strong>默认亮色</strong>：强制使用亮色模式，隐藏切换按钮</li>
+                                    </ul>
+                                </small>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save me-2"></i>保存外观设置
+                            </button>
                         </form>
                     </div>
                 </div>
@@ -550,11 +601,34 @@
                 registration_message: document.getElementById('registration-message').value,
                 registration_start_uid: parseInt(document.getElementById('registration-start-uid').value) || 0,
                 allow_email_login: document.getElementById('allow-email-login').checked,
-                allow_username_login: document.getElementById('allow-username-login').checked
+                allow_username_login: document.getElementById('allow-username-login').checked,
+                require_email_verification: document.getElementById('require-email-verification').checked
             };
             
             try {
                 const response = await fetch('/api/admin/settings/access', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                showModal(result.success ? 'success' : 'danger', result.message);
+            } catch (error) {
+                showModal('danger', '网络错误，请稍后重试');
+            }
+        });
+
+        // Appearance Settings Form (Dark Mode)
+        document.getElementById('appearance-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const data = {
+                dark_mode: document.getElementById('dark-mode').value
+            };
+            
+            try {
+                const response = await fetch('/api/admin/settings/site', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)

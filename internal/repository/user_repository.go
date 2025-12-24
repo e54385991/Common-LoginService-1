@@ -435,3 +435,32 @@ func isDuplicateKeyError(errStr string) bool {
 		strings.Contains(errStr, "UNIQUE constraint failed") ||
 		strings.Contains(errStr, "duplicate key value")
 }
+
+// SetEmailVerified sets the user's email verification status
+func (r *UserRepository) SetEmailVerified(id uint, verified bool) (*model.User, error) {
+	var user model.User
+	if err := r.db.First(&user, id).Error; err != nil {
+		return nil, err
+	}
+
+	user.EmailVerified = verified
+	if err := r.db.Save(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// UpdateEmail updates the user's email address and resets verification status
+func (r *UserRepository) UpdateEmail(id uint, email string) (*model.User, error) {
+	var user model.User
+	if err := r.db.First(&user, id).Error; err != nil {
+		return nil, err
+	}
+
+	user.Email = email
+	user.EmailVerified = false
+	if err := r.db.Save(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}

@@ -37,6 +37,106 @@ const api = {
     },
 };
 
+// Dark Mode Functions
+const darkMode = {
+    storageKey: 'dark-mode-preference',
+    serverSetting: null, // Backend configured dark mode setting: 'system', 'dark', 'light'
+    
+    // Set the server-side dark mode configuration
+    setServerSetting(setting) {
+        this.serverSetting = setting;
+    },
+    
+    // Get current theme preference based on server setting and user preference
+    getPreference() {
+        // If server forces dark or light mode, respect that
+        if (this.serverSetting === 'dark') {
+            return true;
+        }
+        if (this.serverSetting === 'light') {
+            return false;
+        }
+        
+        // Server setting is 'system' or not set - use user preference or system default
+        const stored = localStorage.getItem(this.storageKey);
+        if (stored !== null) {
+            return stored === 'true';
+        }
+        // Check system preference
+        return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    },
+    
+    // Check if user can toggle dark mode (only when server allows 'system' mode)
+    canToggle() {
+        return !this.serverSetting || this.serverSetting === 'system';
+    },
+    
+    // Set theme preference
+    setPreference(isDark) {
+        if (!this.canToggle()) {
+            return; // Don't allow toggle if server forces a mode
+        }
+        localStorage.setItem(this.storageKey, isDark);
+        this.applyTheme(isDark);
+    },
+    
+    // Apply theme to document
+    applyTheme(isDark) {
+        document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+        this.updateToggleIcon(isDark);
+    },
+    
+    // Update toggle button icon
+    updateToggleIcon(isDark) {
+        const toggleBtns = document.querySelectorAll('.dark-mode-toggle i');
+        toggleBtns.forEach(icon => {
+            if (isDark) {
+                icon.classList.remove('bi-moon-fill');
+                icon.classList.add('bi-sun-fill');
+            } else {
+                icon.classList.remove('bi-sun-fill');
+                icon.classList.add('bi-moon-fill');
+            }
+        });
+        
+        // Hide toggle button if server forces a mode
+        if (!this.canToggle()) {
+            document.querySelectorAll('.dark-mode-toggle').forEach(btn => {
+                btn.style.display = 'none';
+            });
+        }
+    },
+    
+    // Toggle dark mode
+    toggle() {
+        if (!this.canToggle()) {
+            return; // Don't allow toggle if server forces a mode
+        }
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        const isDark = currentTheme !== 'dark';
+        this.setPreference(isDark);
+    },
+    
+    // Initialize dark mode on page load
+    init(serverSetting) {
+        if (serverSetting) {
+            this.serverSetting = serverSetting;
+        }
+        const isDark = this.getPreference();
+        this.applyTheme(isDark);
+        
+        // Listen for system preference changes (only if in 'system' mode)
+        if (window.matchMedia && this.canToggle()) {
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+                // Only update if user hasn't set a manual preference
+                if (localStorage.getItem(this.storageKey) === null) {
+                    this.applyTheme(e.matches);
+                }
+            });
+        }
+    }
+};
+
 // Toast Notification
 function showToast(message, type = 'info') {
     const toastContainer = document.getElementById('toast-container') || createToastContainer();
@@ -120,8 +220,18 @@ function validateForm(form) {
     return isValid;
 }
 
+// Toggle dark mode function (for onclick handlers)
+function toggleDarkMode() {
+    darkMode.toggle();
+}
+
 // Initialize on DOM Ready
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize dark mode with server setting if available
+    // The serverDarkModeSetting variable is set by an inline script in the HTML template
+    const serverSetting = typeof serverDarkModeSetting !== 'undefined' ? serverDarkModeSetting : null;
+    darkMode.init(serverSetting);
+    
     // Add smooth scrolling
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', function(e) {

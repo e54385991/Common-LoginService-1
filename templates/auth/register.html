@@ -4,6 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{t .lang "register.title"}} - {{t .lang "app.name"}}</title>
+    <!-- Inline script to prevent white flash on page load -->
+    <script>
+        (function() {
+            var serverDarkMode = '{{.darkMode}}';
+            var theme = 'light';
+            if (serverDarkMode === 'dark') {
+                theme = 'dark';
+            } else if (serverDarkMode === 'light') {
+                theme = 'light';
+            } else {
+                var stored = localStorage.getItem('dark-mode-preference');
+                if (stored !== null) {
+                    theme = stored === 'true' ? 'dark' : 'light';
+                } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    theme = 'dark';
+                }
+            }
+            document.documentElement.setAttribute('data-theme', theme);
+            window.serverDarkModeSetting = serverDarkMode;
+        })();
+    </script>
     <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
     <link href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
     <link href="/static/css/style.css" rel="stylesheet">
@@ -87,17 +108,22 @@
     {{if .custom.GlobalCSS}}<style>{{.custom.GlobalCSS}}</style>{{end}}
 </head>
 <body class="auth-page">
-    <!-- Language Switcher -->
+    <!-- Language Switcher and Dark Mode Toggle -->
     <div class="lang-switcher">
-        <div class="dropdown">
-            <button class="btn dropdown-toggle" type="button" id="langDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="bi bi-globe"></i>
-                <span id="currentLang">{{if eq .lang "zh"}}中文{{else}}English{{end}}</span>
+        <div class="d-flex gap-2">
+            <button class="btn dark-mode-toggle" type="button" onclick="toggleDarkMode()" title="Toggle Dark Mode" style="padding: 8px 12px; border-radius: 20px; background: rgba(255, 255, 255, 0.95); border: 1px solid rgba(0, 0, 0, 0.1);">
+                <i class="bi bi-moon-fill"></i>
             </button>
-            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="langDropdown">
-                <li><a class="dropdown-item {{if eq .lang "en"}}active{{end}}" href="#" onclick="setLanguage('en')"><i class="bi bi-check2 {{if ne .lang "en"}}invisible{{end}}"></i> English</a></li>
-                <li><a class="dropdown-item {{if eq .lang "zh"}}active{{end}}" href="#" onclick="setLanguage('zh')"><i class="bi bi-check2 {{if ne .lang "zh"}}invisible{{end}}"></i> 中文</a></li>
-            </ul>
+            <div class="dropdown">
+                <button class="btn dropdown-toggle" type="button" id="langDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-globe"></i>
+                    <span id="currentLang">{{if eq .lang "zh"}}中文{{else}}English{{end}}</span>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="langDropdown">
+                    <li><a class="dropdown-item {{if eq .lang "en"}}active{{end}}" href="#" onclick="setLanguage('en')"><i class="bi bi-check2 {{if ne .lang "en"}}invisible{{end}}"></i> English</a></li>
+                    <li><a class="dropdown-item {{if eq .lang "zh"}}active{{end}}" href="#" onclick="setLanguage('zh')"><i class="bi bi-check2 {{if ne .lang "zh"}}invisible{{end}}"></i> 中文</a></li>
+                </ul>
+            </div>
         </div>
     </div>
 

@@ -4,33 +4,73 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{if .siteTitle}}{{.siteTitle}}{{else}}{{t .lang "app.name"}}{{end}} - {{t .lang "vip.page_title"}}</title>
+    <!-- Inline script to prevent white flash on page load -->
+    <script>
+        (function() {
+            var serverDarkMode = '{{.darkMode}}';
+            var theme = 'light';
+            if (serverDarkMode === 'dark') {
+                theme = 'dark';
+            } else if (serverDarkMode === 'light') {
+                theme = 'light';
+            } else {
+                var stored = localStorage.getItem('dark-mode-preference');
+                if (stored !== null) {
+                    theme = stored === 'true' ? 'dark' : 'light';
+                } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    theme = 'dark';
+                }
+            }
+            document.documentElement.setAttribute('data-theme', theme);
+            window.serverDarkModeSetting = serverDarkMode;
+        })();
+    </script>
     <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
     <link href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
     <link href="/static/css/style.css" rel="stylesheet">
     <style>
-        .vip-hero {
-            background: linear-gradient(135deg, #ffd700 0%, #ff8c00 50%, #ff6347 100%);
+        /* Hero Section - Enhanced Modern Design */
+        .vip-hero-enhanced {
+            background: linear-gradient(135deg, #6366F1 0%, #EC4899 100%);
             color: white;
-            padding: 80px 0;
+            padding: 100px 0;
             position: relative;
             overflow: hidden;
         }
-        .vip-hero::before {
+        .vip-hero-enhanced::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-            opacity: 0.5;
+            top: -40px;
+            right: -40px;
+            width: 320px;
+            height: 320px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+            filter: blur(60px);
         }
-        .vip-hero .container {
+        .vip-hero-enhanced::after {
+            content: '';
+            position: absolute;
+            bottom: -40px;
+            left: -40px;
+            width: 320px;
+            height: 320px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+            filter: blur(60px);
+        }
+        .vip-hero-enhanced .container {
             position: relative;
             z-index: 1;
         }
-        .vip-hero h1 {
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        .vip-hero-enhanced h1 {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 800;
+            background: linear-gradient(to right, #ffffff, #f0f0f0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: none;
         }
         .balance-card {
             background: rgba(255,255,255,0.15);
@@ -56,26 +96,69 @@
             padding: 80px 0;
             background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);
         }
+        /* Dark mode - VIP Section */
+        [data-theme="dark"] .vip-section {
+            background: linear-gradient(180deg, #1a1a1a 0%, #121212 100%);
+        }
         .vip-card {
-            border-radius: 20px;
+            border-radius: 16px;
+            background: white;
             overflow: hidden;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transition: all 0.3s ease;
             height: 100%;
             border: none;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            border-top: 4px solid transparent;
+        }
+        /* Dark mode - VIP Card */
+        [data-theme="dark"] .vip-card {
+            background: #1e1e1e;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         }
         .vip-card:hover {
-            transform: translateY(-12px);
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+        [data-theme="dark"] .vip-card:hover {
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+        .vip-card.popular {
+            transform: scale(1.03);
+            box-shadow: 0 15px 50px rgba(0,0,0,0.15);
+            z-index: 10;
+        }
+        .vip-card.popular:hover {
+            transform: scale(1.03) translateY(-8px);
             box-shadow: 0 25px 60px rgba(0,0,0,0.2);
         }
         .vip-card.selected {
-            box-shadow: 0 0 0 4px #ffd700, 0 25px 60px rgba(0,0,0,0.2);
+            box-shadow: 0 0 0 4px #6366F1, 0 25px 60px rgba(0,0,0,0.2);
+        }
+        .vip-popular-badge {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(245, 158, 11, 0.05) 100%);
+            padding: 12px;
+            text-align: center;
+            color: #F59E0B;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        [data-theme="dark"] .vip-popular-badge {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(245, 158, 11, 0.08) 100%);
         }
         .vip-header {
-            padding: 40px 28px;
+            padding: 32px 24px;
             text-align: center;
-            color: white;
             position: relative;
+        }
+        .vip-icon-wrapper {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 28px;
         }
         .vip-popular {
             position: absolute;
@@ -94,23 +177,54 @@
             filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
         }
         .vip-name {
-            font-size: 1.6rem;
+            font-size: 1.5rem;
             font-weight: 800;
-            margin-bottom: 12px;
+            margin-bottom: 16px;
             letter-spacing: 0.5px;
         }
         .vip-price {
-            font-size: 3rem;
+            font-size: 2.5rem;
             font-weight: 900;
         }
         .vip-price small {
             font-size: 1rem;
             font-weight: 500;
-            opacity: 0.9;
+            opacity: 0.7;
         }
         .vip-body {
-            padding: 32px 28px;
+            padding: 24px;
             background: white;
+        }
+        /* Dark mode - VIP Body */
+        [data-theme="dark"] .vip-body {
+            background: #1e1e1e;
+        }
+        .vip-features {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 24px 0;
+        }
+        .vip-features li {
+            display: flex;
+            align-items: center;
+            padding: 8px 0;
+            font-size: 0.95rem;
+        }
+        .vip-features li i {
+            margin-right: 12px;
+            font-size: 1rem;
+        }
+        .vip-features li.enabled i {
+            color: #22C55E;
+        }
+        .vip-features li.disabled {
+            color: #9CA3AF;
+        }
+        .vip-features li.disabled i {
+            color: #EF4444;
+        }
+        [data-theme="dark"] .vip-features li.disabled {
+            color: #6B7280;
         }
         .vip-description {
             color: #666;
@@ -118,6 +232,10 @@
             min-height: 50px;
             font-size: 0.95rem;
             line-height: 1.6;
+        }
+        /* Dark mode - VIP Description */
+        [data-theme="dark"] .vip-description {
+            color: #a0a0a0;
         }
         .vip-description > *:first-child {
             margin-top: 0 !important;
@@ -130,6 +248,11 @@
             background: #f8f9fa;
             border-radius: 10px;
             display: inline-block;
+        }
+        /* Dark mode - VIP Duration */
+        [data-theme="dark"] .vip-duration {
+            background: #2a2a2a;
+            color: #a0a0a0;
         }
         .vip-select-btn {
             width: 100%;
@@ -146,6 +269,10 @@
             overflow: hidden;
             border: none;
         }
+        /* Dark mode - Payment Modal */
+        [data-theme="dark"] .payment-modal .modal-content {
+            background: #1e1e1e;
+        }
         .payment-modal .modal-header {
             background: linear-gradient(135deg, #ffd700 0%, #ff8c00 100%);
             color: white;
@@ -161,6 +288,10 @@
             padding: 24px;
             margin-bottom: 24px;
         }
+        /* Dark mode - Payment Info */
+        [data-theme="dark"] .payment-info {
+            background: linear-gradient(135deg, #2a2a2a 0%, #252525 100%);
+        }
         .payment-methods {
             display: flex;
             gap: 16px;
@@ -175,11 +306,20 @@
             cursor: pointer;
             transition: all 0.3s;
         }
+        /* Dark mode - Payment Method */
+        [data-theme="dark"] .payment-method {
+            border-color: #444;
+            background: #2a2a2a;
+        }
         .payment-method:hover, .payment-method.selected {
             border-color: #ffd700;
         }
         .payment-method.selected {
             background: linear-gradient(135deg, #fffacd 0%, #fff8dc 100%);
+        }
+        /* Dark mode - Payment Method Selected */
+        [data-theme="dark"] .payment-method.selected {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.2) 0%, rgba(255, 215, 0, 0.1) 100%);
         }
         .payment-method i {
             font-size: 2.2rem;
@@ -197,6 +337,182 @@
             font-size: 0.75rem;
             font-weight: 600;
             margin-left: 8px;
+        }
+        /* Core Benefits Section */
+        .benefits-section {
+            padding: 80px 0;
+            background: #f8f9fa;
+        }
+        /* Dark mode - Benefits Section */
+        [data-theme="dark"] .benefits-section {
+            background: #1a1a1a;
+        }
+        .benefit-card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+            height: 100%;
+        }
+        /* Dark mode - Benefit Card */
+        [data-theme="dark"] .benefit-card {
+            background: #1e1e1e;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .benefit-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+        }
+        [data-theme="dark"] .benefit-card:hover {
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+        .benefit-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+        .benefit-icon.primary { background: rgba(99, 102, 241, 0.1); color: #6366F1; }
+        .benefit-icon.secondary { background: rgba(236, 72, 153, 0.1); color: #EC4899; }
+        .benefit-icon.gold { background: rgba(245, 158, 11, 0.1); color: #F59E0B; }
+        .benefit-icon.success { background: rgba(34, 197, 94, 0.1); color: #22C55E; }
+        /* Comparison Table Section */
+        .comparison-section {
+            padding: 80px 0;
+        }
+        /* Dark mode - Comparison Section */
+        [data-theme="dark"] .comparison-section {
+            background: #121212;
+        }
+        .comparison-table {
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        /* Dark mode - Comparison Table */
+        [data-theme="dark"] .comparison-table {
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        [data-theme="dark"] .comparison-table, 
+        [data-theme="dark"] .comparison-table th,
+        [data-theme="dark"] .comparison-table td {
+            background: #1e1e1e;
+            border-color: #333;
+        }
+        .comparison-table thead th {
+            background: #f8f9fa;
+            font-weight: 600;
+            padding: 16px;
+            border: none;
+        }
+        /* Dark mode - Comparison Table Header */
+        [data-theme="dark"] .comparison-table thead th {
+            background: #252525;
+            color: #e0e0e0;
+        }
+        .comparison-table tbody td {
+            padding: 16px;
+            vertical-align: middle;
+        }
+        /* Dark mode - Comparison Table Body */
+        [data-theme="dark"] .comparison-table tbody td {
+            color: #e0e0e0;
+            border-color: #333;
+        }
+        .scroll-hint {
+            display: none;
+        }
+        @media (max-width: 768px) {
+            .scroll-hint {
+                display: block;
+            }
+        }
+        /* CTA Section */
+        .cta-section {
+            padding: 80px 0;
+            background: linear-gradient(135deg, #6366F1 0%, #EC4899 100%);
+            color: white;
+        }
+        .cta-section h2 {
+            font-size: clamp(1.5rem, 3vw, 2.5rem);
+            font-weight: 700;
+        }
+        .cta-btn {
+            padding: 16px 40px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            border-radius: 50px;
+            background: white;
+            color: #6366F1;
+            border: none;
+            transition: all 0.3s;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .cta-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+            background: #f8f9fa;
+            color: #6366F1;
+        }
+        /* Specification Card Styles */
+        .spec-card {
+            background: white;
+            transition: all 0.2s;
+        }
+        .spec-card.selected {
+            border-color: #28a745 !important;
+            background: rgba(40, 167, 69, 0.1) !important;
+        }
+        /* Dark mode - Specification Card */
+        [data-theme="dark"] .spec-card {
+            background: #2a2a2a;
+            border-color: #444 !important;
+        }
+        [data-theme="dark"] .spec-card.selected {
+            background: rgba(40, 167, 69, 0.2) !important;
+        }
+        /* Dark mode - Modal Content */
+        [data-theme="dark"] #specificationModal .modal-content {
+            background: #1e1e1e;
+        }
+        [data-theme="dark"] #specificationModal .modal-body {
+            color: #e0e0e0;
+        }
+        /* VIP Modal Tab Styles */
+        .vip-tab-btn {
+            border: none;
+            background: transparent;
+            padding: 8px 16px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        .vip-tab-btn:hover:not(.active) {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        [data-theme="dark"] .vip-tab-btn:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        /* Duration Item Styles */
+        .duration-item {
+            border: 2px solid #e0e0e0 !important;
+        }
+        .duration-item:hover {
+            border-color: var(--primary-color, #6366F1) !important;
+        }
+        .duration-item.selected {
+            border-color: var(--primary-color, #6366F1) !important;
+        }
+        [data-theme="dark"] .duration-item {
+            border-color: #444 !important;
+            background: #2a2a2a;
+        }
+        [data-theme="dark"] .duration-item:hover {
+            border-color: var(--primary-color, #6366F1) !important;
         }
     </style>
     {{if .custom.GlobalCSS}}<style>{{.custom.GlobalCSS}}</style>{{end}}
@@ -251,6 +567,12 @@
                         <a class="nav-link" href="/auth/register"><i class="bi bi-person-plus me-1"></i>{{t .lang "nav.register"}}</a>
                     </li>
                     {{end}}
+                    <!-- Dark Mode Toggle -->
+                    <li class="nav-item">
+                        <a class="nav-link dark-mode-toggle" href="javascript:void(0)" onclick="toggleDarkMode()" title="Toggle Dark Mode">
+                            <i class="bi bi-moon-fill"></i>
+                        </a>
+                    </li>
                     <!-- Language Switcher -->
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="langDropdown" role="button" data-bs-toggle="dropdown">
@@ -267,15 +589,18 @@
     </nav>
 
     {{if .logged}}
-    <!-- Hero Section with Balance -->
-    <section class="vip-hero">
+    <!-- Enhanced Hero Section -->
+    <section class="vip-hero-enhanced">
         <div class="container">
             <div class="row align-items-center">
-                <div class="col-lg-6">
-                    <h1 class="display-4 fw-bold mb-3"><i class="bi bi-gem me-3"></i>{{t .lang "vip.hero_title"}}</h1>
-                    <p class="lead mb-4 opacity-90">{{t .lang "vip.hero_subtitle"}}</p>
+                <div class="col-lg-7">
+                    <h1 class="mb-4">{{t .lang "vip.hero_main_title"}}</h1>
+                    <p class="lead mb-4 opacity-90" style="-webkit-text-fill-color: inherit;">{{t .lang "vip.hero_main_subtitle"}}</p>
+                    <a href="#vip" class="btn btn-light btn-lg px-5 py-3 fw-bold rounded-pill">
+                        {{t .lang "vip.subscribe_now"}} <i class="bi bi-arrow-right ms-2"></i>
+                    </a>
                 </div>
-                <div class="col-lg-6">
+                <div class="col-lg-5 mt-4 mt-lg-0">
                     <div class="balance-card">
                         <div class="d-flex justify-content-between align-items-start mb-3">
                             <div>
@@ -310,6 +635,114 @@
             </div>
             <div class="row g-4" id="vip-cards-container">
                 <!-- VIP cards will be rendered by JavaScript -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Core Benefits Section -->
+    <section class="benefits-section">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h2 class="display-6 fw-bold mb-3">{{t .lang "vip.core_benefits_title"}}</h2>
+                <p class="text-muted fs-5">{{t .lang "vip.core_benefits_subtitle"}}</p>
+            </div>
+            <div class="row g-4">
+                <div class="col-sm-6 col-lg-3">
+                    <div class="benefit-card">
+                        <div class="benefit-icon primary">
+                            <i class="bi bi-unlock"></i>
+                        </div>
+                        <h5 class="fw-bold mb-2">{{t .lang "vip.benefit_content_unlock"}}</h5>
+                        <p class="text-muted mb-0 small">{{t .lang "vip.benefit_content_unlock_desc"}}</p>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <div class="benefit-card">
+                        <div class="benefit-icon secondary">
+                            <i class="bi bi-headset"></i>
+                        </div>
+                        <h5 class="fw-bold mb-2">{{t .lang "vip.benefit_support"}}</h5>
+                        <p class="text-muted mb-0 small">{{t .lang "vip.benefit_support_desc"}}</p>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <div class="benefit-card">
+                        <div class="benefit-icon gold">
+                            <i class="bi bi-trophy"></i>
+                        </div>
+                        <h5 class="fw-bold mb-2">{{t .lang "vip.benefit_points"}}</h5>
+                        <p class="text-muted mb-0 small">{{t .lang "vip.benefit_points_desc"}}</p>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <div class="benefit-card">
+                        <div class="benefit-icon success">
+                            <i class="bi bi-gift"></i>
+                        </div>
+                        <h5 class="fw-bold mb-2">{{t .lang "vip.benefit_birthday"}}</h5>
+                        <p class="text-muted mb-0 small">{{t .lang "vip.benefit_birthday_desc"}}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Comparison Table Section -->
+    <section class="comparison-section">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h2 class="display-6 fw-bold mb-3">{{t .lang "vip.comparison_title"}}</h2>
+                <p class="text-muted fs-5">{{t .lang "vip.comparison_subtitle"}}</p>
+            </div>
+            <div class="table-responsive">
+                <table class="table comparison-table" id="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>{{t .lang "vip.comparison_benefit"}}</th>
+                            <th class="text-center">{{t .lang "vip.comparison_regular"}}</th>
+                            <!-- VIP level columns will be added by JavaScript -->
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>{{t .lang "vip.comparison_basic_content"}}</td>
+                            <td class="text-center"><i class="bi bi-check-circle-fill text-success"></i></td>
+                            <!-- VIP level data will be added by JavaScript -->
+                        </tr>
+                        <tr>
+                            <td>{{t .lang "vip.comparison_premium_content"}}</td>
+                            <td class="text-center"><i class="bi bi-x-circle-fill text-danger"></i></td>
+                        </tr>
+                        <tr>
+                            <td>{{t .lang "vip.comparison_support"}}</td>
+                            <td class="text-center"><i class="bi bi-x-circle-fill text-danger"></i></td>
+                        </tr>
+                        <tr>
+                            <td>{{t .lang "vip.comparison_points_rate"}}</td>
+                            <td class="text-center">1x</td>
+                        </tr>
+                        <tr>
+                            <td>{{t .lang "vip.comparison_discount"}}</td>
+                            <td class="text-center">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-center text-muted small mt-3 scroll-hint">
+                <i class="bi bi-hand-index-thumb me-2"></i>{{t .lang "vip.scroll_hint"}}
+            </p>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+        <div class="container">
+            <div class="text-center">
+                <h2 class="mb-4">{{t .lang "vip.cta_title"}}</h2>
+                <p class="lead opacity-75 mb-4">{{t .lang "vip.cta_subtitle"}}</p>
+                <a href="#vip" class="cta-btn btn">
+                    {{t .lang "vip.subscribe_now"}} <i class="bi bi-rocket-takeoff ms-2"></i>
+                </a>
             </div>
         </div>
     </section>
@@ -356,15 +789,78 @@
     </div>
 
     {{else}}
-    <!-- Not Logged In -->
-    <section class="not-logged-in-section">
-        <div class="container text-center">
-            <i class="bi bi-gem display-1 text-warning mb-4"></i>
-            <h2 class="fw-bold mb-3">{{t .lang "vip.login_required"}}</h2>
-            <p class="text-muted mb-4 fs-5">{{t .lang "vip.login_required_desc"}}</p>
-            <a href="/auth/login?redirect=/vip" class="btn btn-warning btn-lg px-5 py-3 fw-bold">
-                <i class="bi bi-box-arrow-in-right me-2"></i>{{t .lang "vip.login_now"}}
-            </a>
+    <!-- Enhanced Not Logged In Hero -->
+    <section class="vip-hero-enhanced">
+        <div class="container">
+            <div class="text-center py-5">
+                <i class="bi bi-gem display-1 mb-4" style="-webkit-text-fill-color: inherit;"></i>
+                <h1 class="mb-4">{{t .lang "vip.hero_main_title"}}</h1>
+                <p class="lead mb-4 opacity-90" style="-webkit-text-fill-color: inherit;">{{t .lang "vip.hero_main_subtitle"}}</p>
+                <a href="/auth/login?redirect=/vip" class="btn btn-light btn-lg px-5 py-3 fw-bold rounded-pill">
+                    <i class="bi bi-box-arrow-in-right me-2"></i>{{t .lang "vip.login_now"}}
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Core Benefits Section for Non-logged Users -->
+    <section class="benefits-section">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h2 class="display-6 fw-bold mb-3">{{t .lang "vip.core_benefits_title"}}</h2>
+                <p class="text-muted fs-5">{{t .lang "vip.core_benefits_subtitle"}}</p>
+            </div>
+            <div class="row g-4">
+                <div class="col-sm-6 col-lg-3">
+                    <div class="benefit-card">
+                        <div class="benefit-icon primary">
+                            <i class="bi bi-unlock"></i>
+                        </div>
+                        <h5 class="fw-bold mb-2">{{t .lang "vip.benefit_content_unlock"}}</h5>
+                        <p class="text-muted mb-0 small">{{t .lang "vip.benefit_content_unlock_desc"}}</p>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <div class="benefit-card">
+                        <div class="benefit-icon secondary">
+                            <i class="bi bi-headset"></i>
+                        </div>
+                        <h5 class="fw-bold mb-2">{{t .lang "vip.benefit_support"}}</h5>
+                        <p class="text-muted mb-0 small">{{t .lang "vip.benefit_support_desc"}}</p>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <div class="benefit-card">
+                        <div class="benefit-icon gold">
+                            <i class="bi bi-trophy"></i>
+                        </div>
+                        <h5 class="fw-bold mb-2">{{t .lang "vip.benefit_points"}}</h5>
+                        <p class="text-muted mb-0 small">{{t .lang "vip.benefit_points_desc"}}</p>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <div class="benefit-card">
+                        <div class="benefit-icon success">
+                            <i class="bi bi-gift"></i>
+                        </div>
+                        <h5 class="fw-bold mb-2">{{t .lang "vip.benefit_birthday"}}</h5>
+                        <p class="text-muted mb-0 small">{{t .lang "vip.benefit_birthday_desc"}}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section for Non-logged Users -->
+    <section class="cta-section">
+        <div class="container">
+            <div class="text-center">
+                <h2 class="mb-4">{{t .lang "vip.cta_title"}}</h2>
+                <p class="lead opacity-75 mb-4">{{t .lang "vip.cta_subtitle"}}</p>
+                <a href="/auth/login?redirect=/vip" class="cta-btn btn">
+                    {{t .lang "vip.login_now"}} <i class="bi bi-box-arrow-in-right ms-2"></i>
+                </a>
+            </div>
         </div>
     </section>
     {{end}}
@@ -377,9 +873,11 @@
     </footer>
 
     <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/app.js"></script>
     <script>
         let vipLevels = [];
         let selectedVIPLevel = null;
+        let selectedDuration = null;
         let paymentMethod = 'alipay';
         // Get current user's VIP level from the page
         let currentUserVIPLevel = {{if .user}}{{.user.VIPLevel}}{{else}}0{{end}};
@@ -410,6 +908,21 @@
             upgradeSuccessMsg: "{{t .lang "vip.upgrade_success_msg"}}",
             currentBalance: "{{t .lang "vip.current_balance"}}",
             confirmBtn: "{{t .lang "vip.confirm_btn"}}",
+            selectDuration: "{{t .lang "vip.select_duration"}}",
+            selectDurationDesc: "{{t .lang "vip.select_duration_desc"}}",
+            purchaseBtn: "{{t .lang "vip.purchase_btn"}}",
+            startingFrom: "{{t .lang "vip.starting_from"}}",
+            month: "{{t .lang "vip.month"}}",
+            multipleOptions: "{{t .lang "vip.multiple_options"}}",
+            pleaseSelectDuration: "{{t .lang "vip.please_select_duration"}}",
+            modalSelectPlan: "{{t .lang "vip.modal_select_plan"}}",
+            modalUnitPrice: "{{t .lang "vip.modal_unit_price"}}",
+            modalDiscount: "{{t .lang "vip.modal_discount"}}",
+            modalTotal: "{{t .lang "vip.modal_total"}}",
+            modalPayNow: "{{t .lang "vip.modal_pay_now"}}",
+            modalAgreeTerms: "{{t .lang "vip.modal_agree_terms"}}",
+            modalServiceAgreement: "{{t .lang "vip.modal_service_agreement"}}",
+            modalSave: "{{t .lang "vip.modal_save"}}",
             paymentTitle: "{{t .lang "payment.title"}}",
             paymentProductName: "{{t .lang "payment.product_name"}}",
             paymentAmount: "{{t .lang "payment.amount"}}",
@@ -466,10 +979,62 @@
                 if (result.success) {
                     vipLevels = result.data || [];
                     renderVIPCards();
+                    renderComparisonTable();
                 }
             } catch (error) {
                 console.error('Failed to load VIP levels:', error);
             }
+        }
+
+        function renderComparisonTable() {
+            const table = document.getElementById('comparison-table');
+            if (!table || vipLevels.length === 0) return;
+            
+            const thead = table.querySelector('thead tr');
+            const tbody = table.querySelector('tbody');
+            
+            // Add VIP level headers
+            vipLevels.forEach(level => {
+                const th = document.createElement('th');
+                th.className = 'text-center';
+                th.style.background = level.color ? `${level.color}15` : '#f8f9fa';
+                th.innerHTML = `<span style="color: ${level.color || '#6366F1'}">${level.name}</span>`;
+                thead.appendChild(th);
+            });
+            
+            // Update tbody rows with VIP level data
+            const rows = tbody.querySelectorAll('tr');
+            rows.forEach((row, rowIndex) => {
+                vipLevels.forEach((level, levelIndex) => {
+                    const td = document.createElement('td');
+                    td.className = 'text-center';
+                    
+                    // Determine content based on row
+                    switch(rowIndex) {
+                        case 0: // Basic content - all have it
+                            td.innerHTML = '<i class="bi bi-check-circle-fill text-success"></i>';
+                            break;
+                        case 1: // Premium content - all VIP have it
+                            td.innerHTML = '<i class="bi bi-check-circle-fill text-success"></i>';
+                            break;
+                        case 2: // Dedicated support - higher levels
+                            td.innerHTML = level.level >= 2 
+                                ? '<i class="bi bi-check-circle-fill text-success"></i>' 
+                                : '<i class="bi bi-x-circle-fill text-danger"></i>';
+                            break;
+                        case 3: // Points rate
+                            const rate = level.level === 1 ? '1.5x' : level.level === 2 ? '2x' : '3x';
+                            td.textContent = rate;
+                            break;
+                        case 4: // Discount
+                            const discount = level.level === 1 ? '9.5折' : level.level === 2 ? '9折' : '8折';
+                            const discountEn = level.level === 1 ? '5%' : level.level === 2 ? '10%' : '20%';
+                            td.textContent = document.documentElement.lang === 'zh' ? discount : discountEn;
+                            break;
+                    }
+                    row.appendChild(td);
+                });
+            });
         }
 
         function adjustColor(color, amount) {
@@ -496,23 +1061,36 @@
                 const isDowngrade = level.level <= currentUserVIPLevel;
                 const isUpgrade = currentUserVIPLevel > 0 && level.level > currentUserVIPLevel;
                 
-                // Calculate actual price (check for upgrade price)
-                let actualPrice = level.price;
+                // Check if this level has multiple specifications
+                const hasSpecs = level.specifications && level.specifications.length > 0;
+                
+                // Calculate display price (use lowest price for display if has specs)
+                let displayPrice = level.price;
+                let displayDuration = level.duration;
                 let priceDisplay = `¥${level.price}`;
                 let upgradeLabel = '';
                 
+                if (hasSpecs) {
+                    // Find the lowest price specification
+                    const lowestSpec = level.specifications.reduce((a, b) => a.price < b.price ? a : b);
+                    displayPrice = lowestSpec.price;
+                    displayDuration = lowestSpec.duration;
+                    priceDisplay = `¥${displayPrice}${i18n.startingFrom}`;
+                }
+                
                 // Use string key for upgrade_prices lookup (JSON uses string keys)
                 const currentLevelKey = String(currentUserVIPLevel);
-                if (isUpgrade && level.upgrade_prices && level.upgrade_prices[currentLevelKey]) {
-                    actualPrice = level.upgrade_prices[currentLevelKey];
-                    priceDisplay = `<s class="text-light opacity-50 small">¥${level.price}</s> ¥${actualPrice}`;
+                if (isUpgrade && !hasSpecs && level.upgrade_prices && level.upgrade_prices[currentLevelKey]) {
+                    const upgradePrice = level.upgrade_prices[currentLevelKey];
+                    priceDisplay = `<s class="text-light opacity-50 small">¥${level.price}</s> ¥${upgradePrice}`;
+                    displayPrice = upgradePrice;
                     upgradeLabel = `<span class="upgrade-badge">${i18n.upgradeDiscount}</span>`;
                 }
                 
-                const canAfford = userBalance >= actualPrice;
+                const canAfford = userBalance >= displayPrice;
                 
                 // Duration text
-                const durationText = level.duration > 0 ? `${level.duration} ${i18n.days}` : i18n.permanent;
+                const durationText = displayDuration > 0 ? `${displayDuration} ${i18n.days}` : i18n.permanent;
                 
                 // Determine button states
                 let balanceButtonHtml, paymentButtonHtml;
@@ -529,38 +1107,102 @@
                             <i class="bi bi-ban me-2"></i>${i18n.cannotPurchase}
                         </button>
                     `;
+                } else if (hasSpecs) {
+                    // Has multiple specifications - show selection modal
+                    balanceButtonHtml = `
+                        <button class="btn btn-success vip-select-btn" 
+                                onclick="event.stopPropagation(); showSpecificationModal(${level.level}, 'balance')">
+                            <i class="bi bi-wallet2 me-2"></i>${isUpgrade ? i18n.balanceUpgrade : i18n.balancePurchase}
+                        </button>
+                    `;
+                    paymentButtonHtml = `
+                        <button class="btn btn-outline-warning vip-select-btn" onclick="event.stopPropagation(); showSpecificationModal(${level.level}, 'online')">
+                            <i class="bi bi-credit-card me-2"></i>${isUpgrade ? i18n.onlineUpgrade : i18n.onlinePayment}
+                        </button>
+                    `;
                 } else {
-                    // Can purchase or upgrade
+                    // Can purchase or upgrade (no specs)
                     balanceButtonHtml = `
                         <button class="btn ${canAfford ? 'btn-success' : 'btn-outline-secondary'} vip-select-btn" 
-                                onclick="event.stopPropagation(); purchaseVIPWithBalance(${level.level})"
+                                onclick="event.stopPropagation(); purchaseVIPWithBalance(${level.level}, ${level.duration})"
                                 ${!canAfford ? 'disabled' : ''}>
                             <i class="bi bi-wallet2 me-2"></i>${canAfford ? (isUpgrade ? i18n.balanceUpgrade : i18n.balancePurchase) : i18n.insufficientBalance}
                         </button>
                     `;
                     paymentButtonHtml = `
-                        <button class="btn btn-outline-warning vip-select-btn" onclick="event.stopPropagation(); openVIPPayment(${level.level})">
+                        <button class="btn btn-outline-warning vip-select-btn" onclick="event.stopPropagation(); openVIPPayment(${level.level}, ${level.duration})">
                             <i class="bi bi-credit-card me-2"></i>${isUpgrade ? i18n.onlineUpgrade : i18n.onlinePayment}
                         </button>
                     `;
                 }
                 
+                // Multi-options badge
+                const multiOptionsBadge = hasSpecs ? `<span class="badge bg-info ms-2" style="font-size: 0.7rem;">${i18n.multipleOptions}</span>` : '';
+                
+                // Calculate lighten color for icon background
+                const lightenColor = (color, percent) => {
+                    const num = parseInt(color.replace('#',''), 16);
+                    const amt = Math.round(2.55 * percent);
+                    const R = Math.min(255, (num >> 16) + amt);
+                    const G = Math.min(255, ((num >> 8) & 0x00FF) + amt);
+                    const B = Math.min(255, (num & 0x0000FF) + amt);
+                    return '#' + (0x1000000 + R*0x10000 + G*0x100 + B).toString(16).slice(1);
+                };
+                
+                const cardColor = level.color || '#ffd700';
+                // Create semi-transparent background for icon wrapper
+                // Using rgba for better compatibility
+                const hexToRgba = (hex, alpha) => {
+                    const cleanHex = hex.replace('#', '');
+                    const r = parseInt(cleanHex.substring(0, 2), 16);
+                    const g = parseInt(cleanHex.substring(2, 4), 16);
+                    const b = parseInt(cleanHex.substring(4, 6), 16);
+                    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+                };
+                const iconBgColor = hexToRgba(cardColor, 0.1);
+                
+                // Generate features list HTML if features exist
+                let featuresHtml = '';
+                if (level.features && level.features.length > 0) {
+                    featuresHtml = '<ul class="vip-features">';
+                    level.features.forEach(feature => {
+                        const enabledClass = feature.enabled ? 'enabled' : 'disabled';
+                        const icon = feature.enabled ? 'bi-check-lg' : 'bi-x-lg';
+                        featuresHtml += `
+                            <li class="${enabledClass}">
+                                <i class="bi ${icon}"></i>
+                                <span>${feature.text}</span>
+                            </li>
+                        `;
+                    });
+                    featuresHtml += '</ul>';
+                }
+                
                 container.innerHTML += `
-                    <div class="col-md-4">
-                        <div class="vip-card shadow ${isDowngrade ? 'opacity-75' : ''}" data-level="${level.level}" ${!isDowngrade ? `onclick="selectVIPLevel(${level.level})"` : ''}>
-                            <div class="vip-header" style="background: linear-gradient(135deg, ${level.color || '#ffd700'} 0%, ${adjustColor(level.color || '#ffd700', -30)} 100%)">
-                                ${isPopular && !isDowngrade ? `<span class="vip-popular">${i18n.popular}</span>` : ''}
+                    <div class="col-md-4 mb-4">
+                        <div class="vip-card ${isPopular && !isDowngrade ? 'popular' : ''} ${isDowngrade ? 'opacity-75' : ''}" 
+                             data-level="${level.level}" 
+                             style="border-top-color: ${cardColor};"
+                             ${!isDowngrade ? `onclick="selectVIPLevel(${level.level})"` : ''}>
+                            ${isPopular && !isDowngrade ? `<div class="vip-popular-badge"><i class="bi bi-star-fill me-1"></i>${i18n.popular}</div>` : ''}
+                            <div class="vip-header">
                                 ${isDowngrade ? `<span class="vip-popular"><i class="bi bi-check-lg"></i> ${i18n.owned}</span>` : ''}
-                                <div class="vip-icon"><i class="${level.icon || 'bi-star'}"></i></div>
-                                <div class="vip-name">${level.name}${upgradeLabel}</div>
-                                <div class="vip-price">${priceDisplay}<small>/${level.duration > 0 ? level.duration + i18n.days : i18n.permanent}</small></div>
+                                <div class="vip-icon-wrapper" style="background: ${iconBgColor};">
+                                    <i class="${level.icon || 'bi-star'}" style="color: ${cardColor};"></i>
+                                </div>
+                                <div class="vip-name" style="color: ${cardColor};">${level.name}${upgradeLabel}</div>
+                                <div class="vip-price">
+                                    ${priceDisplay}
+                                    <small>${displayDuration > 0 ? '/' + i18n.month + i18n.startingFrom : '/' + i18n.permanent}</small>
+                                </div>
                             </div>
-                            <div class="vip-body text-center">
-                                ${level.description ? `<p class="vip-description">${level.description}</p>` : ''}
-                                <p class="vip-duration">
+                            <div class="vip-body">
+                                ${featuresHtml || (level.description ? `<div class="vip-description mb-4">${level.description}</div>` : '')}
+                                <div class="vip-duration text-center mb-3">
                                     <i class="bi bi-clock me-1"></i>
-                                    ${i18n.validity}：${durationText}
-                                </p>
+                                    ${i18n.validity}：${hasSpecs ? i18n.multipleOptions : durationText}
+                                    ${multiOptionsBadge}
+                                </div>
                                 <div class="d-grid gap-2">
                                     ${balanceButtonHtml}
                                     ${paymentButtonHtml}
@@ -570,6 +1212,320 @@
                     </div>
                 `;
             });
+        }
+
+        // Constants
+        const DAYS_PER_MONTH = 30;
+        
+        // Helper function to generate gradient style
+        function getGradientStyle(color, darkenAmount = -20) {
+            const baseColor = color || '#6366F1';
+            return `linear-gradient(135deg, ${baseColor}, ${adjustColor(baseColor, darkenAmount)})`;
+        }
+
+        // Show specification selection modal with member type tabs (like demovip.html)
+        let modalCurrentMember = null;
+        let modalCurrentPeriod = 1;
+        let modalPurchaseType = 'online';
+
+        function showSpecificationModal(level, purchaseType) {
+            const vip = vipLevels.find(v => v.level === level);
+            if (!vip) return;
+            
+            // If no specifications, fallback to direct purchase
+            if (!vip.specifications || vip.specifications.length === 0) {
+                if (purchaseType === 'balance') {
+                    purchaseVIPWithBalance(level, vip.duration);
+                } else {
+                    openVIPPayment(level, vip.duration);
+                }
+                return;
+            }
+            
+            modalCurrentMember = level;
+            modalPurchaseType = purchaseType;
+            modalCurrentPeriod = vip.specifications[0]?.duration || 1;
+            
+            // Build member type tabs HTML
+            let memberTabsHtml = '';
+            const availableVips = vipLevels.filter(v => v.level > currentUserVIPLevel && v.specifications && v.specifications.length > 0);
+            
+            availableVips.forEach((v) => {
+                const isActive = v.level === level;
+                memberTabsHtml += `
+                    <button class="vip-tab-btn flex-fill py-2 rounded-lg text-center ${isActive ? 'active' : ''}" 
+                            data-level="${v.level}"
+                            onclick="switchModalMemberType(${v.level})"
+                            style="${isActive ? `background: ${getGradientStyle(v.color)}; color: white;` : ''}">
+                        ${v.name}
+                    </button>
+                `;
+            });
+            
+            // Build duration options HTML
+            const durationsHtml = buildDurationOptionsHtml(vip);
+            
+            // Build price details
+            const priceDetailsHtml = buildPriceDetailsHtml(vip);
+            
+            const modalHtml = `
+                <div class="modal fade" id="specificationModal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered modal-lg">
+                        <div class="modal-content" style="border-radius: 16px; overflow: hidden;">
+                            <!-- Modal Header -->
+                            <div class="p-4 border-bottom">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h5 id="vip-modal-title" class="modal-title fw-bold" style="color: ${vip.color || '#6366F1'}">
+                                        <i class="${vip.icon || 'bi-star'} me-2"></i>${i18n.modalSelectPlan} - ${vip.name}
+                                    </h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                            </div>
+
+                            <div class="modal-body p-4">
+                                <!-- Member Type Tabs -->
+                                ${availableVips.length > 1 ? `
+                                <div class="d-flex justify-content-between mb-4 p-1 rounded-3" style="background: var(--feature-card-bg, #f8f9fa); gap: 4px;" id="member-type-tabs">
+                                    ${memberTabsHtml}
+                                </div>
+                                ` : ''}
+
+                                <!-- Duration Selection -->
+                                <h6 class="fw-medium mb-3">${i18n.selectDuration}</h6>
+                                <div class="row g-3 mb-4" id="duration-options">
+                                    ${durationsHtml}
+                                </div>
+
+                                <!-- Price Details -->
+                                <div class="rounded-3 p-3 mb-4" style="background: var(--feature-card-bg, #f8f9fa);" id="price-details">
+                                    ${priceDetailsHtml}
+                                </div>
+
+                                <!-- Purchase Button -->
+                                <button class="btn w-100 py-3 fw-bold rounded-3" id="modal-purchase-btn"
+                                        style="background: ${getGradientStyle(vip.color)}; color: white;"
+                                        onclick="confirmSpecificationPurchase(modalCurrentMember, modalPurchaseType)">
+                                    ${i18n.modalPayNow} <i class="bi bi-arrow-right ms-2"></i>
+                                </button>
+                                
+                                <p class="text-center text-muted small mt-3 mb-0">
+                                    ${i18n.modalAgreeTerms}<a href="#" class="text-primary">${i18n.modalServiceAgreement}</a>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const existing = document.getElementById('specificationModal');
+            if (existing) existing.remove();
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            new bootstrap.Modal(document.getElementById('specificationModal')).show();
+            
+            // Select first duration option after modal is shown
+            setTimeout(() => {
+                const firstOption = document.querySelector('#duration-options .duration-item');
+                if (firstOption) selectDurationOption(firstOption);
+            }, 100);
+        }
+
+        function buildDurationOptionsHtml(vip) {
+            const userBalance = parseFloat(document.getElementById('user-balance')?.textContent || '0');
+            const isUpgrade = currentUserVIPLevel > 0 && vip.level > currentUserVIPLevel;
+            const currentLevelKey = String(currentUserVIPLevel);
+            
+            let html = '';
+            vip.specifications.forEach((spec, index) => {
+                let specPrice = spec.price;
+                let originalPrice = spec.price;
+                let discount = 0;
+                
+                // Check for upgrade price
+                if (isUpgrade && spec.upgrade_prices && spec.upgrade_prices[currentLevelKey]) {
+                    specPrice = spec.upgrade_prices[currentLevelKey];
+                }
+                
+                // Calculate discount: compare price per day with first spec's price per day
+                // Only show discount if this spec offers a better deal per day
+                if (vip.specifications.length > 1 && index > 0) {
+                    const baseSpec = vip.specifications[0];
+                    const baseDuration = baseSpec.duration || DAYS_PER_MONTH;
+                    const specDuration = spec.duration || DAYS_PER_MONTH;
+                    
+                    // Calculate expected price based on first spec's rate
+                    const basePricePerDay = baseSpec.price / baseDuration;
+                    const expectedPrice = basePricePerDay * specDuration;
+                    
+                    // Only show positive discount (savings)
+                    if (expectedPrice > spec.price) {
+                        discount = Math.round(expectedPrice - spec.price);
+                    }
+                }
+                
+                const durationText = spec.duration > 0 ? `${spec.duration} ${i18n.days}` : i18n.permanent;
+                const canAfford = modalPurchaseType === 'balance' ? userBalance >= specPrice : true;
+                const isSelected = index === 0;
+                
+                html += `
+                    <div class="col-4">
+                        <div class="duration-item p-3 border rounded-3 text-center ${isSelected ? 'selected' : ''} ${!canAfford && modalPurchaseType === 'balance' ? 'opacity-50' : ''}"
+                             data-duration="${spec.duration}" 
+                             data-price="${specPrice}" 
+                             data-original-price="${originalPrice}"
+                             data-discount="${discount}"
+                             onclick="${canAfford || modalPurchaseType !== 'balance' ? 'selectDurationOption(this)' : ''}"
+                             style="cursor: ${canAfford || modalPurchaseType !== 'balance' ? 'pointer' : 'not-allowed'}; transition: all 0.2s;">
+                            <span class="d-block fw-medium">${durationText}</span>
+                            <span class="d-block fw-bold" style="color: ${vip.color || '#6366F1'}">¥${specPrice}</span>
+                            ${discount > 0 ? `<span class="text-success small">${i18n.modalSave}¥${discount}</span>` : ''}
+                            ${!canAfford && modalPurchaseType === 'balance' ? `<small class="text-danger d-block">${i18n.insufficientBalance}</small>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            return html;
+        }
+
+        function buildPriceDetailsHtml(vip) {
+            const firstSpec = vip.specifications[0];
+            const price = firstSpec?.price || vip.price;
+            const duration = firstSpec?.duration || DAYS_PER_MONTH;
+            const unitPrice = (price / Math.max(1, Math.round(duration / DAYS_PER_MONTH))).toFixed(2);
+            
+            return `
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-muted">${i18n.modalUnitPrice}</span>
+                    <span class="fw-medium" id="unit-price-display">¥${unitPrice}/${i18n.month}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-muted">${i18n.modalDiscount}</span>
+                    <span class="text-success fw-medium" id="discount-display">¥0.00</span>
+                </div>
+                <div class="border-top pt-3 mt-3 d-flex justify-content-between align-items-center">
+                    <span class="fw-bold">${i18n.modalTotal}</span>
+                    <span class="fw-bold fs-5" id="total-price-display" style="color: ${vip.color || '#6366F1'}">¥${price.toFixed(2)}</span>
+                </div>
+            `;
+        }
+
+        function switchModalMemberType(level) {
+            const vip = vipLevels.find(v => v.level === level);
+            if (!vip) return;
+            
+            modalCurrentMember = level;
+            
+            // Update tabs
+            document.querySelectorAll('#member-type-tabs .vip-tab-btn').forEach(btn => {
+                const btnLevel = parseInt(btn.dataset.level);
+                if (btnLevel === level) {
+                    btn.classList.add('active');
+                    btn.style.background = getGradientStyle(vip.color);
+                    btn.style.color = 'white';
+                } else {
+                    btn.classList.remove('active');
+                    btn.style.background = '';
+                    btn.style.color = '';
+                }
+            });
+            
+            // Update modal title
+            const titleEl = document.getElementById('vip-modal-title');
+            if (titleEl) {
+                titleEl.innerHTML = `<i class="${vip.icon || 'bi-star'} me-2"></i>${i18n.modalSelectPlan} - ${vip.name}`;
+                titleEl.style.color = vip.color || '#6366F1';
+            }
+            
+            // Update duration options
+            const durationContainer = document.getElementById('duration-options');
+            if (durationContainer) {
+                durationContainer.innerHTML = buildDurationOptionsHtml(vip);
+            }
+            
+            // Update price details
+            const priceDetails = document.getElementById('price-details');
+            if (priceDetails) {
+                priceDetails.innerHTML = buildPriceDetailsHtml(vip);
+            }
+            
+            // Update purchase button color
+            const purchaseBtn = document.getElementById('modal-purchase-btn');
+            if (purchaseBtn) {
+                purchaseBtn.style.background = getGradientStyle(vip.color);
+            }
+            
+            // Select first duration option
+            setTimeout(() => {
+                const firstOption = document.querySelector('#duration-options .duration-item');
+                if (firstOption) selectDurationOption(firstOption);
+            }, 50);
+        }
+
+        function selectDurationOption(element) {
+            const vip = vipLevels.find(v => v.level === modalCurrentMember);
+            if (!vip) return;
+            
+            // Update selection state
+            document.querySelectorAll('#duration-options .duration-item').forEach(item => {
+                item.classList.remove('selected');
+                item.style.borderColor = '';
+                item.style.background = '';
+            });
+            element.classList.add('selected');
+            element.style.borderColor = vip.color || '#6366F1';
+            element.style.background = `${vip.color || '#6366F1'}10`;
+            
+            // Get selected values
+            const duration = parseInt(element.dataset.duration);
+            const price = parseFloat(element.dataset.price);
+            const discount = parseFloat(element.dataset.discount) || 0;
+            
+            modalCurrentPeriod = duration;
+            
+            // Update price display
+            const months = Math.max(1, Math.round(duration / DAYS_PER_MONTH));
+            const unitPrice = (price / months).toFixed(2);
+            
+            const unitPriceEl = document.getElementById('unit-price-display');
+            const discountEl = document.getElementById('discount-display');
+            const totalEl = document.getElementById('total-price-display');
+            
+            if (unitPriceEl) unitPriceEl.textContent = `¥${unitPrice}/${i18n.month}`;
+            if (discountEl) discountEl.textContent = `¥${discount.toFixed(2)}`;
+            if (totalEl) {
+                totalEl.textContent = `¥${price.toFixed(2)}`;
+                totalEl.style.color = vip.color || '#6366F1';
+            }
+        }
+
+        function selectSpecification(element) {
+            document.querySelectorAll('#spec-options .spec-card').forEach(c => {
+                c.classList.remove('selected');
+            });
+            element.classList.add('selected');
+        }
+
+        function confirmSpecificationPurchase(level, purchaseType) {
+            const selectedSpec = document.querySelector('#duration-options .duration-item.selected');
+            if (!selectedSpec) {
+                alert(i18n.pleaseSelectDuration);
+                return;
+            }
+            
+            const duration = parseInt(selectedSpec.dataset.duration);
+            
+            // Close the specification modal
+            const specModal = bootstrap.Modal.getInstance(document.getElementById('specificationModal'));
+            if (specModal) specModal.hide();
+            
+            // Process purchase
+            setTimeout(() => {
+                if (purchaseType === 'balance') {
+                    purchaseVIPWithBalance(level, duration);
+                } else {
+                    openVIPPayment(level, duration);
+                }
+            }, 300);
         }
 
         function selectVIPLevel(level) {
@@ -592,25 +1548,46 @@
             });
         }
 
-        function openVIPPayment(level) {
+        function openVIPPayment(level, duration = 0) {
             const vip = vipLevels.find(v => v.level === level);
             if (!vip) return;
             
             selectedVIPLevel = level;
+            selectedDuration = duration;
             
             // Calculate actual price for display (check for upgrade price)
             const isUpgrade = currentUserVIPLevel > 0 && level > currentUserVIPLevel;
             let displayPrice = vip.price;
+            let displayDuration = vip.duration;
             let productName = vip.name;
             
-            if (isUpgrade) {
-                productName = vip.name + ' (' + i18n.upgradeDiscount + ')';
+            // If duration is specified and specifications exist, find matching spec
+            if (duration > 0 && vip.specifications && vip.specifications.length > 0) {
+                const spec = vip.specifications.find(s => s.duration === duration);
+                if (spec) {
+                    displayPrice = spec.price;
+                    displayDuration = spec.duration;
+                    
+                    // Check for upgrade price in specification
+                    const currentLevelKey = String(currentUserVIPLevel);
+                    if (isUpgrade && spec.upgrade_prices && spec.upgrade_prices[currentLevelKey]) {
+                        displayPrice = spec.upgrade_prices[currentLevelKey];
+                    }
+                }
+            } else if (isUpgrade) {
                 // Use string key for upgrade_prices lookup (JSON uses string keys)
                 const currentLevelKey = String(currentUserVIPLevel);
                 if (vip.upgrade_prices && vip.upgrade_prices[currentLevelKey]) {
                     displayPrice = vip.upgrade_prices[currentLevelKey];
                 }
             }
+            
+            if (isUpgrade) {
+                productName = vip.name + ' (' + i18n.upgradeDiscount + ')';
+            }
+            
+            const durationText = displayDuration > 0 ? `${displayDuration}${i18n.days}` : i18n.permanent;
+            productName += ` - ${durationText}`;
             
             document.getElementById('payment-product-name').textContent = productName;
             document.getElementById('payment-amount').textContent = '¥' + displayPrice.toFixed(2);
@@ -624,6 +1601,22 @@
             
             let amount = vip.price;
             let productName = vip.name;
+            let duration = selectedDuration || vip.duration;
+            
+            // Get price for selected duration
+            if (selectedDuration > 0 && vip.specifications && vip.specifications.length > 0) {
+                const spec = vip.specifications.find(s => s.duration === selectedDuration);
+                if (spec) {
+                    amount = spec.price;
+                    
+                    // Check for upgrade price
+                    const isUpgrade = currentUserVIPLevel > 0 && selectedVIPLevel > currentUserVIPLevel;
+                    const currentLevelKey = String(currentUserVIPLevel);
+                    if (isUpgrade && spec.upgrade_prices && spec.upgrade_prices[currentLevelKey]) {
+                        amount = spec.upgrade_prices[currentLevelKey];
+                    }
+                }
+            }
 
             // Show loading state
             const submitBtn = document.querySelector('#paymentModal .btn-warning');
@@ -872,25 +1865,42 @@
         }
 
         // Purchase VIP with balance
-        async function purchaseVIPWithBalance(level) {
+        async function purchaseVIPWithBalance(level, duration = 0) {
             const vip = vipLevels.find(v => v.level === level);
             if (!vip) return;
 
             // Check if this is an upgrade and calculate actual price
             const isUpgrade = currentUserVIPLevel > 0 && level > currentUserVIPLevel;
             let actualPrice = vip.price;
+            let actualDuration = vip.duration;
+            let originalPrice = vip.price;
             
             // Use string key for upgrade_prices lookup (JSON uses string keys)
             const currentLevelKey = String(currentUserVIPLevel);
-            if (isUpgrade && vip.upgrade_prices && vip.upgrade_prices[currentLevelKey]) {
+            
+            // If duration is specified and specifications exist, find matching spec
+            if (duration > 0 && vip.specifications && vip.specifications.length > 0) {
+                const spec = vip.specifications.find(s => s.duration === duration);
+                if (spec) {
+                    actualPrice = spec.price;
+                    originalPrice = spec.price;
+                    actualDuration = spec.duration;
+                    
+                    // Check for upgrade price in specification
+                    if (isUpgrade && spec.upgrade_prices && spec.upgrade_prices[currentLevelKey]) {
+                        actualPrice = spec.upgrade_prices[currentLevelKey];
+                    }
+                }
+            } else if (isUpgrade && vip.upgrade_prices && vip.upgrade_prices[currentLevelKey]) {
                 actualPrice = vip.upgrade_prices[currentLevelKey];
             }
 
+            const durationText = actualDuration > 0 ? `${actualDuration}${i18n.days}` : i18n.permanent;
             const confirmMsg = isUpgrade 
-                ? i18n.upgradeConfirm.replace('%s', vip.name) 
-                : i18n.purchaseConfirm.replace('%s', vip.name);
-            const priceText = isUpgrade && actualPrice !== vip.price 
-                ? `${i18n.upgradePriceLabel}：¥${actualPrice.toFixed(2)}（${i18n.originalPrice}：¥${vip.price.toFixed(2)}）`
+                ? i18n.upgradeConfirm.replace('%s', `${vip.name} (${durationText})`) 
+                : i18n.purchaseConfirm.replace('%s', `${vip.name} (${durationText})`);
+            const priceText = isUpgrade && actualPrice !== originalPrice 
+                ? `${i18n.upgradePriceLabel}：¥${actualPrice.toFixed(2)}（${i18n.originalPrice}：¥${originalPrice.toFixed(2)}）`
                 : `${i18n.priceLabel}：¥${actualPrice.toFixed(2)}`;
 
             if (!confirm(`${confirmMsg}\n\n${priceText}`)) {
@@ -901,7 +1911,7 @@
                 const response = await fetch('/api/auth/purchase-vip', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ level: level })
+                    body: JSON.stringify({ level: level, duration: actualDuration })
                 });
 
                 const result = await response.json();

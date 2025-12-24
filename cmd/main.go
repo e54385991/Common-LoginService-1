@@ -121,7 +121,7 @@ func main() {
 	}
 
 	// Auto migrate
-	if err := db.AutoMigrate(&model.User{}, &model.Session{}, &model.SystemConfig{}, &model.PasswordResetRequest{}, &model.APIToken{}, &model.GiftCard{}, &model.PaymentOrder{}, &model.BalanceLog{}, &model.LoginLog{}); err != nil {
+	if err := db.AutoMigrate(&model.User{}, &model.Session{}, &model.SystemConfig{}, &model.PasswordResetRequest{}, &model.APIToken{}, &model.GiftCard{}, &model.PaymentOrder{}, &model.BalanceLog{}, &model.LoginLog{}, &model.EmailVerificationToken{}); err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
 
@@ -133,6 +133,7 @@ func main() {
 	paymentOrderRepo := repository.NewPaymentOrderRepository(db)
 	balanceLogRepo := repository.NewBalanceLogRepository(db)
 	loginLogRepo := repository.NewLoginLogRepository(db)
+	emailVerificationRepo := repository.NewEmailVerificationRepository(db)
 
 	// Initialize session store based on configuration
 	var sessionStore repository.SessionStore
@@ -159,6 +160,7 @@ func main() {
 	authHandler.SetUserRepo(userRepo)
 	authHandler.SetGiftCardRepo(giftCardRepo)
 	authHandler.SetBalanceLogRepo(balanceLogRepo)
+	authHandler.SetEmailVerificationRepo(emailVerificationRepo)
 	googleHandler := handler.NewGoogleAuthHandler(authService, cfg)
 	steamHandler := handler.NewSteamAuthHandler(authService, cfg)
 	discordHandler := handler.NewDiscordAuthHandler(authService, cfg)
@@ -196,9 +198,10 @@ func main() {
 	r.GET("/auth/register", authHandler.RegisterPage)
 	r.GET("/auth/forgot-password", authHandler.ForgotPasswordPage)
 	r.GET("/auth/reset-password", authHandler.ResetPasswordPage)
-	r.GET("/recharge", middleware.OptionalAuthMiddleware(authService, cfg), authHandler.RechargePage)
-	r.GET("/vip", middleware.OptionalAuthMiddleware(authService, cfg), authHandler.VIPPage)
-	r.GET("/profile", middleware.OptionalAuthMiddleware(authService, cfg), authHandler.ProfilePage)
+	r.GET("/auth/verify-email", middleware.OptionalAuthMiddleware(authService, cfg), authHandler.VerifyEmailPage)
+	r.GET("/recharge", middleware.OptionalAuthMiddleware(authService, cfg), middleware.EmailVerificationMiddleware(authService, cfg), authHandler.RechargePage)
+	r.GET("/vip", middleware.OptionalAuthMiddleware(authService, cfg), middleware.EmailVerificationMiddleware(authService, cfg), authHandler.VIPPage)
+	r.GET("/profile", middleware.OptionalAuthMiddleware(authService, cfg), middleware.EmailVerificationMiddleware(authService, cfg), authHandler.ProfilePage)
 
 	// Public routes - API
 	api := r.Group("/api")
@@ -225,6 +228,8 @@ func main() {
 			// Signed URL routes (public)
 			auth.GET("/signed-url/status", authHandler.GetSignedURLStatus)
 			auth.POST("/verify-signature", authHandler.VerifySignedCallback)
+			// Email verification routes (public - token in query)
+			auth.GET("/verify-email-token", authHandler.VerifyEmailToken)
 		}
 
 		// i18n routes (public)
@@ -267,6 +272,9 @@ func main() {
 			protected.GET("/auth/steam/bind/callback", steamHandler.SteamBindCallback)
 			protected.GET("/auth/discord/bind", discordHandler.DiscordBindLogin)
 			protected.GET("/auth/discord/bind/callback", discordHandler.DiscordBindCallback)
+			// Email verification routes (protected - requires authentication)
+			protected.POST("/auth/send-verification-email", authHandler.SendVerificationEmail)
+			protected.POST("/auth/verify-email-code", authHandler.VerifyEmailCode)
 		}
 
 		// Payment routes

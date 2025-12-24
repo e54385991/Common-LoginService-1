@@ -68,6 +68,7 @@ type SiteConfig struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	Logo        string `json:"logo"`
+	DarkMode    string `json:"dark_mode"` // Dark mode setting: "system" (follow system), "dark" (always dark), "light" (always light)
 }
 
 // CustomConfig holds custom HTML/CSS and footer text configuration
@@ -79,13 +80,14 @@ type CustomConfig struct {
 
 // AccessConfig holds access control configuration for registration and login
 type AccessConfig struct {
-	RegistrationEnabled  bool   `json:"registration_enabled"`
-	LoginEnabled         bool   `json:"login_enabled"`
-	RegistrationMessage  string `json:"registration_message"`   // Custom message when registration is disabled
-	LoginMessage         string `json:"login_message"`          // Custom message when login is disabled
-	RegistrationStartUID uint   `json:"registration_start_uid"` // Minimum UID for backend registration (0 = no restriction)
-	AllowEmailLogin      bool   `json:"allow_email_login"`      // Allow login with email (default: true)
-	AllowUsernameLogin   bool   `json:"allow_username_login"`   // Allow login with username (default: false)
+	RegistrationEnabled        bool   `json:"registration_enabled"`
+	LoginEnabled               bool   `json:"login_enabled"`
+	RegistrationMessage        string `json:"registration_message"`         // Custom message when registration is disabled
+	LoginMessage               string `json:"login_message"`                // Custom message when login is disabled
+	RegistrationStartUID       uint   `json:"registration_start_uid"`       // Minimum UID for backend registration (0 = no restriction)
+	AllowEmailLogin            bool   `json:"allow_email_login"`            // Allow login with email (default: true)
+	AllowUsernameLogin         bool   `json:"allow_username_login"`         // Allow login with username (default: false)
+	RequireEmailVerification   bool   `json:"require_email_verification"`   // Require email verification for new users
 }
 
 // PaymentConfig holds payment gateway configuration
@@ -99,16 +101,31 @@ type PaymentConfig struct {
 	ReturnURL  string `json:"return_url"`
 }
 
+// VIPSpecification holds a specific duration/price option for a VIP level
+type VIPSpecification struct {
+	Duration      int                `json:"duration"`                 // Duration in days, 0 = permanent
+	Price         float64            `json:"price"`                    // Price for this duration
+	UpgradePrices map[string]float64 `json:"upgrade_prices,omitempty"` // Upgrade prices from other VIP levels (key: from level as string, value: upgrade price)
+}
+
+// VIPFeature holds a single feature for a VIP level
+type VIPFeature struct {
+	Text    string `json:"text"`    // Feature description text
+	Enabled bool   `json:"enabled"` // Whether this feature is enabled for this VIP level
+}
+
 // VIPLevelConfig holds VIP level configuration
 type VIPLevelConfig struct {
-	Level         int                `json:"level"`
-	Name          string             `json:"name"`
-	Description   string             `json:"description"`
-	Price         float64            `json:"price"`
-	Duration      int                `json:"duration"` // Duration in days, 0 = permanent
-	Icon          string             `json:"icon"`
-	Color         string             `json:"color"`
-	UpgradePrices map[string]float64 `json:"upgrade_prices,omitempty"` // Upgrade prices from other VIP levels (key: from level as string, value: upgrade price)
+	Level          int                `json:"level"`
+	Name           string             `json:"name"`
+	Description    string             `json:"description"`
+	Price          float64            `json:"price"`                     // Default price (kept for backward compatibility)
+	Duration       int                `json:"duration"`                  // Default duration in days, 0 = permanent (kept for backward compatibility)
+	Icon           string             `json:"icon"`
+	Color          string             `json:"color"`
+	Features       []VIPFeature       `json:"features,omitempty"`        // List of features for this VIP level
+	UpgradePrices  map[string]float64 `json:"upgrade_prices,omitempty"`  // Upgrade prices from other VIP levels (key: from level as string, value: upgrade price) (kept for backward compatibility)
+	Specifications []VIPSpecification `json:"specifications,omitempty"`  // Multiple duration/price options for this VIP level
 }
 
 // CaptchaConfig holds captcha configuration
@@ -276,6 +293,7 @@ func Load(configPath string) (*Config, error) {
 				Title:       "Common Login Service",
 				Description: "统一身份认证服务",
 				Logo:        "",
+				DarkMode:    "system", // Default: follow system preference
 			},
 			Custom: CustomConfig{
 				GlobalCSS:  "",
@@ -283,13 +301,14 @@ func Load(configPath string) (*Config, error) {
 				FooterText: "",
 			},
 			Access: AccessConfig{
-				RegistrationEnabled:  true,
-				LoginEnabled:         true,
-				RegistrationMessage:  "",
-				LoginMessage:         "",
-				RegistrationStartUID: 0,     // 0 = no restriction, set to e.g. 26000 to start UIDs from that value
-				AllowEmailLogin:      true,  // Allow login with email by default
-				AllowUsernameLogin:   false, // Allow login with username, disabled by default
+				RegistrationEnabled:        true,
+				LoginEnabled:               true,
+				RegistrationMessage:        "",
+				LoginMessage:               "",
+				RegistrationStartUID:       0,     // 0 = no restriction, set to e.g. 26000 to start UIDs from that value
+				AllowEmailLogin:            true,  // Allow login with email by default
+				AllowUsernameLogin:         false, // Allow login with username, disabled by default
+				RequireEmailVerification:   false, // Require email verification for new users, disabled by default
 			},
 			Payment: PaymentConfig{
 				Enabled:    false,

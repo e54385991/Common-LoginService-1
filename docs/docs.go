@@ -24,6 +24,473 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/admin/api-tokens": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get all API tokens",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "List API tokens",
+                "responses": {
+                    "200": {
+                        "description": "API tokens retrieved",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a new API token for external access",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Create API token",
+                "parameters": [
+                    {
+                        "description": "API token creation request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.CreateAPITokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "API token created",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/api-tokens/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete an API token",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Delete API token",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Token ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "API token deleted",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/api-tokens/{id}/toggle": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Enable or disable an API token",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Toggle API token status",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Token ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "API token status toggled",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/balance-logs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get balance logs with pagination and optional filters",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "List balance logs",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Page size",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter by user ID",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by type (admin, api, gift_card, purchase_vip, payment)",
+                        "name": "type",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Balance logs retrieved",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/gift-cards": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get all gift cards with pagination",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "List gift cards",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Page size",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Gift cards retrieved",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create one or multiple gift cards",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Create gift cards",
+                "parameters": [
+                    {
+                        "description": "Gift card creation request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.CreateGiftCardRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Gift cards created",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/gift-cards/batch-delete": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete multiple gift cards by IDs",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Batch delete gift cards",
+                "parameters": [
+                    {
+                        "description": "Gift card IDs to delete",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.BatchDeleteGiftCardsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Gift cards deleted",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to delete gift cards",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/gift-cards/export-unused": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get all unused gift cards for export",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Export unused gift cards",
+                "responses": {
+                    "200": {
+                        "description": "Unused gift cards retrieved",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to get gift cards",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/gift-cards/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete a gift card",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Delete gift card",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Gift card ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Gift card deleted",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/login": {
             "post": {
                 "description": "Authenticate admin user",
@@ -63,6 +530,71 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Invalid credentials",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/login-logs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get login logs with pagination and optional filters",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "List login logs",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Page size",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by IP address",
+                        "name": "ip",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by success status (true/false)",
+                        "name": "success",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by username",
+                        "name": "username",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Login logs retrieved",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/internal_handler.Response"
                         }
@@ -113,6 +645,104 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/settings/access": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get current registration and login access settings",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Get access settings",
+                "responses": {
+                    "200": {
+                        "description": "Access settings retrieved",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_handler.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_handler.AccessSettings"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update registration and login access settings",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Update access settings",
+                "parameters": [
+                    {
+                        "description": "Access settings",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.AccessSettings"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Settings updated",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to save settings",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/settings/captcha": {
             "put": {
                 "security": [
@@ -139,6 +769,149 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/internal_handler.UpdateCaptchaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Settings updated",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to save settings",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/settings/custom": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get custom HTML/CSS and footer configuration",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Get custom settings",
+                "responses": {
+                    "200": {
+                        "description": "Custom settings retrieved",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update custom HTML/CSS and footer configuration",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Update custom settings",
+                "parameters": [
+                    {
+                        "description": "Custom settings",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.CustomSettings"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Custom settings updated",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to save settings",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/settings/discord-oauth": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update Discord OAuth configuration",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Update Discord OAuth settings",
+                "parameters": [
+                    {
+                        "description": "Discord OAuth settings",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.UpdateDiscordOAuthRequest"
                         }
                     }
                 ],
@@ -341,6 +1114,613 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/settings/login-protection": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get current login protection configuration",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Get login protection settings",
+                "responses": {
+                    "200": {
+                        "description": "Login protection settings retrieved",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_handler.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_handler.LoginProtectionSettings"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update login protection configuration",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Update login protection settings",
+                "parameters": [
+                    {
+                        "description": "Login protection settings",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.LoginProtectionSettings"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Settings updated",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to save settings",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/settings/payment": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get current payment gateway configuration",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Get payment settings",
+                "responses": {
+                    "200": {
+                        "description": "Payment settings retrieved",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update payment gateway configuration",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Update payment settings",
+                "parameters": [
+                    {
+                        "description": "Payment settings",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.UpdatePaymentSettingsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Settings updated",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to save settings",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/settings/profile-navigation": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get profile page navigation configuration",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Get profile navigation settings",
+                "responses": {
+                    "200": {
+                        "description": "Profile navigation settings retrieved",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update profile page navigation configuration",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Update profile navigation settings",
+                "parameters": [
+                    {
+                        "description": "Profile navigation settings",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/config.ProfileNavigationConfig"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Profile navigation settings updated",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to save settings",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/settings/site": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get current site configuration",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Get site settings",
+                "responses": {
+                    "200": {
+                        "description": "Site settings retrieved",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update site configuration (title, description, logo)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Update site settings",
+                "parameters": [
+                    {
+                        "description": "Site settings",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.UpdateSiteSettingsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Settings updated",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to save settings",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/settings/steam-oauth": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update Steam OAuth configuration",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Update Steam OAuth settings",
+                "parameters": [
+                    {
+                        "description": "Steam OAuth settings",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.UpdateSteamOAuthRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Settings updated",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to save settings",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/settings/vip-levels": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get all VIP level configurations",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Get VIP levels",
+                "responses": {
+                    "200": {
+                        "description": "VIP levels retrieved",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update all VIP level configurations",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Update VIP levels",
+                "parameters": [
+                    {
+                        "description": "VIP levels",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.UpdateVIPLevelsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "VIP levels updated",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to save settings",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/users": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get users with pagination and optional search by username, email, or display name",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "List users",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Page size",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search keyword (username, email, display name)",
+                        "name": "keyword",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Users retrieved",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a new user with specific parameters via admin panel",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Create user (Admin)",
+                "parameters": [
+                    {
+                        "description": "User creation request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.AdminCreateUserRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User created",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict - user ID/email/username already exists",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/users/{id}": {
             "get": {
                 "security": [
@@ -519,6 +1899,122 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/users/{id}/logout": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Force logout a user by deleting all their active sessions",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Force logout user",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User logged out",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to logout user",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/users/{id}/reset-password": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Reset user's password to a new random password",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Reset user password",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Password reset successful",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to reset password",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/users/{id}/status": {
             "put": {
                 "security": [
@@ -558,6 +2054,70 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "Status set",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/users/{id}/vip-expire": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Set user's VIP expiration time. Use empty string to clear expiration (permanent VIP).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Set user VIP expiration time",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "VIP expiration set request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.SetUserVIPExpireAtRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "VIP expiration set",
                         "schema": {
                             "$ref": "#/definitions/internal_handler.Response"
                         }
@@ -647,6 +2207,334 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/payment/notify": {
+            "post": {
+                "description": "Receive asynchronous payment notification from PyPay payment system",
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "payment"
+                ],
+                "summary": "Payment notification callback",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Merchant ID",
+                        "name": "pid",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "System trade number",
+                        "name": "trade_no",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Merchant order ID",
+                        "name": "out_trade_no",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Payment type (alipay/wxpay)",
+                        "name": "type",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Product name",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Payment amount",
+                        "name": "money",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Trade status (TRADE_SUCCESS)",
+                        "name": "trade_status",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Signature for verification",
+                        "name": "sign",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "success",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "fail",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/balance": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get current user's balance and VIP level",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "Get balance and VIP info",
+                "responses": {
+                    "200": {
+                        "description": "Balance and VIP info retrieved",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/change-password": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Change the current authenticated user's password",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Change password",
+                "parameters": [
+                    {
+                        "description": "Change password request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.ChangePasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Password changed",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/discord/bind": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Redirect to Discord OAuth for binding to existing account",
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Discord OAuth bind",
+                "responses": {
+                    "307": {
+                        "description": "Redirect to Discord OAuth"
+                    },
+                    "400": {
+                        "description": "Discord bind not enabled",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/discord/bind/callback": {
+            "get": {
+                "description": "Handle Discord OAuth callback for binding to existing account",
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Discord OAuth bind callback",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "OAuth authorization code",
+                        "name": "code",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "Redirect to profile page with error"
+                    },
+                    "400": {
+                        "description": "Discord login not enabled",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/discord/callback": {
+            "get": {
+                "description": "Handle Discord OAuth callback after user authentication",
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Discord OAuth callback",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "OAuth authorization code",
+                        "name": "code",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "OAuth state parameter",
+                        "name": "state",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "Redirect to login page with error"
+                    },
+                    "400": {
+                        "description": "Discord login not enabled",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/discord/login": {
+            "get": {
+                "description": "Redirect to Discord OAuth login page",
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Discord OAuth login",
+                "responses": {
+                    "307": {
+                        "description": "Redirect to Discord OAuth"
+                    },
+                    "400": {
+                        "description": "Discord login not enabled",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Login with Discord using access token from frontend SDK",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Discord OAuth API login",
+                "parameters": [
+                    {
+                        "description": "Discord login request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.DiscordLoginAPIRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Login successful",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_handler.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_e54385991_Common-LoginService_internal_service.AuthResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request or invalid token",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/forgot-password": {
             "post": {
                 "description": "Initiate password reset by sending a reset email",
@@ -687,6 +2575,60 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/google/bind": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Redirect to Google OAuth for binding to existing account",
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Google OAuth bind",
+                "responses": {
+                    "307": {
+                        "description": "Redirect to Google OAuth"
+                    },
+                    "400": {
+                        "description": "Google bind not enabled",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/google/bind/callback": {
+            "get": {
+                "description": "Handle Google OAuth callback for binding to existing account",
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Google OAuth bind callback",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "OAuth authorization code",
+                        "name": "code",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "Redirect to profile page with error"
+                    },
+                    "400": {
+                        "description": "Google login not enabled",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/google/callback": {
             "get": {
                 "description": "Handle Google OAuth callback after user authentication",
@@ -701,6 +2643,12 @@ const docTemplate = `{
                         "name": "code",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "OAuth state parameter",
+                        "name": "state",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -872,13 +2820,19 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/internal_handler.Response"
                         }
+                    },
+                    "403": {
+                        "description": "Login disabled",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
                     }
                 }
             }
         },
         "/auth/logout": {
             "post": {
-                "description": "Log out the current user by clearing the token cookie",
+                "description": "Log out the current user by clearing the token cookie and invalidating the session",
                 "produces": [
                     "application/json"
                 ],
@@ -889,6 +2843,57 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "Logout successful",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/preview-gift-card": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Preview a gift card to see its contents and check for VIP conflicts before redeeming",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "Preview gift card",
+                "parameters": [
+                    {
+                        "description": "Gift card preview request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.PreviewGiftCardRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Gift card preview",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request or invalid code",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/internal_handler.Response"
                         }
@@ -1000,6 +3005,114 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/purchase-vip": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Purchase VIP membership using account balance. Supports upgrade from lower VIP levels with discounted prices.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "Purchase VIP with balance",
+                "parameters": [
+                    {
+                        "description": "VIP purchase request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.PurchaseVIPRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "VIP purchased",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request or insufficient balance",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/redeem-gift-card": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Redeem a gift card to add balance and/or VIP membership to account. If the gift card contains VIP and the user already has an active VIP, confirmation is required.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "Redeem gift card",
+                "parameters": [
+                    {
+                        "description": "Gift card redemption request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.RedeemGiftCardRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Gift card redeemed",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request or invalid code",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "VIP conflict - requires confirmation",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/register": {
             "post": {
                 "description": "Register a new user with email, username and password",
@@ -1048,6 +3161,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/internal_handler.Response"
                         }
+                    },
+                    "403": {
+                        "description": "Registration disabled",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
                     }
                 }
             }
@@ -1085,6 +3204,373 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad request or invalid token",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/send-verification-email": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Send a verification email to the authenticated user. Rate limited to 1 email per 60 seconds.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Send verification email",
+                "parameters": [
+                    {
+                        "description": "Send verification email request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.SendVerificationEmailRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Email sent",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "429": {
+                        "description": "Rate limit exceeded",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/signed-callback": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Generate a callback URL with HMAC-signed user data (UID, VIP level, balance, etc.)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Generate signed callback URL",
+                "parameters": [
+                    {
+                        "description": "Callback URL request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.SignedCallbackRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Signed callback URL",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_handler.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_handler.SignedCallbackResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request or feature disabled",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/signed-url/status": {
+            "get": {
+                "description": "Check if signed URL callback feature is enabled",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Get signed URL status",
+                "responses": {
+                    "200": {
+                        "description": "Signed URL status",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/steam/bind": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Redirect to Steam OpenID for binding to existing account",
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Steam OpenID bind",
+                "responses": {
+                    "307": {
+                        "description": "Redirect to Steam OpenID"
+                    },
+                    "400": {
+                        "description": "Steam bind not enabled",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/steam/bind/callback": {
+            "get": {
+                "description": "Handle Steam OpenID callback for binding to existing account",
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Steam OpenID bind callback",
+                "responses": {
+                    "302": {
+                        "description": "Redirect to profile page with error"
+                    },
+                    "400": {
+                        "description": "Steam login not enabled",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/steam/callback": {
+            "get": {
+                "description": "Handle Steam OpenID callback after user authentication",
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Steam OpenID callback",
+                "responses": {
+                    "302": {
+                        "description": "Redirect to login page with error"
+                    },
+                    "400": {
+                        "description": "Steam login not enabled",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/steam/login": {
+            "get": {
+                "description": "Redirect to Steam OpenID login page",
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Steam OpenID login",
+                "responses": {
+                    "307": {
+                        "description": "Redirect to Steam OpenID"
+                    },
+                    "400": {
+                        "description": "Steam login not enabled",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/third-party-status": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get the binding status of Google, Steam, and Discord accounts",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Get third-party binding status",
+                "responses": {
+                    "200": {
+                        "description": "Binding status",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/unbind/discord": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Unbind Discord account from the current user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Unbind Discord account",
+                "responses": {
+                    "200": {
+                        "description": "Unbind successful",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/unbind/google": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Unbind Google account from the current user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Unbind Google account",
+                "responses": {
+                    "200": {
+                        "description": "Unbind successful",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/unbind/steam": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Unbind Steam account from the current user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Unbind Steam account",
+                "responses": {
+                    "200": {
+                        "description": "Unbind successful",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/internal_handler.Response"
                         }
@@ -1143,6 +3629,93 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Invalid token",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/verify-email-token": {
+            "get": {
+                "description": "Verify email using the token from the verification email",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Verify email token",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Verification token",
+                        "name": "token",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Email verified",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request or invalid token",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/verify-signature": {
+            "post": {
+                "description": "Verify the HMAC signature of user data received from callback",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Verify signed callback",
+                "parameters": [
+                    {
+                        "description": "Verification request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.VerifySignatureRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Verification result",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_handler.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_handler.VerifySignatureResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request or feature disabled",
                         "schema": {
                             "$ref": "#/definitions/internal_handler.Response"
                         }
@@ -1259,9 +3832,633 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/custom-settings": {
+            "get": {
+                "description": "Get custom HTML/CSS and footer configuration for frontend display",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "public"
+                ],
+                "summary": "Get public custom settings",
+                "responses": {
+                    "200": {
+                        "description": "Custom settings retrieved",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/external/balance": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Update a user's balance using API token authentication",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "external-api"
+                ],
+                "summary": "Update user balance (API Token)",
+                "parameters": [
+                    {
+                        "description": "Balance update request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.APIUpdateBalanceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Balance updated",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - no permission",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/external/password": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Set a user's password using API token authentication. Requires 'password' or 'all' permission.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "external-api"
+                ],
+                "summary": "Set user password (API Token)",
+                "parameters": [
+                    {
+                        "description": "Password set request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.APISetPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Password set",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - no permission",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/external/user": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get a user's information using API token authentication",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "external-api"
+                ],
+                "summary": "Get user info (API Token)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "user_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User info retrieved",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Create a new user with specific parameters using API token authentication. Requires 'user' or 'all' permission.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "external-api"
+                ],
+                "summary": "Create user (API Token)",
+                "parameters": [
+                    {
+                        "description": "User creation request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.APICreateUserRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User created",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - no permission",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict - user ID/email/username already exists",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/external/vip-expire": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Set a user's VIP expiration time using API token authentication. Requires 'vip' or 'all' permission.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "external-api"
+                ],
+                "summary": "Set user VIP expiration time (API Token)",
+                "parameters": [
+                    {
+                        "description": "VIP expiration set request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.APISetVIPExpireAtRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "VIP expiration set",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - no permission",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/external/vip-level": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Set a user's VIP level using API token authentication",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "external-api"
+                ],
+                "summary": "Set user VIP level (API Token)",
+                "parameters": [
+                    {
+                        "description": "VIP level set request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.APISetVIPLevelRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "VIP level set",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - no permission",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/i18n/language": {
+            "get": {
+                "description": "Get the user's current language preference",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "i18n"
+                ],
+                "summary": "Get language preference",
+                "responses": {
+                    "200": {
+                        "description": "Current language",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/i18n/set-language": {
+            "post": {
+                "description": "Set the user's preferred language (stored in cookie)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "i18n"
+                ],
+                "summary": "Set language preference",
+                "parameters": [
+                    {
+                        "description": "Language setting request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.SetLanguageRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Language set",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/payment/create": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a payment order and get PyPay redirect URL",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payment"
+                ],
+                "summary": "Create payment order",
+                "parameters": [
+                    {
+                        "description": "Payment request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.CreatePaymentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Payment order created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_handler.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_handler.CreatePaymentResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    },
+                    "503": {
+                        "description": "Payment service unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/payment/status": {
+            "get": {
+                "description": "Check if payment is enabled and in demo mode",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payment"
+                ],
+                "summary": "Get payment status",
+                "responses": {
+                    "200": {
+                        "description": "Payment status",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/profile-navigation": {
+            "get": {
+                "description": "Get profile navigation configuration for frontend display",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "public"
+                ],
+                "summary": "Get public profile navigation",
+                "responses": {
+                    "200": {
+                        "description": "Profile navigation retrieved",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/site-settings": {
+            "get": {
+                "description": "Get site configuration for frontend display",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "public"
+                ],
+                "summary": "Get public site settings",
+                "responses": {
+                    "200": {
+                        "description": "Site settings retrieved",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/vip-levels": {
+            "get": {
+                "description": "Get VIP level configurations for frontend display",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "public"
+                ],
+                "summary": "Get public VIP levels",
+                "responses": {
+                    "200": {
+                        "description": "VIP levels retrieved",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Response"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
+        "config.ProfileNavItem": {
+            "type": "object",
+            "properties": {
+                "color": {
+                    "description": "Background color (e.g., \"#667eea\")",
+                    "type": "string"
+                },
+                "effect": {
+                    "description": "Button effect: \"pulse\", \"glow\", \"bounce\", or empty",
+                    "type": "string"
+                },
+                "gradient_end": {
+                    "description": "Gradient end color (optional)",
+                    "type": "string"
+                },
+                "icon": {
+                    "description": "Bootstrap icon class (e.g., \"bi-star\")",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "Unique identifier",
+                    "type": "string"
+                },
+                "new_tab": {
+                    "description": "Open in new tab",
+                    "type": "boolean"
+                },
+                "order": {
+                    "description": "Display order",
+                    "type": "integer"
+                },
+                "title": {
+                    "description": "Display title",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "\"link\", \"button\", or \"action\"",
+                    "type": "string"
+                },
+                "url": {
+                    "description": "Link URL (optional, for links)",
+                    "type": "string"
+                },
+                "visible": {
+                    "description": "Whether the item is visible",
+                    "type": "boolean"
+                }
+            }
+        },
+        "config.ProfileNavigationConfig": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/config.ProfileNavItem"
+                    }
+                }
+            }
+        },
         "github_com_e54385991_Common-LoginService_internal_model.User": {
             "type": "object",
             "properties": {
@@ -1279,6 +4476,9 @@ const docTemplate = `{
                 },
                 "email": {
                     "type": "string"
+                },
+                "email_verified": {
+                    "type": "boolean"
                 },
                 "id": {
                     "type": "integer"
@@ -1298,6 +4498,9 @@ const docTemplate = `{
                 "username": {
                     "type": "string"
                 },
+                "vip_expire_at": {
+                    "type": "string"
+                },
                 "vip_level": {
                     "type": "integer"
                 }
@@ -1311,6 +4514,216 @@ const docTemplate = `{
                 },
                 "user": {
                     "$ref": "#/definitions/github_com_e54385991_Common-LoginService_internal_model.User"
+                }
+            }
+        },
+        "internal_handler.APICreateUserRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "password",
+                "username"
+            ],
+            "properties": {
+                "balance": {
+                    "description": "Optional: initial balance",
+                    "type": "number",
+                    "example": 100
+                },
+                "display_name": {
+                    "type": "string",
+                    "example": "New User"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "user@example.com"
+                },
+                "id": {
+                    "description": "Optional: force specific ID",
+                    "type": "integer",
+                    "example": 100
+                },
+                "is_active": {
+                    "description": "Optional: active status, default true",
+                    "type": "boolean",
+                    "example": true
+                },
+                "password": {
+                    "type": "string",
+                    "example": "password123"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "newuser"
+                },
+                "vip_expire_at": {
+                    "description": "Optional: VIP expiration (ISO 8601)",
+                    "type": "string",
+                    "example": "2025-12-31T23:59:59Z"
+                },
+                "vip_level": {
+                    "description": "Optional: VIP level",
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "internal_handler.APISetPasswordRequest": {
+            "type": "object",
+            "required": [
+                "password",
+                "user_id"
+            ],
+            "properties": {
+                "password": {
+                    "type": "string",
+                    "example": "newpassword123"
+                },
+                "user_id": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "internal_handler.APISetVIPExpireAtRequest": {
+            "type": "object",
+            "required": [
+                "user_id"
+            ],
+            "properties": {
+                "user_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "vip_expire_at": {
+                    "description": "ISO 8601 format, empty means clear",
+                    "type": "string",
+                    "example": "2025-12-31T23:59:59Z"
+                }
+            }
+        },
+        "internal_handler.APISetVIPLevelRequest": {
+            "type": "object",
+            "required": [
+                "user_id",
+                "vip_level"
+            ],
+            "properties": {
+                "user_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "vip_level": {
+                    "type": "integer",
+                    "example": 3
+                }
+            }
+        },
+        "internal_handler.APIUpdateBalanceRequest": {
+            "type": "object",
+            "required": [
+                "amount",
+                "user_id"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "number",
+                    "example": 100
+                },
+                "reason": {
+                    "type": "string",
+                    "example": "API充值"
+                },
+                "user_id": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "internal_handler.AccessSettings": {
+            "type": "object",
+            "properties": {
+                "allow_email_login": {
+                    "description": "Allow login with email",
+                    "type": "boolean",
+                    "example": true
+                },
+                "allow_username_login": {
+                    "description": "Allow login with username",
+                    "type": "boolean",
+                    "example": false
+                },
+                "login_enabled": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "login_message": {
+                    "type": "string",
+                    "example": "登录功能暂时关闭"
+                },
+                "registration_enabled": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "registration_message": {
+                    "type": "string",
+                    "example": "注册功能暂时关闭"
+                },
+                "registration_start_uid": {
+                    "description": "Minimum UID for backend registration (0 = no restriction)",
+                    "type": "integer",
+                    "example": 26000
+                }
+            }
+        },
+        "internal_handler.AdminCreateUserRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "password",
+                "username"
+            ],
+            "properties": {
+                "balance": {
+                    "description": "Optional: initial balance",
+                    "type": "number",
+                    "example": 100
+                },
+                "display_name": {
+                    "type": "string",
+                    "example": "New User"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "user@example.com"
+                },
+                "id": {
+                    "description": "Optional: force specific ID",
+                    "type": "integer",
+                    "example": 100
+                },
+                "is_active": {
+                    "description": "Optional: active status, default true",
+                    "type": "boolean",
+                    "example": true
+                },
+                "password": {
+                    "type": "string",
+                    "example": "password123"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "newuser"
+                },
+                "vip_expire_at": {
+                    "description": "Optional: VIP expiration (ISO 8601)",
+                    "type": "string",
+                    "example": "2025-12-31T23:59:59Z"
+                },
+                "vip_level": {
+                    "description": "Optional: VIP level",
+                    "type": "integer",
+                    "example": 1
                 }
             }
         },
@@ -1337,6 +4750,9 @@ const docTemplate = `{
                 "captcha": {
                     "$ref": "#/definitions/internal_handler.CaptchaSettings"
                 },
+                "discord_oauth": {
+                    "$ref": "#/definitions/internal_handler.DiscordOAuthSettings"
+                },
                 "gmail_api": {
                     "$ref": "#/definitions/internal_handler.GmailAPISettings"
                 },
@@ -1345,8 +4761,14 @@ const docTemplate = `{
                 },
                 "jwt": {
                     "$ref": "#/definitions/internal_handler.JWTSettings"
+                },
+                "steam_oauth": {
+                    "$ref": "#/definitions/internal_handler.SteamOAuthSettings"
                 }
             }
+        },
+        "internal_handler.BatchDeleteGiftCardsRequest": {
+            "type": "object"
         },
         "internal_handler.CaptchaGenerateResponse": {
             "type": "object",
@@ -1396,6 +4818,172 @@ const docTemplate = `{
                 "position": {
                     "type": "integer",
                     "example": 150
+                }
+            }
+        },
+        "internal_handler.ChangePasswordRequest": {
+            "type": "object",
+            "required": [
+                "new_password",
+                "old_password"
+            ],
+            "properties": {
+                "new_password": {
+                    "type": "string",
+                    "example": "newpassword123"
+                },
+                "old_password": {
+                    "type": "string",
+                    "example": "oldpassword123"
+                }
+            }
+        },
+        "internal_handler.CreateAPITokenRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "expires_in": {
+                    "description": "Days, 0 = never expires",
+                    "type": "integer",
+                    "example": 30
+                },
+                "name": {
+                    "type": "string",
+                    "example": "External API"
+                },
+                "permissions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "['balance'",
+                        " 'vip']"
+                    ]
+                }
+            }
+        },
+        "internal_handler.CreateGiftCardRequest": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number",
+                    "example": 100
+                },
+                "count": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "description": {
+                    "type": "string",
+                    "example": "充值礼品卡"
+                },
+                "expires_in": {
+                    "description": "Days, 0 = never expires",
+                    "type": "integer",
+                    "example": 30
+                },
+                "vip_days": {
+                    "description": "VIP duration in days (0 = permanent)",
+                    "type": "integer",
+                    "example": 30
+                },
+                "vip_level": {
+                    "description": "VIP level to grant (0 = no VIP, balance only)",
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "internal_handler.CreatePaymentRequest": {
+            "type": "object",
+            "required": [
+                "amount",
+                "payment_method",
+                "product_type"
+            ],
+            "properties": {
+                "amount": {
+                    "description": "Payment amount",
+                    "type": "number"
+                },
+                "payment_method": {
+                    "description": "\"alipay\" or \"wechat\"",
+                    "type": "string"
+                },
+                "product_id": {
+                    "description": "VIP level (for vip type)",
+                    "type": "integer"
+                },
+                "product_type": {
+                    "description": "\"vip\" or \"recharge\"",
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handler.CreatePaymentResponse": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "order_id": {
+                    "type": "string"
+                },
+                "payment_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handler.CustomSettings": {
+            "type": "object",
+            "properties": {
+                "footer_text": {
+                    "type": "string",
+                    "example": "© 2024 Your Company"
+                },
+                "global_css": {
+                    "type": "string",
+                    "example": "/* custom CSS */"
+                },
+                "global_html": {
+                    "type": "string",
+                    "example": "\u003cscript\u003e/* custom script */\u003c/script\u003e"
+                }
+            }
+        },
+        "internal_handler.DiscordLoginAPIRequest": {
+            "type": "object",
+            "required": [
+                "access_token"
+            ],
+            "properties": {
+                "access_token": {
+                    "type": "string",
+                    "example": "discord-access-token-xyz"
+                }
+            }
+        },
+        "internal_handler.DiscordOAuthSettings": {
+            "type": "object",
+            "properties": {
+                "client_id": {
+                    "type": "string",
+                    "example": "your-client-id"
+                },
+                "client_secret": {
+                    "type": "string",
+                    "example": "****"
+                },
+                "enabled": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "redirect_url": {
+                    "type": "string",
+                    "example": "http://localhost:8080/api/auth/discord/callback"
                 }
             }
         },
@@ -1491,6 +5079,27 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_handler.LoginProtectionSettings": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "freeze_seconds": {
+                    "type": "integer",
+                    "example": 300
+                },
+                "max_attempts": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "window_seconds": {
+                    "type": "integer",
+                    "example": 600
+                }
+            }
+        },
         "internal_handler.LoginRequest": {
             "type": "object",
             "required": [
@@ -1513,6 +5122,52 @@ const docTemplate = `{
                 "password": {
                     "type": "string",
                     "example": "password123"
+                }
+            }
+        },
+        "internal_handler.PreviewGiftCardRequest": {
+            "type": "object",
+            "required": [
+                "code"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "XXXX-XXXX-XXXX-XXXX"
+                }
+            }
+        },
+        "internal_handler.PurchaseVIPRequest": {
+            "type": "object",
+            "required": [
+                "level"
+            ],
+            "properties": {
+                "duration": {
+                    "description": "Optional: specific duration to purchase (for multiple specifications). If not provided, uses default price/duration.",
+                    "type": "integer",
+                    "example": 30
+                },
+                "level": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "internal_handler.RedeemGiftCardRequest": {
+            "type": "object",
+            "required": [
+                "code"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "XXXX-XXXX-XXXX-XXXX"
+                },
+                "confirm": {
+                    "description": "Set to true to confirm redemption when VIP conflict exists",
+                    "type": "boolean",
+                    "example": false
                 }
             }
         },
@@ -1581,6 +5236,34 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_handler.SendVerificationEmailRequest": {
+            "type": "object",
+            "required": [
+                "email"
+            ],
+            "properties": {
+                "captcha_id": {
+                    "type": "string",
+                    "example": "abc123"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "user@example.com"
+                }
+            }
+        },
+        "internal_handler.SetLanguageRequest": {
+            "type": "object",
+            "required": [
+                "lang"
+            ],
+            "properties": {
+                "lang": {
+                    "type": "string",
+                    "example": "zh"
+                }
+            }
+        },
         "internal_handler.SetUserBalanceRequest": {
             "type": "object",
             "properties": {
@@ -1599,6 +5282,16 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_handler.SetUserVIPExpireAtRequest": {
+            "type": "object",
+            "properties": {
+                "vip_expire_at": {
+                    "description": "ISO 8601 format, empty means clear",
+                    "type": "string",
+                    "example": "2025-12-31T23:59:59Z"
+                }
+            }
+        },
         "internal_handler.SetUserVIPLevelRequest": {
             "type": "object",
             "properties": {
@@ -1608,12 +5301,71 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_handler.SignedCallbackRequest": {
+            "type": "object",
+            "required": [
+                "callback_url"
+            ],
+            "properties": {
+                "callback_url": {
+                    "type": "string",
+                    "example": "https://your-app.com/callback"
+                }
+            }
+        },
+        "internal_handler.SignedCallbackResponse": {
+            "type": "object",
+            "properties": {
+                "callback_url": {
+                    "type": "string",
+                    "example": "https://your-app.com/callback?uid=123\u0026...\u0026signature=abc123"
+                }
+            }
+        },
+        "internal_handler.SteamOAuthSettings": {
+            "type": "object",
+            "properties": {
+                "api_key": {
+                    "type": "string",
+                    "example": "****"
+                },
+                "enabled": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "redirect_url": {
+                    "type": "string",
+                    "example": "http://localhost:8080/api/auth/steam/callback"
+                }
+            }
+        },
         "internal_handler.UpdateCaptchaRequest": {
             "type": "object",
             "properties": {
                 "enabled": {
                     "type": "boolean",
                     "example": true
+                }
+            }
+        },
+        "internal_handler.UpdateDiscordOAuthRequest": {
+            "type": "object",
+            "properties": {
+                "client_id": {
+                    "type": "string",
+                    "example": "your-client-id"
+                },
+                "client_secret": {
+                    "type": "string",
+                    "example": "your-client-secret"
+                },
+                "enabled": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "redirect_url": {
+                    "type": "string",
+                    "example": "http://localhost:8080/api/auth/discord/callback"
                 }
             }
         },
@@ -1676,6 +5428,39 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_handler.UpdatePaymentSettingsRequest": {
+            "type": "object",
+            "properties": {
+                "api_key": {
+                    "type": "string",
+                    "example": "your-api-key"
+                },
+                "api_url": {
+                    "type": "string",
+                    "example": "https://pypay.meilanyv.cn/api/"
+                },
+                "demo_mode": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "enabled": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "merchant_id": {
+                    "type": "string",
+                    "example": "your-merchant-id"
+                },
+                "notify_url": {
+                    "type": "string",
+                    "example": "https://your-domain.com/api/payment/notify"
+                },
+                "return_url": {
+                    "type": "string",
+                    "example": "https://your-domain.com/payment/result"
+                }
+            }
+        },
         "internal_handler.UpdateProfileRequest": {
             "type": "object",
             "properties": {
@@ -1689,12 +5474,95 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_handler.UpdateSiteSettingsRequest": {
+            "type": "object",
+            "properties": {
+                "dark_mode": {
+                    "description": "Dark mode setting: \"system\", \"dark\", \"light\"",
+                    "type": "string",
+                    "example": "system"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "统一身份认证服务"
+                },
+                "logo": {
+                    "type": "string",
+                    "example": "https://example.com/logo.png"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Common Login Service"
+                }
+            }
+        },
+        "internal_handler.UpdateSteamOAuthRequest": {
+            "type": "object",
+            "properties": {
+                "api_key": {
+                    "type": "string",
+                    "example": "your-steam-api-key"
+                },
+                "enabled": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "redirect_url": {
+                    "type": "string",
+                    "example": "http://localhost:8080/api/auth/steam/callback"
+                }
+            }
+        },
         "internal_handler.UpdateUserBalanceRequest": {
             "type": "object",
             "properties": {
                 "amount": {
                     "type": "number",
                     "example": 100.5
+                }
+            }
+        },
+        "internal_handler.UpdateVIPLevelsRequest": {
+            "type": "object",
+            "properties": {
+                "vip_levels": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_handler.VIPLevelRequest"
+                    }
+                }
+            }
+        },
+        "internal_handler.VIPLevelRequest": {
+            "type": "object",
+            "properties": {
+                "color": {
+                    "type": "string",
+                    "example": "#cd7f32"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "基础会员特权"
+                },
+                "duration": {
+                    "type": "integer",
+                    "example": 30
+                },
+                "icon": {
+                    "type": "string",
+                    "example": "bi-star"
+                },
+                "level": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "name": {
+                    "type": "string",
+                    "example": "VIP 1"
+                },
+                "price": {
+                    "type": "number",
+                    "example": 9.9
                 }
             }
         },
@@ -1719,6 +5587,59 @@ const docTemplate = `{
                 "valid": {
                     "type": "boolean",
                     "example": true
+                }
+            }
+        },
+        "internal_handler.VerifySignatureRequest": {
+            "type": "object",
+            "required": [
+                "balance",
+                "signature",
+                "ts",
+                "uid",
+                "vip_level"
+            ],
+            "properties": {
+                "balance": {
+                    "type": "string",
+                    "example": "100.00"
+                },
+                "signature": {
+                    "type": "string",
+                    "example": "abc123def456"
+                },
+                "ts": {
+                    "type": "string",
+                    "example": "1703136000"
+                },
+                "uid": {
+                    "type": "string",
+                    "example": "123"
+                },
+                "vip_level": {
+                    "type": "string",
+                    "example": "2"
+                }
+            }
+        },
+        "internal_handler.VerifySignatureResponse": {
+            "type": "object",
+            "properties": {
+                "balance": {
+                    "type": "number",
+                    "example": 100
+                },
+                "uid": {
+                    "type": "integer",
+                    "example": 123
+                },
+                "valid": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "vip_level": {
+                    "type": "integer",
+                    "example": 2
                 }
             }
         }

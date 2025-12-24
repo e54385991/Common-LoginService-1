@@ -16,6 +16,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Dark mode constants
+const (
+	DarkModeSystem = "system" // Follow system preference
+	DarkModeDark   = "dark"   // Always dark mode
+	DarkModeLight  = "light"  // Always light mode
+)
+
 // AdminHandler handles admin requests
 type AdminHandler struct {
 	cfg            *config.Config
@@ -644,13 +651,14 @@ func (h *AdminHandler) GetAccessSettings(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
-			"registration_enabled":   h.cfg.Access.RegistrationEnabled,
-			"login_enabled":          h.cfg.Access.LoginEnabled,
-			"registration_message":   h.cfg.Access.RegistrationMessage,
-			"login_message":          h.cfg.Access.LoginMessage,
-			"registration_start_uid": h.cfg.Access.RegistrationStartUID,
-			"allow_email_login":      h.cfg.Access.AllowEmailLogin,
-			"allow_username_login":   h.cfg.Access.AllowUsernameLogin,
+			"registration_enabled":         h.cfg.Access.RegistrationEnabled,
+			"login_enabled":                h.cfg.Access.LoginEnabled,
+			"registration_message":         h.cfg.Access.RegistrationMessage,
+			"login_message":                h.cfg.Access.LoginMessage,
+			"registration_start_uid":       h.cfg.Access.RegistrationStartUID,
+			"allow_email_login":            h.cfg.Access.AllowEmailLogin,
+			"allow_username_login":         h.cfg.Access.AllowUsernameLogin,
+			"require_email_verification":   h.cfg.Access.RequireEmailVerification,
 		},
 	})
 }
@@ -670,13 +678,14 @@ func (h *AdminHandler) GetAccessSettings(c *gin.Context) {
 // @Router /admin/settings/access [put]
 func (h *AdminHandler) UpdateAccessSettings(c *gin.Context) {
 	var input struct {
-		RegistrationEnabled  bool   `json:"registration_enabled"`
-		LoginEnabled         bool   `json:"login_enabled"`
-		RegistrationMessage  string `json:"registration_message"`
-		LoginMessage         string `json:"login_message"`
-		RegistrationStartUID uint   `json:"registration_start_uid"`
-		AllowEmailLogin      bool   `json:"allow_email_login"`
-		AllowUsernameLogin   bool   `json:"allow_username_login"`
+		RegistrationEnabled        bool   `json:"registration_enabled"`
+		LoginEnabled               bool   `json:"login_enabled"`
+		RegistrationMessage        string `json:"registration_message"`
+		LoginMessage               string `json:"login_message"`
+		RegistrationStartUID       uint   `json:"registration_start_uid"`
+		AllowEmailLogin            bool   `json:"allow_email_login"`
+		AllowUsernameLogin         bool   `json:"allow_username_login"`
+		RequireEmailVerification   bool   `json:"require_email_verification"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -702,6 +711,7 @@ func (h *AdminHandler) UpdateAccessSettings(c *gin.Context) {
 	h.cfg.Access.RegistrationStartUID = input.RegistrationStartUID
 	h.cfg.Access.AllowEmailLogin = input.AllowEmailLogin
 	h.cfg.Access.AllowUsernameLogin = input.AllowUsernameLogin
+	h.cfg.Access.RequireEmailVerification = input.RequireEmailVerification
 
 	// Save to file
 	if err := config.Save("config.json"); err != nil {
@@ -1388,6 +1398,7 @@ type UpdateSiteSettingsRequest struct {
 	Title       string `json:"title" example:"Common Login Service"`
 	Description string `json:"description" example:"统一身份认证服务"`
 	Logo        string `json:"logo" example:"https://example.com/logo.png"`
+	DarkMode    string `json:"dark_mode" example:"system"` // Dark mode setting: "system", "dark", "light"
 }
 
 // UpdatePaymentSettingsRequest represents payment settings update request
@@ -1453,6 +1464,7 @@ func (h *AdminHandler) GetSiteSettings(c *gin.Context) {
 			"title":       h.cfg.Site.Title,
 			"description": h.cfg.Site.Description,
 			"logo":        h.cfg.Site.Logo,
+			"dark_mode":   h.cfg.Site.DarkMode,
 		},
 	})
 }
@@ -1475,6 +1487,7 @@ func (h *AdminHandler) UpdateSiteSettings(c *gin.Context) {
 		Title       string `json:"title"`
 		Description string `json:"description"`
 		Logo        string `json:"logo"`
+		DarkMode    string `json:"dark_mode"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -1484,9 +1497,21 @@ func (h *AdminHandler) UpdateSiteSettings(c *gin.Context) {
 		return
 	}
 
+	// Validate dark_mode value
+	if input.DarkMode != "" && input.DarkMode != DarkModeSystem && input.DarkMode != DarkModeDark && input.DarkMode != DarkModeLight {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "暗色模式设置值无效，请选择 system、dark 或 light",
+		})
+		return
+	}
+
 	h.cfg.Site.Title = input.Title
 	h.cfg.Site.Description = input.Description
 	h.cfg.Site.Logo = input.Logo
+	if input.DarkMode != "" {
+		h.cfg.Site.DarkMode = input.DarkMode
+	}
 
 	if err := config.Save("config.json"); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -1666,6 +1691,7 @@ func (h *AdminHandler) GetPublicSiteSettings(c *gin.Context) {
 			"title":             h.cfg.Site.Title,
 			"description":       h.cfg.Site.Description,
 			"logo":              h.cfg.Site.Logo,
+			"dark_mode":         h.cfg.Site.DarkMode,
 			"payment_enabled":   h.cfg.Payment.Enabled,
 			"payment_demo_mode": h.cfg.Payment.DemoMode,
 		},

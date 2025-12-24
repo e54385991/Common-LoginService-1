@@ -86,6 +86,9 @@ type AuthHandler struct {
 		SetVIPLevel(id uint, level int) (*model.User, error)
 		SetVIPLevelWithDuration(id uint, level int, durationDays int) (*model.User, error)
 		SetVIPLevelWithUpgrade(id uint, level int, durationDays int, oldPrice float64, newPrice float64) (*model.User, int, error)
+		SetEmailVerified(id uint, verified bool) (*model.User, error)
+		UpdateEmail(id uint, email string) (*model.User, error)
+		ExistsByEmail(email string) bool
 	}
 	giftCardRepo interface {
 		Redeem(code string, userID uint) (*model.GiftCard, error)
@@ -93,6 +96,13 @@ type AuthHandler struct {
 	}
 	balanceLogRepo interface {
 		Create(log *model.BalanceLog) error
+	}
+	emailVerificationRepo interface {
+		Create(userID uint, email string) (*model.EmailVerificationToken, error)
+		FindByToken(token string) (*model.EmailVerificationToken, error)
+		FindByUserIDAndCode(userID uint, code string) (*model.EmailVerificationToken, error)
+		MarkUsed(id uint) error
+		CanSendVerificationEmail(userID uint) (bool, int, error)
 	}
 }
 
@@ -113,6 +123,9 @@ func (h *AuthHandler) SetUserRepo(userRepo interface {
 	SetVIPLevel(id uint, level int) (*model.User, error)
 	SetVIPLevelWithDuration(id uint, level int, durationDays int) (*model.User, error)
 	SetVIPLevelWithUpgrade(id uint, level int, durationDays int, oldPrice float64, newPrice float64) (*model.User, int, error)
+	SetEmailVerified(id uint, verified bool) (*model.User, error)
+	UpdateEmail(id uint, email string) (*model.User, error)
+	ExistsByEmail(email string) bool
 }) {
 	h.userRepo = userRepo
 }
@@ -130,6 +143,17 @@ func (h *AuthHandler) SetBalanceLogRepo(balanceLogRepo interface {
 	Create(log *model.BalanceLog) error
 }) {
 	h.balanceLogRepo = balanceLogRepo
+}
+
+// SetEmailVerificationRepo sets the email verification repository for AuthHandler
+func (h *AuthHandler) SetEmailVerificationRepo(emailVerificationRepo interface {
+	Create(userID uint, email string) (*model.EmailVerificationToken, error)
+	FindByToken(token string) (*model.EmailVerificationToken, error)
+	FindByUserIDAndCode(userID uint, code string) (*model.EmailVerificationToken, error)
+	MarkUsed(id uint) error
+	CanSendVerificationEmail(userID uint) (bool, int, error)
+}) {
+	h.emailVerificationRepo = emailVerificationRepo
 }
 
 // isSecureRequest checks if the request is over HTTPS
@@ -661,6 +685,7 @@ func (h *AuthHandler) LoginPage(c *gin.Context) {
 		"allowEmailLogin":      h.cfg.Access.AllowEmailLogin,
 		"allowUsernameLogin":   h.cfg.Access.AllowUsernameLogin,
 		"custom":               h.cfg.Custom,
+		"darkMode":             h.cfg.Site.DarkMode,
 	})
 }
 
@@ -690,6 +715,7 @@ func (h *AuthHandler) RegisterPage(c *gin.Context) {
 		"registrationEnabled":         h.cfg.Access.RegistrationEnabled,
 		"registrationDisabledMessage": registrationDisabledMessage,
 		"custom":                      h.cfg.Custom,
+		"darkMode":                    h.cfg.Site.DarkMode,
 	})
 }
 
@@ -697,8 +723,9 @@ func (h *AuthHandler) RegisterPage(c *gin.Context) {
 func (h *AuthHandler) ForgotPasswordPage(c *gin.Context) {
 	lang := c.GetString("lang")
 	c.HTML(http.StatusOK, "forgot_password.html", gin.H{
-		"lang":   lang,
-		"custom": h.cfg.Custom,
+		"lang":     lang,
+		"custom":   h.cfg.Custom,
+		"darkMode": h.cfg.Site.DarkMode,
 	})
 }
 
@@ -707,9 +734,10 @@ func (h *AuthHandler) ResetPasswordPage(c *gin.Context) {
 	lang := c.GetString("lang")
 	token := c.Query("token")
 	c.HTML(http.StatusOK, "reset_password.html", gin.H{
-		"lang":   lang,
-		"token":  token,
-		"custom": h.cfg.Custom,
+		"lang":     lang,
+		"token":    token,
+		"custom":   h.cfg.Custom,
+		"darkMode": h.cfg.Site.DarkMode,
 	})
 }
 
@@ -727,6 +755,7 @@ func (h *AuthHandler) HomePage(c *gin.Context) {
 		"logged":    user != nil,
 		"siteTitle": h.cfg.Site.Title,
 		"custom":    h.cfg.Custom,
+		"darkMode":  h.cfg.Site.DarkMode,
 	})
 }
 
@@ -744,6 +773,7 @@ func (h *AuthHandler) RechargePage(c *gin.Context) {
 		"logged":    user != nil,
 		"siteTitle": h.cfg.Site.Title,
 		"custom":    h.cfg.Custom,
+		"darkMode":  h.cfg.Site.DarkMode,
 	})
 }
 
@@ -761,6 +791,7 @@ func (h *AuthHandler) VIPPage(c *gin.Context) {
 		"logged":    user != nil,
 		"siteTitle": h.cfg.Site.Title,
 		"custom":    h.cfg.Custom,
+		"darkMode":  h.cfg.Site.DarkMode,
 	})
 }
 
@@ -778,12 +809,14 @@ func (h *AuthHandler) ProfilePage(c *gin.Context) {
 		"logged":    user != nil,
 		"siteTitle": h.cfg.Site.Title,
 		"custom":    h.cfg.Custom,
+		"darkMode":  h.cfg.Site.DarkMode,
 	})
 }
 
 // PurchaseVIPRequest represents VIP purchase request
 type PurchaseVIPRequest struct {
-	Level int `json:"level" binding:"required" example:"1"`
+	Level    int `json:"level" binding:"required" example:"1"`
+	Duration int `json:"duration" example:"30"` // Optional: specific duration to purchase (for multiple specifications). If not provided, uses default price/duration.
 }
 
 // RedeemGiftCardRequest represents gift card redemption request
@@ -860,9 +893,40 @@ func (h *AuthHandler) PurchaseVIP(c *gin.Context) {
 		return
 	}
 
-	// Calculate the actual price (check for upgrade price from current level)
+	// Determine the actual price and duration based on specifications or default
 	actualPrice := vipConfig.Price
+	actualDuration := vipConfig.Duration
+	var selectedSpec *config.VIPSpecification
 	isUpgrade := currentUser.VIPLevel > 0
+
+	// If duration is specified and specifications exist, find the matching specification
+	if input.Duration > 0 && len(vipConfig.Specifications) > 0 {
+		for i, spec := range vipConfig.Specifications {
+			if spec.Duration == input.Duration {
+				selectedSpec = &vipConfig.Specifications[i]
+				actualPrice = spec.Price
+				actualDuration = spec.Duration
+				break
+			}
+		}
+		// If duration specified but no matching specification found, use default
+		if selectedSpec == nil {
+			// Use default price/duration
+			actualPrice = vipConfig.Price
+			actualDuration = vipConfig.Duration
+		}
+	} else if input.Duration == 0 && len(vipConfig.Specifications) > 0 {
+		// No duration specified but specifications exist - try to find matching default duration
+		for i, spec := range vipConfig.Specifications {
+			if spec.Duration == vipConfig.Duration {
+				selectedSpec = &vipConfig.Specifications[i]
+				actualPrice = spec.Price
+				actualDuration = spec.Duration
+				break
+			}
+		}
+		// If no matching default found in specifications, use the config default
+	}
 	
 	// Get old VIP config for time compensation calculation
 	var oldVIPConfig *config.VIPLevelConfig
@@ -875,11 +939,18 @@ func (h *AuthHandler) PurchaseVIP(c *gin.Context) {
 		}
 	}
 
-	if isUpgrade && vipConfig.UpgradePrices != nil {
-		// Convert current VIP level to string for map lookup
+	// Check for upgrade prices
+	if isUpgrade {
 		currentLevelStr := strconv.Itoa(currentUser.VIPLevel)
-		if upgradePrice, ok := vipConfig.UpgradePrices[currentLevelStr]; ok {
-			actualPrice = upgradePrice
+		// First check specification upgrade prices, then fall back to VIPLevelConfig upgrade prices
+		if selectedSpec != nil && selectedSpec.UpgradePrices != nil {
+			if upgradePrice, ok := selectedSpec.UpgradePrices[currentLevelStr]; ok {
+				actualPrice = upgradePrice
+			}
+		} else if vipConfig.UpgradePrices != nil {
+			if upgradePrice, ok := vipConfig.UpgradePrices[currentLevelStr]; ok {
+				actualPrice = upgradePrice
+			}
 		}
 	}
 
@@ -925,9 +996,9 @@ func (h *AuthHandler) PurchaseVIP(c *gin.Context) {
 		updatedUser, bonusDays, err = h.userRepo.SetVIPLevelWithUpgrade(
 			currentUser.ID,
 			vipConfig.Level,
-			vipConfig.Duration,
+			actualDuration,
 			oldVIPConfig.Price,
-			vipConfig.Price,
+			actualPrice,
 		)
 	} else {
 		// If upgrade but oldVIPConfig not found (config changed), log and proceed without time compensation
@@ -935,7 +1006,7 @@ func (h *AuthHandler) PurchaseVIP(c *gin.Context) {
 			log.Printf("PurchaseVIP: User %d upgrading from VIP level %d but old VIP config not found, proceeding without time compensation",
 				currentUser.ID, currentUser.VIPLevel)
 		}
-		updatedUser, err = h.userRepo.SetVIPLevelWithDuration(currentUser.ID, vipConfig.Level, vipConfig.Duration)
+		updatedUser, err = h.userRepo.SetVIPLevelWithDuration(currentUser.ID, vipConfig.Level, actualDuration)
 	}
 	if err != nil {
 		// Refund balance if VIP upgrade fails - log if refund fails
@@ -1693,4 +1764,313 @@ func (h *AuthHandler) UnbindDiscord(c *gin.Context) {
 		"success": true,
 		"message": "Discord账号解绑成功",
 	})
+}
+
+// --- Email Verification Handlers ---
+
+// VerifyEmailPage renders the email verification page
+func (h *AuthHandler) VerifyEmailPage(c *gin.Context) {
+	lang := c.GetString("lang")
+	var user *model.User
+	if u, exists := c.Get("user"); exists {
+		user = u.(*model.User)
+	}
+
+	c.HTML(http.StatusOK, "verify_email.html", gin.H{
+		"lang":           lang,
+		"user":           user,
+		"captchaEnabled": h.cfg.Captcha.Enabled,
+		"custom":         h.cfg.Custom,
+		"darkMode":       h.cfg.Site.DarkMode,
+	})
+}
+
+// SendVerificationEmailRequest represents send verification email request body
+type SendVerificationEmailRequest struct {
+	Email     string `json:"email" binding:"required,email" example:"user@example.com"`
+	CaptchaID string `json:"captcha_id" example:"abc123"`
+}
+
+// SendVerificationEmail sends a verification email to the user
+// @Summary Send verification email
+// @Description Send a verification email to the authenticated user. Rate limited to 1 email per 60 seconds.
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body SendVerificationEmailRequest true "Send verification email request"
+// @Success 200 {object} handler.Response "Email sent"
+// @Failure 400 {object} handler.Response "Bad request"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Failure 429 {object} handler.Response "Rate limit exceeded"
+// @Router /auth/send-verification-email [post]
+func (h *AuthHandler) SendVerificationEmail(c *gin.Context) {
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"message": "请先登录",
+		})
+		return
+	}
+
+	currentUser := user.(*model.User)
+
+	var input SendVerificationEmailRequest
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	// Verify captcha if enabled
+	if h.cfg.Captcha.Enabled {
+		if input.CaptchaID == "" || !h.captchaService.IsVerified(input.CaptchaID) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "请先完成验证码验证",
+			})
+			return
+		}
+	}
+
+	if h.emailVerificationRepo == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "服务暂不可用",
+		})
+		return
+	}
+
+	// Check rate limit (60 seconds)
+	canSend, remainingSeconds, err := h.emailVerificationRepo.CanSendVerificationEmail(currentUser.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "服务暂不可用",
+		})
+		return
+	}
+
+	if !canSend {
+		c.JSON(http.StatusTooManyRequests, gin.H{
+			"success":           false,
+			"message":           "发送过于频繁，请稍后重试",
+			"remaining_seconds": remainingSeconds,
+		})
+		return
+	}
+
+	// Check if email is being changed
+	targetEmail := input.Email
+	if targetEmail != currentUser.Email {
+		// Check if new email is already in use
+		if h.userRepo.ExistsByEmail(targetEmail) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "该邮箱已被其他账户使用",
+			})
+			return
+		}
+		// Update user's email (will set EmailVerified to false)
+		_, err := h.userRepo.UpdateEmail(currentUser.ID, targetEmail)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"message": "更新邮箱失败",
+			})
+			return
+		}
+	}
+
+	// Create verification token
+	verifyToken, err := h.emailVerificationRepo.Create(currentUser.ID, targetEmail)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "创建验证令牌失败",
+		})
+		return
+	}
+
+	// Build base URL
+	baseURL := c.Request.Host
+	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+		baseURL = "https://" + baseURL
+	} else {
+		baseURL = "http://" + baseURL
+	}
+
+	// Send verification email
+	if err := h.emailService.SendEmailVerificationEmail(targetEmail, verifyToken.Token, baseURL); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "发送邮件失败: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "验证邮件已发送，请检查您的邮箱",
+	})
+}
+
+// VerifyEmailCodeRequest represents email verification code request body
+type VerifyEmailCodeRequest struct {
+	Code string `json:"code" binding:"required" example:"123456"`
+}
+
+// VerifyEmailCode verifies an email verification code
+// @Summary Verify email code
+// @Description Verify email using the 6-digit code received via email
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body VerifyEmailCodeRequest true "Verification code request"
+// @Success 200 {object} handler.Response "Email verified"
+// @Failure 400 {object} handler.Response "Bad request or invalid code"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Router /auth/verify-email-code [post]
+func (h *AuthHandler) VerifyEmailCode(c *gin.Context) {
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"message": "请先登录",
+		})
+		return
+	}
+
+	currentUser := user.(*model.User)
+
+	var input VerifyEmailCodeRequest
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请输入验证码",
+		})
+		return
+	}
+
+	if h.emailVerificationRepo == nil || h.userRepo == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "服务暂不可用",
+		})
+		return
+	}
+
+	// Find verification code by user ID and code
+	verifyToken, err := h.emailVerificationRepo.FindByUserIDAndCode(currentUser.ID, input.Code)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "验证码无效或已过期",
+		})
+		return
+	}
+
+	// Check if email matches (in case user changed email after requesting verification)
+	if currentUser.Email != verifyToken.Email {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "邮箱地址已变更，请重新发送验证邮件",
+		})
+		return
+	}
+
+	// Mark email as verified
+	_, err = h.userRepo.SetEmailVerified(verifyToken.UserID, true)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "验证失败，请稍后重试",
+		})
+		return
+	}
+
+	// Mark token as used
+	h.emailVerificationRepo.MarkUsed(verifyToken.ID)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "邮箱验证成功",
+	})
+}
+
+// VerifyEmailToken verifies an email verification token (legacy, kept for backward compatibility)
+// @Summary Verify email token
+// @Description Verify email using the token from the verification email
+// @Tags auth
+// @Produce json
+// @Param token query string true "Verification token"
+// @Success 200 {object} handler.Response "Email verified"
+// @Failure 400 {object} handler.Response "Bad request or invalid token"
+// @Router /auth/verify-email-token [get]
+func (h *AuthHandler) VerifyEmailToken(c *gin.Context) {
+	token := c.Query("token")
+	if token == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "验证令牌缺失",
+		})
+		return
+	}
+
+	if h.emailVerificationRepo == nil || h.userRepo == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "服务暂不可用",
+		})
+		return
+	}
+
+	// Find verification token
+	verifyToken, err := h.emailVerificationRepo.FindByToken(token)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "验证码无效或已过期",
+		})
+		return
+	}
+
+	// Get user
+	user, err := h.userRepo.FindByID(verifyToken.UserID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "用户不存在",
+		})
+		return
+	}
+
+	// Check if email matches (in case user changed email after requesting verification)
+	if user.Email != verifyToken.Email {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "邮箱地址已变更，请重新发送验证邮件",
+		})
+		return
+	}
+
+	// Mark email as verified
+	_, err = h.userRepo.SetEmailVerified(verifyToken.UserID, true)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "验证失败，请稍后重试",
+		})
+		return
+	}
+
+	// Mark token as used
+	h.emailVerificationRepo.MarkUsed(verifyToken.ID)
+
+	// Redirect to profile page with success message
+	c.Redirect(http.StatusFound, "/profile?email_verified=1")
 }

@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="{{.lang}}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>邮箱验证 - {{t .lang "app.name"}}</title>
+    <!-- Inline script to prevent white flash on page load -->
+    <script>
+        (function() {
+            var serverDarkMode = '{{.darkMode}}';
+            var theme = 'light';
+            if (serverDarkMode === 'dark') {
+                theme = 'dark';
+            } else if (serverDarkMode === 'light') {
+                theme = 'light';
+            } else {
+                var stored = localStorage.getItem('dark-mode-preference');
+                if (stored !== null) {
+                    theme = stored === 'true' ? 'dark' : 'light';
+                } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    theme = 'dark';
+                }
+            }
+            document.documentElement.setAttribute('data-theme', theme);
+            window.serverDarkModeSetting = serverDarkMode;
+        })();
+    </script>
+    <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+    <style>
+        .slider-captcha {
+            margin-bottom: 1rem;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+        .slider-captcha-title {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+        .slider-captcha-title i {
+            margin-right: 8px;
+            color: var(--primary-color);
+        }
+        .slider-track {
+            position: relative;
+            height: 40px;
+            background: linear-gradient(90deg, #e8f5e9 0%, #fff3e0 50%, #ffebee 100%);
+            border-radius: 20px;
+            overflow: hidden;
+        }
+        .slider-target {
+            position: absolute;
+            top: 5px;
+            width: 30px;
+            height: 30px;
+            background: var(--gradient);
+            border-radius: 50%;
+            opacity: 0.6;
+        }
+        .slider-thumb {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 40px;
+            height: 40px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            cursor: grab;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: box-shadow 0.3s;
+            user-select: none;
+        }
+        .slider-thumb:hover {
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        .slider-thumb:active {
+            cursor: grabbing;
+        }
+        .slider-thumb i {
+            color: var(--primary-color);
+            font-size: 18px;
+        }
+        .slider-status {
+            font-size: 12px;
+            margin-top: 8px;
+            text-align: center;
+        }
+        .slider-status.success {
+            color: #28a745;
+        }
+        .slider-status.error {
+            color: #dc3545;
+        }
+        .email-display {
+            background: #f8f9fa;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .email-display .email {
+            font-weight: 500;
+            color: #333;
+        }
+        .email-display .badge {
+            font-size: 12px;
+        }
+        .countdown {
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        .verification-code-input {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin: 20px 0;
+        }
+        .verification-code-input input {
+            width: 45px;
+            height: 55px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        .verification-code-input input:focus {
+            border-color: var(--primary-color);
+        }
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .step {
+            display: flex;
+            align-items: center;
+            color: #999;
+        }
+        .step.active {
+            color: var(--primary-color);
+        }
+        .step.completed {
+            color: #28a745;
+        }
+        .step-number {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        .step.active .step-number {
+            background: var(--primary-color);
+            color: white;
+        }
+        .step.completed .step-number {
+            background: #28a745;
+            color: white;
+        }
+        .step-connector {
+            width: 50px;
+            height: 2px;
+            background: #e0e0e0;
+            margin: 0 10px;
+        }
+        .step-connector.active {
+            background: var(--primary-color);
+        }
+    </style>
+    {{if .custom.GlobalCSS}}
+    <style>{{.custom.GlobalCSS}}</style>
+    {{end}}
+</head>
+<body class="auth-page">
+    <!-- Language Switcher and Dark Mode Toggle -->
+    <div class="lang-switcher">
+        <div class="d-flex gap-2">
+            <button class="btn dark-mode-toggle" type="button" onclick="toggleDarkMode()" title="Toggle Dark Mode" style="padding: 8px 12px; border-radius: 20px; background: rgba(255, 255, 255, 0.95); border: 1px solid rgba(0, 0, 0, 0.1);">
+                <i class="bi bi-moon-fill"></i>
+            </button>
+            <div class="dropdown">
+                <button class="btn dropdown-toggle" type="button" id="langDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-globe"></i>
+                    <span id="currentLang">{{if eq .lang "zh"}}中文{{else}}English{{end}}</span>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="langDropdown">
+                    <li><a class="dropdown-item {{if eq .lang "en"}}active{{end}}" href="#" onclick="setLanguage('en')"><i class="bi bi-check2 {{if ne .lang "en"}}invisible{{end}}"></i> English</a></li>
+                    <li><a class="dropdown-item {{if eq .lang "zh"}}active{{end}}" href="#" onclick="setLanguage('zh')"><i class="bi bi-check2 {{if ne .lang "zh"}}invisible{{end}}"></i> 中文</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="auth-container">
+        <div class="auth-box">
+            <div class="auth-header">
+                <i class="bi bi-envelope-check auth-icon"></i>
+                <h2>邮箱验证</h2>
+                <p class="text-muted">请验证您的邮箱地址以继续使用</p>
+            </div>
+
+            <div class="auth-form">
+                {{if .user}}
+                <div class="email-display">
+                    <div>
+                        <i class="bi bi-envelope me-2"></i>
+                        <span class="email">{{.user.Email}}</span>
+                    </div>
+                    {{if .user.EmailVerified}}
+                    <span class="badge bg-success">已验证</span>
+                    {{else}}
+                    <span class="badge bg-warning text-dark">未验证</span>
+                    {{end}}
+                </div>
+
+                {{if not .user.EmailVerified}}
+                <!-- Step Indicator -->
+                <div class="step-indicator">
+                    <div class="step active" id="step1">
+                        <span class="step-number">1</span>
+                        <span>发送验证码</span>
+                    </div>
+                    <div class="step-connector" id="connector1"></div>
+                    <div class="step" id="step2">
+                        <span class="step-number">2</span>
+                        <span>输入验证码</span>
+                    </div>
+                </div>
+
+                <!-- Step 1: Send Verification Code -->
+                <div id="step1-content">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        点击下方按钮发送6位验证码到您的邮箱，验证码30分钟内有效。
+                    </div>
+
+                    <!-- Email Input for changing email -->
+                    <div class="mb-3">
+                        <label for="email" class="form-label">邮箱地址</label>
+                        <input type="email" class="form-control" id="email" value="{{.user.Email}}" placeholder="输入新的邮箱地址">
+                        <small class="text-muted">如需更换邮箱，请输入新的邮箱地址</small>
+                    </div>
+
+                    <!-- Captcha -->
+                    {{if .captchaEnabled}}
+                    <div class="slider-captcha" id="captcha-container">
+                        <div class="slider-captcha-title">
+                            <i class="bi bi-shield-check"></i>
+                            <span>拖动滑块到指定位置</span>
+                        </div>
+                        <div class="slider-track" id="slider-track">
+                            <div class="slider-target" id="slider-target"></div>
+                            <div class="slider-thumb" id="slider-thumb">
+                                <i class="bi bi-arrows"></i>
+                            </div>
+                        </div>
+                        <div class="slider-status" id="slider-status"></div>
+                    </div>
+                    {{end}}
+
+                    <button type="button" class="btn btn-primary w-100 mb-3" id="send-verification-btn">
+                        <i class="bi bi-send me-2"></i>发送验证码
+                    </button>
+                    <p class="text-muted text-center small" id="send-cooldown"></p>
+                </div>
+
+                <!-- Step 2: Enter Verification Code -->
+                <div id="step2-content" style="display: none;">
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle me-2"></i>
+                        验证码已发送到 <strong id="sent-email"></strong>，请在30分钟内输入验证码。
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-center d-block">请输入6位验证码</label>
+                        <div class="verification-code-input">
+                            <input type="text" maxlength="1" class="code-input" data-index="0" inputmode="numeric" pattern="[0-9]*">
+                            <input type="text" maxlength="1" class="code-input" data-index="1" inputmode="numeric" pattern="[0-9]*">
+                            <input type="text" maxlength="1" class="code-input" data-index="2" inputmode="numeric" pattern="[0-9]*">
+                            <input type="text" maxlength="1" class="code-input" data-index="3" inputmode="numeric" pattern="[0-9]*">
+                            <input type="text" maxlength="1" class="code-input" data-index="4" inputmode="numeric" pattern="[0-9]*">
+                            <input type="text" maxlength="1" class="code-input" data-index="5" inputmode="numeric" pattern="[0-9]*">
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn-primary w-100 mb-3" id="verify-code-btn">
+                        <i class="bi bi-check-circle me-2"></i>验证
+                    </button>
+
+                    <div class="text-center">
+                        <button type="button" class="btn btn-link" id="resend-btn">
+                            <i class="bi bi-arrow-repeat me-1"></i>重新发送验证码
+                        </button>
+                        <p class="text-muted small" id="resend-cooldown"></p>
+                    </div>
+                </div>
+                {{else}}
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle me-2"></i>
+                    您的邮箱已验证成功！
+                </div>
+                <a href="/profile" class="btn btn-primary w-100">
+                    <i class="bi bi-person me-2"></i>返回个人中心
+                </a>
+                {{end}}
+
+                {{else}}
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    请先登录后再进行邮箱验证。
+                </div>
+                <a href="/auth/login" class="btn btn-primary w-100">
+                    <i class="bi bi-box-arrow-in-right me-2"></i>去登录
+                </a>
+                {{end}}
+
+                <hr class="my-4">
+                <div class="text-center">
+                    <a href="/" class="text-decoration-none">
+                        <i class="bi bi-house me-1"></i>返回首页
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{if .custom.GlobalHTML}}{{.custom.GlobalHTML}}{{end}}
+
+    <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/app.js"></script>
+    <script>
+        const lang = '{{.lang}}';
+        let captchaId = '';
+        let captchaVerified = false;
+        let captchaEnabled = {{if .captchaEnabled}}true{{else}}false{{end}};
+        let cooldownTimer = null;
+        let remainingSeconds = 0;
+
+        // Captcha messages (i18n)
+        const captchaMessages = {
+            success: lang === 'zh' ? '验证成功' : 'Verification successful',
+            failed: lang === 'zh' ? '请重试' : 'Please try again'
+        };
+
+        {{if .captchaEnabled}}
+        // Initialize slider captcha
+        async function initCaptcha() {
+            try {
+                const response = await fetch('/api/captcha/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                if (data.success && data.data.enabled) {
+                    captchaId = data.data.id;
+                    const target = document.getElementById('slider-target');
+                    const track = document.getElementById('slider-track');
+                    const trackWidth = track.offsetWidth - 30; // target width
+                    target.style.left = (data.data.target / 100 * trackWidth) + 'px';
+                    document.getElementById('slider-thumb').style.left = '0px';
+                    captchaVerified = false;
+                    document.getElementById('slider-status').textContent = '';
+                    document.getElementById('slider-status').className = 'slider-status';
+                }
+            } catch (error) {
+                console.error('Failed to initialize captcha:', error);
+            }
+        }
+
+        // Slider functionality
+        const sliderThumb = document.getElementById('slider-thumb');
+        const sliderTrack = document.getElementById('slider-track');
+        let isDragging = false;
+        let startX = 0;
+
+        if (sliderThumb && sliderTrack) {
+            sliderThumb.addEventListener('mousedown', startDrag);
+            sliderThumb.addEventListener('touchstart', startDrag);
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('touchmove', drag);
+            document.addEventListener('mouseup', endDrag);
+            document.addEventListener('touchend', endDrag);
+        }
+
+        function startDrag(e) {
+            if (captchaVerified) return;
+            isDragging = true;
+            startX = e.type === 'mousedown' ? e.clientX : e.touches[0].clientX;
+            sliderThumb.style.cursor = 'grabbing';
+        }
+
+        function drag(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            const currentX = e.type === 'mousemove' ? e.clientX : e.touches[0].clientX;
+            const trackRect = sliderTrack.getBoundingClientRect();
+            let newLeft = currentX - trackRect.left - 20;
+            newLeft = Math.max(0, Math.min(newLeft, trackRect.width - 40));
+            sliderThumb.style.left = newLeft + 'px';
+        }
+
+        async function endDrag() {
+            if (!isDragging) return;
+            isDragging = false;
+            sliderThumb.style.cursor = 'grab';
+            
+            const trackWidth = sliderTrack.offsetWidth - 40;
+            const position = Math.round(sliderThumb.offsetLeft / trackWidth * 100);
+            
+            try {
+                const response = await fetch('/api/captcha/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: captchaId, position: position })
+                });
+                const data = await response.json();
+                const status = document.getElementById('slider-status');
+                
+                if (data.success) {
+                    captchaVerified = true;
+                    status.textContent = '✓ ' + captchaMessages.success;
+                    status.className = 'slider-status success';
+                    sliderThumb.innerHTML = '<i class="bi bi-check-lg"></i>';
+                    sliderThumb.style.background = '#28a745';
+                    sliderThumb.querySelector('i').style.color = 'white';
+                } else {
+                    status.textContent = '✗ ' + captchaMessages.failed;
+                    status.className = 'slider-status error';
+                    setTimeout(initCaptcha, 500);
+                }
+            } catch (error) {
+                console.error('Captcha verification failed:', error);
+                setTimeout(initCaptcha, 500);
+            }
+        }
+
+        // Initialize captcha on page load
+        initCaptcha();
+        {{end}}
+
+        // Code input handling
+        const codeInputs = document.querySelectorAll('.code-input');
+
+        function tryAutoSubmit() {
+            const code = getVerificationCode();
+            if (code.length === 6) {
+                document.getElementById('verify-code-btn').click();
+            }
+        }
+
+        codeInputs.forEach((input, index) => {
+            input.addEventListener('input', (e) => {
+                const value = e.target.value;
+                // Only allow digits
+                if (!/^\d*$/.test(value)) {
+                    e.target.value = '';
+                    return;
+                }
+                if (value.length === 1 && index < 5) {
+                    codeInputs[index + 1].focus();
+                }
+                // Auto submit when all 6 digits entered
+                tryAutoSubmit();
+            });
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                    codeInputs[index - 1].focus();
+                }
+            });
+            // Handle paste
+            input.addEventListener('paste', (e) => {
+                e.preventDefault();
+                const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+                for (let i = 0; i < pastedData.length && i < 6; i++) {
+                    codeInputs[i].value = pastedData[i];
+                }
+                // Focus on the last filled input or next empty one
+                if (pastedData.length > 0) {
+                    const focusIndex = Math.min(pastedData.length, 5);
+                    codeInputs[focusIndex].focus();
+                }
+                // Auto submit after paste if all inputs are filled
+                tryAutoSubmit();
+            });
+        });
+
+        function getVerificationCode() {
+            return Array.from(codeInputs).map(input => input.value).join('');
+        }
+
+        function clearCodeInputs() {
+            codeInputs.forEach(input => input.value = '');
+            codeInputs[0].focus();
+        }
+
+        function showStep2(email) {
+            document.getElementById('step1-content').style.display = 'none';
+            document.getElementById('step2-content').style.display = 'block';
+            document.getElementById('sent-email').textContent = email;
+            document.getElementById('step1').classList.remove('active');
+            document.getElementById('step1').classList.add('completed');
+            document.getElementById('step2').classList.add('active');
+            document.getElementById('connector1').classList.add('active');
+            codeInputs[0].focus();
+        }
+
+        function showStep1() {
+            document.getElementById('step1-content').style.display = 'block';
+            document.getElementById('step2-content').style.display = 'none';
+            document.getElementById('step1').classList.add('active');
+            document.getElementById('step1').classList.remove('completed');
+            document.getElementById('step2').classList.remove('active');
+            document.getElementById('connector1').classList.remove('active');
+        }
+
+        // Send verification email
+        document.getElementById('send-verification-btn')?.addEventListener('click', async function() {
+            await sendVerificationEmail(this);
+        });
+
+        // Resend verification email
+        document.getElementById('resend-btn')?.addEventListener('click', async function() {
+            showStep1();
+            {{if .captchaEnabled}}
+            initCaptcha();
+            {{end}}
+        });
+
+        async function sendVerificationEmail(btn) {
+            const email = document.getElementById('email').value;
+
+            if (!email) {
+                alert('请输入邮箱地址');
+                return;
+            }
+
+            if (captchaEnabled && !captchaVerified) {
+                alert('请先完成验证码验证');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>发送中...';
+
+            try {
+                const response = await fetch('/api/auth/send-verification-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: email,
+                        captcha_id: captchaId
+                    })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    showStep2(email);
+                    startCooldown(60, 'resend-cooldown', document.getElementById('resend-btn'));
+                } else {
+                    alert(data.message || '发送失败，请稍后重试');
+                    if (data.remaining_seconds) {
+                        startCooldown(data.remaining_seconds, 'send-cooldown', btn);
+                    }
+                }
+            } catch (error) {
+                alert('网络错误，请稍后重试');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-send me-2"></i>发送验证码';
+                {{if .captchaEnabled}}
+                initCaptcha();
+                {{end}}
+            }
+        }
+
+        // Verify code
+        document.getElementById('verify-code-btn')?.addEventListener('click', async function() {
+            const btn = this;
+            const code = getVerificationCode();
+
+            if (code.length !== 6) {
+                alert('请输入完整的6位验证码');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>验证中...';
+
+            try {
+                const response = await fetch('/api/auth/verify-email-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: code })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('邮箱验证成功！');
+                    window.location.href = '/profile?email_verified=1';
+                } else {
+                    alert(data.message || '验证码无效或已过期');
+                    clearCodeInputs();
+                }
+            } catch (error) {
+                alert('网络错误，请稍后重试');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-circle me-2"></i>验证';
+            }
+        });
+
+        function startCooldown(seconds, elementId, btn) {
+            remainingSeconds = seconds;
+            const cooldownText = document.getElementById(elementId);
+            
+            if (btn) btn.disabled = true;
+            updateCooldownDisplay(elementId);
+            
+            if (cooldownTimer) clearInterval(cooldownTimer);
+            cooldownTimer = setInterval(function() {
+                remainingSeconds--;
+                if (remainingSeconds <= 0) {
+                    clearInterval(cooldownTimer);
+                    if (btn) btn.disabled = false;
+                    cooldownText.textContent = '';
+                } else {
+                    updateCooldownDisplay(elementId);
+                }
+            }, 1000);
+        }
+
+        function updateCooldownDisplay(elementId) {
+            const cooldownText = document.getElementById(elementId);
+            cooldownText.innerHTML = '请等待 <span class="countdown">' + remainingSeconds + '</span> 秒后再次发送';
+        }
+    </script>
+</body>
+</html>

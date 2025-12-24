@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>会员权益 | 尊享专属特权</title>
+  <!-- 引入Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入Font Awesome图标 -->
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  
+  <!-- 自定义配置 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#6366F1', // 主色调-紫蓝色
+            secondary: '#EC4899', // 辅助色-粉色
+            gold: '#F59E0B',     // 黄金会员
+            silver: '#9CA3AF',   // 白银会员
+            diamond: '#06B6D4',  // 钻石会员
+            dark: '#1F2937',     // 深色
+          },
+          fontFamily: {
+            inter: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+  
+  <!-- 自定义样式 -->
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .text-gradient {
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .card-hover {
+        transition: all 0.3s ease;
+      }
+      .card-hover:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+      }
+      .animate-fade-in {
+        animation: fadeIn 0.8s ease-in-out;
+      }
+      .scroll-snap-table {
+        scroll-snap-type: x mandatory;
+      }
+      .scroll-snap-cell {
+        scroll-snap-align: start;
+      }
+      .period-active {
+        @apply bg-primary text-white;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes modalFade {
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
+      }
+      .modal-animate {
+        animation: modalFade 0.3s ease-out;
+      }
+    }
+  </style>
+</head>
+
+<body class="font-inter bg-gray-50 text-dark">
+  <!-- 导航栏 -->
+  <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-sm shadow-sm">
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center py-4">
+        <div class="flex items-center space-x-2">
+          <i class="fa fa-diamond text-primary text-2xl"></i>
+          <span class="text-xl font-bold">尊享会员</span>
+        </div>
+        <div class="flex items-center space-x-4">
+          <button id="buy-now-btn" class="px-4 py-2 rounded-full bg-gradient-to-r from-primary to-secondary text-white hover:opacity-90 transition-opacity">
+            开通会员
+          </button>
+          <button class="text-gray-700 md:hidden">
+            <i class="fa fa-bars text-xl"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 英雄区域 -->
+  <section class="relative bg-gradient-to-br from-primary/10 to-secondary/10 py-16 md:py-24 overflow-hidden">
+    <div class="absolute inset-0 overflow-hidden">
+      <div class="absolute -top-40 -right-40 w-80 h-80 bg-primary/20 rounded-full blur-3xl"></div>
+      <div class="absolute -bottom-40 -left-40 w-80 h-80 bg-secondary/20 rounded-full blur-3xl"></div>
+    </div>
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div class="max-w-3xl mx-auto text-center animate-fade-in">
+        <h1 class="text-[clamp(2rem,5vw,3.5rem)] font-bold mb-6 text-gradient bg-gradient-to-r from-primary to-secondary">
+          解锁专属特权 尊享会员体验
+        </h1>
+        <p class="text-gray-600 text-lg md:text-xl mb-8 leading-relaxed">
+          成为我们的会员，享受海量优质内容、专属客服、积分翻倍等多项特权，
+          让您的体验升级，价值倍增。
+        </p>
+        <button id="hero-buy-btn" class="px-8 py-3 rounded-full bg-gradient-to-r from-primary to-secondary text-white text-lg font-medium hover:opacity-90 transition-all shadow-lg hover:shadow-xl">
+          立即开通 <i class="fa fa-arrow-right ml-2"></i>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 会员卡片展示 -->
+  <section class="py-16 md:py-20">
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-12">
+        <h2 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold mb-4">会员套餐选择</h2>
+        <p class="text-gray-600 max-w-2xl mx-auto">选择适合您的会员等级，解锁对应的专属权益</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+        <!-- 白银会员 -->
+        <div class="bg-white rounded-2xl shadow-md overflow-hidden card-hover border-t-4 border-silver">
+          <div class="p-8">
+            <div class="flex justify-center mb-6">
+              <div class="w-16 h-16 rounded-full bg-silver/10 flex items-center justify-center">
+                <i class="fa fa-star text-silver text-2xl"></i>
+              </div>
+            </div>
+            <h3 class="text-2xl font-bold text-center mb-2 text-silver">白银会员</h3>
+            <div class="text-center mb-6">
+              <span class="text-3xl font-bold">¥19</span>
+              <span class="text-gray-500">/月起</span>
+            </div>
+            <ul class="space-y-3 mb-8">
+              <li class="flex items-center">
+                <i class="fa fa-check text-green-500 mr-3"></i>
+                <span>高级内容解锁</span>
+              </li>
+              <li class="flex items-center">
+                <i class="fa fa-check text-green-500 mr-3"></i>
+                <span>积分1.5倍累积</span>
+              </li>
+              <li class="flex items-center">
+                <i class="fa fa-check text-green-500 mr-3"></i>
+                <span>无广告体验</span>
+              </li>
+              <li class="flex items-center">
+                <i class="fa fa-check text-green-500 mr-3"></i>
+                <span>9.5折购物优惠</span>
+              </li>
+              <li class="flex items-center text-gray-400">
+                <i class="fa fa-times text-red-500 mr-3"></i>
+                <span>专属客服</span>
+              </li>
+            </ul>
+            <button class="buy-btn w-full py-3 rounded-lg border border-silver text-silver hover:bg-silver/5 transition-colors font-medium" data-type="silver">
+              选择白银会员
+            </button>
+          </div>
+        </div>
+
+        <!-- 黄金会员 -->
+        <div class="bg-white rounded-2xl shadow-xl overflow-hidden card-hover border-t-4 border-gold transform md:scale-105 z-10">
+          <div class="bg-gold/10 py-3 text-center text-gold font-medium">
+            最受欢迎
+          </div>
+          <div class="p-8">
+            <div class="flex justify-center mb-6">
+              <div class="w-16 h-16 rounded-full bg-gold/10 flex items-center justify-center">
+                <i class="fa fa-star text-gold text-2xl"></i>
+              </div>
+            </div>
+            <h3 class="text-2xl font-bold text-center mb-2 text-gold">黄金会员</h3>
+            <div class="text-center mb-6">
+              <span class="text-3xl font-bold">¥39</span>
+              <span class="text-gray-500">/月起</span>
+            </div>
+            <ul class="space-y-3 mb-8">
+              <li class="flex items-center">
+                <i class="fa fa-check text-green-500 mr-3"></i>
+                <span>全部白银会员权益</span>
+              </li>
+              <li class="flex items-center">
+                <i class="fa fa-check text-green-500 mr-3"></i>
+                <span>积分2倍累积</span>
+              </li>
+              <li class="flex items-center">
+                <i class="fa fa-check text-green-500 mr-3"></i>
+                <span>专属客服通道</span>
+              </li>
+              <li class="flex items-center">
+                <i class="fa fa-check text-green-500 mr-3"></i>
+                <span>9折购物优惠</span>
+              </li>
+              <li class="flex items-center">
+                <i class="fa fa-check text-green-500 mr-3"></i>
+                <span>生日专属礼遇</span>
+              </li>
+            </ul>
+            <button class="buy-btn w-full py-3 rounded-lg bg-gradient-to-r from-gold to-orange-400 text-white hover:opacity-90 transition-opacity font-medium" data-type="gold">
+              选择黄金会员
+            </button>
+          </div>
+        </div>
+
+        <!-- 钻石会员 -->
+        <div class="bg-white rounded-2xl shadow-md overflow-hidden card-hover border-t-4 border-diamond">
+          <div class="p-8">
+            <div class="flex justify-center mb-6">
+              <div class="w-16 h-16 rounded-full bg-diamond/10 flex items-center justify-center">
+                <i class="fa fa-diamond text-diamond text-2xl"></i>
+              </div>
+            </div>
+            <h3 class="text-2xl font-bold text-center mb-2 text-diamond">钻石会员</h3>
+            <div class="text-center mb-6">
+              <span class="text-3xl font-bold">¥89</span>
+              <span class="text-gray-500">/月起</span>
+            </div>
+            <ul class="space-y-3 mb-8">
+              <li class="flex items-center">
+                <i class="fa fa-check text-green-500 mr-3"></i>
+                <span>全部黄金会员权益</span>
+              </li>
+              <li class="flex items-center">
+                <i class="fa fa-check text-green-500 mr-3"></i>
+                <span>积分3倍累积</span>
+              </li>
+              <li class="flex items-center">
+                <i class="fa fa-check text-green-500 mr-3"></i>
+                <span>8折购物优惠</span>
+              </li>
+              <li class="flex items-center">
+                <i class="fa fa-check text-green-500 mr-3"></i>
+                <span>会员专属社群</span>
+              </li>
+              <li class="flex items-center">
+                <i class="fa fa-check text-green-500 mr-3"></i>
+                <span>优先预约特权</span>
+              </li>
+            </ul>
+            <button class="buy-btn w-full py-3 rounded-lg border border-diamond text-diamond hover:bg-diamond/5 transition-colors font-medium" data-type="diamond">
+              选择钻石会员
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 核心权益展示 -->
+  <section class="py-16 md:py-20 bg-gray-50">
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-12">
+        <h2 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold mb-4">核心会员权益</h2>
+        <p class="text-gray-600 max-w-2xl mx-auto">尊享8大核心权益，全方位提升您的使用体验</p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8 max-w-6xl mx-auto">
+        <!-- 权益卡片1 -->
+        <div class="bg-white rounded-2xl shadow-md p-6 card-hover">
+          <div class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+            <i class="fa fa-unlock-alt text-primary text-2xl"></i>
+          </div>
+          <h3 class="text-xl font-bold mb-2">内容解锁</h3>
+          <p class="text-gray-600">解锁所有付费内容，包括精品课程、独家资源、高级功能等</p>
+        </div>
+
+        <!-- 权益卡片2 -->
+        <div class="bg-white rounded-2xl shadow-md p-6 card-hover">
+          <div class="w-14 h-14 rounded-full bg-secondary/10 flex items-center justify-center mb-4">
+            <i class="fa fa-headphones text-secondary text-2xl"></i>
+          </div>
+          <h3 class="text-xl font-bold mb-2">专属客服</h3>
+          <p class="text-gray-600">7×24小时专属客服通道，优先响应，快速解决您的问题</p>
+        </div>
+
+        <!-- 权益卡片3 -->
+        <div class="bg-white rounded-2xl shadow-md p-6 card-hover">
+          <div class="w-14 h-14 rounded-full bg-gold/10 flex items-center justify-center mb-4">
+            <i class="fa fa-trophy text-gold text-2xl"></i>
+          </div>
+          <h3 class="text-xl font-bold mb-2">积分翻倍</h3>
+          <p class="text-gray-600">所有消费积分翻倍累积，可兑换更多精美礼品和专属服务</p>
+        </div>
+
+        <!-- 权益卡片4 -->
+        <div class="bg-white rounded-2xl shadow-md p-6 card-hover">
+          <div class="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mb-4">
+            <i class="fa fa-gift text-green-500 text-2xl"></i>
+          </div>
+          <h3 class="text-xl font-bold mb-2">生日礼遇</h3>
+          <p class="text-gray-600">会员生日当月可领取专属礼包，享受额外惊喜和优惠</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 滑动式会员对比表格 -->
+  <section class="py-16 md:py-20">
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-12">
+        <h2 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold mb-4">会员权益对比</h2>
+        <p class="text-gray-600 max-w-2xl mx-auto">滑动查看完整权益，选择最适合您的会员方案</p>
+      </div>
+
+      <!-- 滑动表格容器 -->
+      <div class="overflow-x-auto hide-scrollbar scroll-snap-table mb-8 max-w-5xl mx-auto">
+        <table class="w-full min-w-[700px] bg-white rounded-xl shadow-md">
+          <thead>
+            <tr class="border-b border-gray-200 bg-gray-50">
+              <th class="py-4 px-6 text-left text-gray-700 font-medium scroll-snap-cell w-1/4">会员权益</th>
+              <th class="py-4 px-6 text-center scroll-snap-cell">普通用户</th>
+              <th class="py-4 px-6 text-center scroll-snap-cell bg-silver/10">白银会员</th>
+              <th class="py-4 px-6 text-center scroll-snap-cell bg-gold/10">黄金会员</th>
+              <th class="py-4 px-6 text-center scroll-snap-cell bg-diamond/10">钻石会员</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="border-b border-gray-100 hover:bg-gray-50">
+              <td class="py-4 px-6 text-gray-700 scroll-snap-cell">基础内容访问</td>
+              <td class="py-4 px-6 text-center scroll-snap-cell"><i class="fa fa-check text-green-500"></i></td>
+              <td class="py-4 px-6 text-center scroll-snap-cell"><i class="fa fa-check text-green-500"></i></td>
+              <td class="py-4 px-6 text-center scroll-snap-cell"><i class="fa fa-check text-green-500"></i></td>
+              <td class="py-4 px-6 text-center scroll-snap-cell"><i class="fa fa-check text-green-500"></i></td>
+            </tr>
+            <tr class="border-b border-gray-100 hover:bg-gray-50">
+              <td class="py-4 px-6 text-gray-700 scroll-snap-cell">高级内容解锁</td>
+              <td class="py-4 px-6 text-center scroll-snap-cell"><i class="fa fa-times text-red-500"></i></td>
+              <td class="py-4 px-6 text-center scroll-snap-cell"><i class="fa fa-check text-green-500"></i></td>
+              <td class="py-4 px-6 text-center scroll-snap-cell"><i class="fa fa-check text-green-500"></i></td>
+              <td class="py-4 px-6 text-center scroll-snap-cell"><i class="fa fa-check text-green-500"></i></td>
+            </tr>
+            <tr class="border-b border-gray-100 hover:bg-gray-50">
+              <td class="py-4 px-6 text-gray-700 scroll-snap-cell">专属客服</td>
+              <td class="py-4 px-6 text-center scroll-snap-cell"><i class="fa fa-times text-red-500"></i></td>
+              <td class="py-4 px-6 text-center scroll-snap-cell"><i class="fa fa-times text-red-500"></i></td>
+              <td class="py-4 px-6 text-center scroll-snap-cell"><i class="fa fa-check text-green-500"></i></td>
+              <td class="py-4 px-6 text-center scroll-snap-cell"><i class="fa fa-check text-green-500"></i></td>
+            </tr>
+            <tr class="border-b border-gray-100 hover:bg-gray-50">
+              <td class="py-4 px-6 text-gray-700 scroll-snap-cell">积分倍率</td>
+              <td class="py-4 px-6 text-center scroll-snap-cell">1x</td>
+              <td class="py-4 px-6 text-center scroll-snap-cell">1.5x</td>
+              <td class="py-4 px-6 text-center scroll-snap-cell">2x</td>
+              <td class="py-4 px-6 text-center scroll-snap-cell">3x</td>
+            </tr>
+            <tr class="hover:bg-gray-50">
+              <td class="py-4 px-6 text-gray-700 scroll-snap-cell">购物折扣</td>
+              <td class="py-4 px-6 text-center scroll-snap-cell">-</td>
+              <td class="py-4 px-6 text-center scroll-snap-cell">9.5折</td>
+              <td class="py-4 px-6 text-center scroll-snap-cell">9折</td>
+              <td class="py-4 px-6 text-center scroll-snap-cell">8折</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 滑动提示 -->
+      <div class="text-center text-gray-500 text-sm mb-4 md:hidden">
+        <i class="fa fa-hand-o-right mr-2"></i> 左右滑动查看更多
+      </div>
+    </div>
+  </section>
+
+  <!-- 底部CTA -->
+  <section class="py-16 md:py-20 bg-gradient-to-r from-primary to-secondary text-white">
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="max-w-3xl mx-auto text-center">
+        <h2 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold mb-6">立即开通会员 尊享专属特权</h2>
+        <p class="text-white/80 text-lg mb-8">限时优惠：新用户首月开通任意会员仅需1元，立即体验全部会员权益</p>
+        <button id="cta-buy-btn" class="px-8 py-4 rounded-full bg-white text-primary font-bold text-lg hover:bg-white/90 transition-opacity shadow-lg">
+          立即开通 <i class="fa fa-rocket ml-2"></i>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 页脚 -->
+  <footer class="bg-dark text-gray-400 py-12">
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+        <div>
+          <div class="flex items-center space-x-2 mb-4">
+            <i class="fa fa-diamond text-primary text-2xl"></i>
+            <span class="text-white text-xl font-bold">尊享会员</span>
+          </div>
+          <p class="mb-4">为您提供优质的会员服务，解锁更多专属特权</p>
+          <div class="flex space-x-4">
+            <a href="#" class="text-gray-400 hover:text-white transition-colors">
+              <i class="fa fa-weixin text-xl"></i>
+            </a>
+            <a href="#" class="text-gray-400 hover:text-white transition-colors">
+              <i class="fa fa-weibo text-xl"></i>
+            </a>
+            <a href="#" class="text-gray-400 hover:text-white transition-colors">
+              <i class="fa fa-qq text-xl"></i>
+            </a>
+          </div>
+        </div>
+        <div>
+          <h4 class="text-white font-medium mb-4">帮助中心</h4>
+          <ul class="space-y-2">
+            <li><a href="#" class="hover:text-white transition-colors">常见问题</a></li>
+            <li><a href="#" class="hover:text-white transition-colors">联系客服</a></li>
+            <li><a href="#" class="hover:text-white transition-colors">会员服务协议</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="border-t border-gray-800 pt-8 text-center text-sm">
+        <p>© 2025 尊享会员服务平台 版权所有</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- 购买弹窗 -->
+  <div id="buy-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 modal-animate overflow-hidden">
+      <!-- 弹窗头部 -->
+      <div class="p-6 border-b border-gray-100">
+        <div class="flex justify-between items-center">
+          <h3 id="modal-title" class="text-xl font-bold text-primary">选择白银会员套餐</h3>
+          <button id="close-modal" class="text-gray-400 hover:text-gray-600">
+            <i class="fa fa-times text-xl"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- 会员类型选择 -->
+      <div class="p-6">
+        <div class="flex justify-between mb-8 bg-gray-50 rounded-xl p-1">
+          <button class="period-btn flex-1 py-2 rounded-lg text-center" data-type="silver">
+            白银会员
+          </button>
+          <button class="period-btn flex-1 py-2 rounded-lg text-center" data-type="gold">
+            黄金会员
+          </button>
+          <button class="period-btn flex-1 py-2 rounded-lg text-center" data-type="diamond">
+            钻石会员
+          </button>
+        </div>
+
+        <!-- 时长选择 -->
+        <h4 class="font-medium mb-4">选择订阅时长</h4>
+        <div class="grid grid-cols-3 gap-3 mb-8">
+          <button class="period-item py-3 border border-gray-200 rounded-lg text-center hover:border-primary transition-colors" data-period="1">
+            <span class="block font-medium">1个月</span>
+            <span id="price-1" class="block text-primary font-bold">¥19</span>
+          </button>
+          <button class="period-item py-3 border border-gray-200 rounded-lg text-center hover:border-primary transition-colors" data-period="3">
+            <span class="block font-medium">3个月</span>
+            <span id="price-3" class="block text-primary font-bold">¥51</span>
+            <span class="text-xs text-green-500">省6元</span>
+          </button>
+          <button class="period-item py-3 border border-gray-200 rounded-lg text-center hover:border-primary transition-colors" data-period="12">
+            <span class="block font-medium">12个月</span>
+            <span id="price-12" class="block text-primary font-bold">¥180</span>
+            <span class="text-xs text-green-500">省48元</span>
+          </button>
+        </div>
+
+        <!-- 价格详情 -->
+        <div class="bg-gray-50 rounded-xl p-4 mb-6">
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-gray-600">单价</span>
+            <span id="unit-price" class="font-medium">¥19.00/月</span>
+          </div>
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-gray-600">优惠</span>
+            <span id="discount" class="text-green-500 font-medium">¥0.00</span>
+          </div>
+          <div class="border-t border-gray-200 pt-3 mt-3 flex justify-between items-center font-bold text-lg">
+            <span>总计</span>
+            <span id="total-price" class="text-primary">¥19.00</span>
+          </div>
+        </div>
+
+        <!-- 购买按钮 -->
+        <button class="w-full py-3 rounded-lg bg-gradient-to-r from-primary to-secondary text-white font-medium hover:opacity-90 transition-opacity">
+          立即支付 <i class="fa fa-arrow-right ml-2"></i>
+        </button>
+        
+        <p class="text-center text-gray-500 text-sm mt-4">
+          开通即表示您同意<a href="#" class="text-primary">《会员服务协议》</a>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript -->
+  <script>
+    // 会员价格数据
+    const memberPrices = {
+      silver: {
+        1: { price: 19, original: 19, discount: 0 },
+        3: { price: 51, original: 57, discount: 6 },
+        12: { price: 180, original: 228, discount: 48 }
+      },
+      gold: {
+        1: { price: 39, original: 39, discount: 0 },
+        3: { price: 108, original: 117, discount: 9 },
+        12: { price: 372, original: 468, discount: 96 }
+      },
+      diamond: {
+        1: { price: 89, original: 89, discount: 0 },
+        3: { price: 252, original: 267, discount: 15 },
+        12: { price: 854, original: 1068, discount: 214 }
+      }
+    };
+
+    // 会员名称映射
+    const memberNames = {
+      silver: '白银会员',
+      gold: '黄金会员',
+      diamond: '钻石会员'
+    };
+
+    // 会员颜色映射
+    const memberColors = {
+      silver: 'text-silver border-silver',
+      gold: 'text-gold border-gold',
+      diamond: 'text-primary border-primary'
+    };
+
+    // 当前选中的会员类型和时长
+    let currentMember = 'silver';
+    let currentPeriod = 1;
+
+    // 获取DOM元素
+    const modal = document.getElementById('buy-modal');
+    const modalTitle = document.getElementById('modal-title');
+    const closeModal = document.getElementById('close-modal');
+    const buyButtons = document.querySelectorAll('.buy-btn');
+    const allBuyButtons = document.querySelectorAll('#buy-now-btn, #hero-buy-btn, #cta-buy-btn');
+    const periodBtns = document.querySelectorAll('.period-btn');
+    const periodItems = document.querySelectorAll('.period-item');
+    const unitPrice = document.getElementById('unit-price');
+    const discount = document.getElementById('discount');
+    const totalPrice = document.getElementById('total-price');
+
+    // 打开弹窗
+    function openModal(type = 'silver') {
+      currentMember = type;
+      currentPeriod = 1;
+      
+      // 更新弹窗标题
+      modalTitle.textContent = `选择${memberNames[type]}套餐`;
+      modalTitle.className = `text-xl font-bold ${memberColors[type].split(' ')[0]}`;
+      
+      // 更新价格显示
+      updatePrices();
+      
+      // 重置选中状态
+      resetPeriodButtons();
+      resetPeriodItems();
+      
+      // 设置默认选中
+      document.querySelector(`.period-btn[data-type="${type}"]`).classList.add('period-active');
+      document.querySelector(`.period-item[data-period="1"]`).classList.add('border-primary', 'bg-primary/5');
+      
+      // 显示弹窗
+      modal.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    }
+
+    // 关闭弹窗
+    function closeModalFunc() {
+      modal.classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+
+    // 更新价格显示
+    function updatePrices() {
+      const prices = memberPrices[currentMember];
+      
+      // 更新所有时长价格
+      Object.keys(prices).forEach(period => {
+        const priceEl = document.getElementById(`price-${period}`);
+        if (priceEl) {
+          priceEl.textContent = `¥${prices[period].price}`;
+          priceEl.className = `block font-bold ${memberColors[currentMember].split(' ')[0]}`;
+        }
+      });
+      
+      // 更新选中价格详情
+      const selectedPrice = prices[currentPeriod];
+      unitPrice.textContent = `¥${(selectedPrice.price/currentPeriod).toFixed(2)}/月`;
+      discount.textContent = `¥${selectedPrice.discount.toFixed(2)}`;
+      totalPrice.textContent = `¥${selectedPrice.price.toFixed(2)}`;
+      totalPrice.className = `font-bold text-lg ${memberColors[currentMember].split(' ')[0]}`;
+    }
+
+    // 重置会员类型按钮
+    function resetPeriodButtons() {
+      periodBtns.forEach(btn => {
+        btn.classList.remove('period-active');
+        btn.className = 'period-btn flex-1 py-2 rounded-lg text-center';
+      });
+    }
+
+    // 重置时长选择按钮
+    function resetPeriodItems() {
+      periodItems.forEach(item => {
+        item.classList.remove('border-primary', 'bg-primary/5');
+        item.className = 'period-item py-3 border border-gray-200 rounded-lg text-center hover:border-primary transition-colors';
+      });
+    }
+
+    // 绑定事件
+    buyButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        openModal(btn.dataset.type);
+      });
+    });
+
+    // 所有购买按钮默认打开白银会员
+    allBuyButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        openModal('silver');
+      });
+    });
+
+    // 关闭弹窗
+    closeModal.addEventListener('click', closeModalFunc);
+    
+    // 点击遮罩层关闭弹窗
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        closeModalFunc();
+      }
+    });
+
+    // 会员类型切换
+    periodBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        resetPeriodButtons();
+        btn.classList.add('period-active');
+        currentMember = btn.dataset.type;
+        
+        // 更新标题和价格
+        modalTitle.textContent = `选择${memberNames[currentMember]}套餐`;
+        modalTitle.className = `text-xl font-bold ${memberColors[currentMember].split(' ')[0]}`;
+        updatePrices();
+      });
+    });
+
+    // 时长选择
+    periodItems.forEach(item => {
+      item.addEventListener('click', () => {
+        resetPeriodItems();
+        item.classList.add('border-primary', 'bg-primary/5');
+        currentPeriod = parseInt(item.dataset.period);
+        updatePrices();
+      });
+    });
+
+    // 滚动时导航栏样式变化
+    window.addEventListener('scroll', () => {
+      const header = document.querySelector('header');
+      if (window.scrollY > 50) {
+        header.classList.add('shadow-md');
+        header.classList.remove('shadow-sm');
+      } else {
+        header.classList.remove('shadow-md');
+        header.classList.add('shadow-sm');
+      }
+    });
+
+    // 隐藏滚动条样式
+    document.head.insertAdjacentHTML('beforeend', `
+      <style>
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .hide-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      </style>
+    `);
+  </script>
+</body>
+</html>

@@ -243,3 +243,69 @@ func I18nMiddleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// EmailVerificationMiddleware creates middleware to check email verification status
+// If RequireEmailVerification is enabled and user's email is not verified,
+// redirects to the email verification page (for page requests) or returns an error (for API requests)
+func EmailVerificationMiddleware(authService *service.AuthService, cfg *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Skip if email verification is not required
+		if !cfg.Access.RequireEmailVerification {
+			c.Next()
+			return
+		}
+
+		// Get token from header or cookie
+		tokenString := ""
+
+		// Try Authorization header first
+		authHeader := c.GetHeader("Authorization")
+		if authHeader != "" {
+			parts := strings.SplitN(authHeader, " ", 2)
+			if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
+				tokenString = parts[1]
+			}
+		}
+
+		// Try cookie if header not found
+		if tokenString == "" {
+			tokenString, _ = c.Cookie("token")
+		}
+
+		// If no token, let other middleware handle it
+		if tokenString == "" {
+			c.Next()
+			return
+		}
+
+		user, err := authService.ValidateToken(tokenString)
+		if err != nil {
+			// Let other middleware handle invalid tokens
+			c.Next()
+			return
+		}
+
+		// If email is already verified, continue
+		if user.EmailVerified {
+			c.Next()
+			return
+		}
+
+		// Email not verified - check if this is a page request or API request
+		acceptHeader := c.GetHeader("Accept")
+		if acceptHeader == "" || strings.Contains(acceptHeader, "text/html") {
+			// Page request - redirect to email verification page
+			c.Redirect(http.StatusFound, "/auth/verify-email")
+			c.Abort()
+			return
+		}
+
+		// API request - return error
+		c.JSON(http.StatusForbidden, gin.H{
+			"success":            false,
+			"message":            "请先验证您的邮箱地址",
+			"require_email_verification": true,
+		})
+		c.Abort()
+	}
+}

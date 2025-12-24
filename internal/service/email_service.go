@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"mime"
 
 	"github.com/e54385991/Common-LoginService/config"
 	"golang.org/x/oauth2"
@@ -117,10 +118,11 @@ func (s *EmailService) sendEmail(to, subject, htmlBody string) error {
 		return err
 	}
 
-	// Create message
+	// Create message with RFC 2047 encoded subject for non-ASCII characters
 	from := s.cfg.GmailAPI.SenderEmail
+	encodedSubject := mime.QEncoding.Encode("UTF-8", subject)
 	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n%s",
-		from, to, subject, htmlBody)
+		from, to, encodedSubject, htmlBody)
 
 	// Encode to base64
 	encodedMsg := base64.URLEncoding.EncodeToString([]byte(msg))
@@ -179,6 +181,53 @@ func (s *EmailService) SendWelcomeEmail(toEmail, username, baseURL string) error
 </body>
 </html>
 `, username, baseURL)
+
+	return s.sendEmail(toEmail, subject, body)
+}
+
+// SendEmailVerificationEmail sends an email verification email with 6-digit code
+func (s *EmailService) SendEmailVerificationEmail(toEmail, verificationCode, baseURL string) error {
+	if !s.cfg.GmailAPI.Enabled {
+		return fmt.Errorf("Gmail API 未启用")
+	}
+
+	subject := "邮箱验证码 - Common Login Service"
+	body := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%); color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #f9f9f9; padding: 20px; border-radius: 0 0 8px 8px; }
+        .code-box { background: #fff; border: 2px dashed #667eea; padding: 20px; text-align: center; margin: 20px 0; border-radius: 8px; }
+        .code { font-size: 32px; font-weight: bold; color: #667eea; letter-spacing: 8px; font-family: monospace; }
+        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>邮箱验证</h1>
+        </div>
+        <div class="content">
+            <p>您好，</p>
+            <p>您的邮箱验证码是：</p>
+            <div class="code-box">
+                <span class="code">%s</span>
+            </div>
+            <p>请在30分钟内使用此验证码完成邮箱验证。</p>
+            <p>如果您没有请求验证邮箱，请忽略此邮件。</p>
+        </div>
+        <div class="footer">
+            <p>此邮件由 Common Login Service 自动发送，请勿回复。</p>
+        </div>
+    </div>
+</body>
+</html>
+`, verificationCode)
 
 	return s.sendEmail(toEmail, subject, body)
 }

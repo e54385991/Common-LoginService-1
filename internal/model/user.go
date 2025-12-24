@@ -8,26 +8,27 @@ import (
 
 // User represents a user in the system
 type User struct {
-	ID           uint           `gorm:"primarykey" json:"id"`
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
-	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
-	Email        string         `gorm:"uniqueIndex:idx_users_email,where:deleted_at IS NULL;size:255;not null" json:"email"`
-	Username     string         `gorm:"uniqueIndex:idx_users_username,where:deleted_at IS NULL;size:100;not null" json:"username"`
-	Password     string         `gorm:"size:255" json:"-"`
-	DisplayName  string         `gorm:"size:100" json:"display_name"`
-	Avatar       string         `gorm:"size:500" json:"avatar"`
-	GoogleID     string         `gorm:"index;size:255" json:"-"`
-	SteamID      string         `gorm:"index;size:255" json:"-"`
-	DiscordID    string         `gorm:"index;size:255" json:"-"`
-	IsActive     bool           `gorm:"default:true" json:"is_active"`
-	IsAdmin      bool           `gorm:"default:false" json:"is_admin"`
-	Balance      float64        `gorm:"default:0" json:"balance"`
-	VIPLevel     int            `gorm:"default:0" json:"vip_level"`
-	VIPExpireAt  *time.Time     `json:"vip_expire_at"`
-	LastLoginAt  *time.Time     `json:"last_login_at"`
-	ResetToken   string         `gorm:"size:255" json:"-"`
-	ResetExpires *time.Time     `json:"-"`
+	ID            uint           `gorm:"primarykey" json:"id"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+	Email         string         `gorm:"uniqueIndex:idx_users_email,where:deleted_at IS NULL;size:255;not null" json:"email"`
+	Username      string         `gorm:"uniqueIndex:idx_users_username,where:deleted_at IS NULL;size:100;not null" json:"username"`
+	Password      string         `gorm:"size:255" json:"-"`
+	DisplayName   string         `gorm:"size:100" json:"display_name"`
+	Avatar        string         `gorm:"size:500" json:"avatar"`
+	GoogleID      string         `gorm:"index;size:255" json:"-"`
+	SteamID       string         `gorm:"index;size:255" json:"-"`
+	DiscordID     string         `gorm:"index;size:255" json:"-"`
+	IsActive      bool           `gorm:"default:true" json:"is_active"`
+	IsAdmin       bool           `gorm:"default:false" json:"is_admin"`
+	Balance       float64        `gorm:"default:0" json:"balance"`
+	VIPLevel      int            `gorm:"default:0" json:"vip_level"`
+	VIPExpireAt   *time.Time     `json:"vip_expire_at"`
+	LastLoginAt   *time.Time     `json:"last_login_at"`
+	ResetToken    string         `gorm:"size:255" json:"-"`
+	ResetExpires  *time.Time     `json:"-"`
+	EmailVerified bool           `gorm:"default:false" json:"email_verified"`
 }
 
 // Session represents a user session
@@ -134,4 +135,15 @@ type LoginLog struct {
 	UserID    *uint     `gorm:"index" json:"user_id"`             // User ID if login was successful
 	Success   bool      `gorm:"default:false;index" json:"success"` // Whether login was successful
 	Reason    string    `gorm:"size:255" json:"reason"`           // Failure reason if not successful
+}
+
+// EmailVerificationToken represents an email verification request
+type EmailVerificationToken struct {
+	ID        uint      `gorm:"primarykey" json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UserID    uint      `gorm:"index" json:"user_id"`
+	Email     string    `gorm:"size:255;index" json:"email"`
+	Token     string    `gorm:"uniqueIndex;size:255" json:"token"`
+	ExpiresAt time.Time `json:"expires_at"`
+	Used      bool      `gorm:"default:false" json:"used"`
 }

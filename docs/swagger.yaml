@@ -1,5 +1,48 @@
 basePath: /api
 definitions:
+  config.ProfileNavItem:
+    properties:
+      color:
+        description: Background color (e.g., "#667eea")
+        type: string
+      effect:
+        description: 'Button effect: "pulse", "glow", "bounce", or empty'
+        type: string
+      gradient_end:
+        description: Gradient end color (optional)
+        type: string
+      icon:
+        description: Bootstrap icon class (e.g., "bi-star")
+        type: string
+      id:
+        description: Unique identifier
+        type: string
+      new_tab:
+        description: Open in new tab
+        type: boolean
+      order:
+        description: Display order
+        type: integer
+      title:
+        description: Display title
+        type: string
+      type:
+        description: '"link", "button", or "action"'
+        type: string
+      url:
+        description: Link URL (optional, for links)
+        type: string
+      visible:
+        description: Whether the item is visible
+        type: boolean
+    type: object
+  config.ProfileNavigationConfig:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/config.ProfileNavItem'
+        type: array
+    type: object
   github_com_e54385991_Common-LoginService_internal_model.User:
     properties:
       avatar:
@@ -12,6 +55,8 @@ definitions:
         type: string
       email:
         type: string
+      email_verified:
+        type: boolean
       id:
         type: integer
       is_active:
@@ -24,6 +69,8 @@ definitions:
         type: string
       username:
         type: string
+      vip_expire_at:
+        type: string
       vip_level:
         type: integer
     type: object
@@ -33,6 +80,162 @@ definitions:
         type: string
       user:
         $ref: '#/definitions/github_com_e54385991_Common-LoginService_internal_model.User'
+    type: object
+  internal_handler.APICreateUserRequest:
+    properties:
+      balance:
+        description: 'Optional: initial balance'
+        example: 100
+        type: number
+      display_name:
+        example: New User
+        type: string
+      email:
+        example: user@example.com
+        type: string
+      id:
+        description: 'Optional: force specific ID'
+        example: 100
+        type: integer
+      is_active:
+        description: 'Optional: active status, default true'
+        example: true
+        type: boolean
+      password:
+        example: password123
+        type: string
+      username:
+        example: newuser
+        type: string
+      vip_expire_at:
+        description: 'Optional: VIP expiration (ISO 8601)'
+        example: "2025-12-31T23:59:59Z"
+        type: string
+      vip_level:
+        description: 'Optional: VIP level'
+        example: 1
+        type: integer
+    required:
+    - email
+    - password
+    - username
+    type: object
+  internal_handler.APISetPasswordRequest:
+    properties:
+      password:
+        example: newpassword123
+        type: string
+      user_id:
+        example: 1
+        type: integer
+    required:
+    - password
+    - user_id
+    type: object
+  internal_handler.APISetVIPExpireAtRequest:
+    properties:
+      user_id:
+        example: 1
+        type: integer
+      vip_expire_at:
+        description: ISO 8601 format, empty means clear
+        example: "2025-12-31T23:59:59Z"
+        type: string
+    required:
+    - user_id
+    type: object
+  internal_handler.APISetVIPLevelRequest:
+    properties:
+      user_id:
+        example: 1
+        type: integer
+      vip_level:
+        example: 3
+        type: integer
+    required:
+    - user_id
+    - vip_level
+    type: object
+  internal_handler.APIUpdateBalanceRequest:
+    properties:
+      amount:
+        example: 100
+        type: number
+      reason:
+        example: API充值
+        type: string
+      user_id:
+        example: 1
+        type: integer
+    required:
+    - amount
+    - user_id
+    type: object
+  internal_handler.AccessSettings:
+    properties:
+      allow_email_login:
+        description: Allow login with email
+        example: true
+        type: boolean
+      allow_username_login:
+        description: Allow login with username
+        example: false
+        type: boolean
+      login_enabled:
+        example: true
+        type: boolean
+      login_message:
+        example: 登录功能暂时关闭
+        type: string
+      registration_enabled:
+        example: true
+        type: boolean
+      registration_message:
+        example: 注册功能暂时关闭
+        type: string
+      registration_start_uid:
+        description: Minimum UID for backend registration (0 = no restriction)
+        example: 26000
+        type: integer
+    type: object
+  internal_handler.AdminCreateUserRequest:
+    properties:
+      balance:
+        description: 'Optional: initial balance'
+        example: 100
+        type: number
+      display_name:
+        example: New User
+        type: string
+      email:
+        example: user@example.com
+        type: string
+      id:
+        description: 'Optional: force specific ID'
+        example: 100
+        type: integer
+      is_active:
+        description: 'Optional: active status, default true'
+        example: true
+        type: boolean
+      password:
+        example: password123
+        type: string
+      username:
+        example: newuser
+        type: string
+      vip_expire_at:
+        description: 'Optional: VIP expiration (ISO 8601)'
+        example: "2025-12-31T23:59:59Z"
+        type: string
+      vip_level:
+        description: 'Optional: VIP level'
+        example: 1
+        type: integer
+    required:
+    - email
+    - password
+    - username
     type: object
   internal_handler.AdminLoginRequest:
     properties:
@@ -50,12 +253,18 @@ definitions:
     properties:
       captcha:
         $ref: '#/definitions/internal_handler.CaptchaSettings'
+      discord_oauth:
+        $ref: '#/definitions/internal_handler.DiscordOAuthSettings'
       gmail_api:
         $ref: '#/definitions/internal_handler.GmailAPISettings'
       google_oauth:
         $ref: '#/definitions/internal_handler.GoogleOAuthSettings'
       jwt:
         $ref: '#/definitions/internal_handler.JWTSettings'
+      steam_oauth:
+        $ref: '#/definitions/internal_handler.SteamOAuthSettings'
+    type: object
+  internal_handler.BatchDeleteGiftCardsRequest:
     type: object
   internal_handler.CaptchaGenerateResponse:
     properties:
@@ -91,6 +300,124 @@ definitions:
         type: integer
     required:
     - id
+    type: object
+  internal_handler.ChangePasswordRequest:
+    properties:
+      new_password:
+        example: newpassword123
+        type: string
+      old_password:
+        example: oldpassword123
+        type: string
+    required:
+    - new_password
+    - old_password
+    type: object
+  internal_handler.CreateAPITokenRequest:
+    properties:
+      expires_in:
+        description: Days, 0 = never expires
+        example: 30
+        type: integer
+      name:
+        example: External API
+        type: string
+      permissions:
+        example:
+        - '[''balance'''
+        - ' ''vip'']'
+        items:
+          type: string
+        type: array
+    required:
+    - name
+    type: object
+  internal_handler.CreateGiftCardRequest:
+    properties:
+      amount:
+        example: 100
+        type: number
+      count:
+        example: 1
+        type: integer
+      description:
+        example: 充值礼品卡
+        type: string
+      expires_in:
+        description: Days, 0 = never expires
+        example: 30
+        type: integer
+      vip_days:
+        description: VIP duration in days (0 = permanent)
+        example: 30
+        type: integer
+      vip_level:
+        description: VIP level to grant (0 = no VIP, balance only)
+        example: 1
+        type: integer
+    type: object
+  internal_handler.CreatePaymentRequest:
+    properties:
+      amount:
+        description: Payment amount
+        type: number
+      payment_method:
+        description: '"alipay" or "wechat"'
+        type: string
+      product_id:
+        description: VIP level (for vip type)
+        type: integer
+      product_type:
+        description: '"vip" or "recharge"'
+        type: string
+    required:
+    - amount
+    - payment_method
+    - product_type
+    type: object
+  internal_handler.CreatePaymentResponse:
+    properties:
+      amount:
+        type: number
+      order_id:
+        type: string
+      payment_url:
+        type: string
+    type: object
+  internal_handler.CustomSettings:
+    properties:
+      footer_text:
+        example: © 2024 Your Company
+        type: string
+      global_css:
+        example: /* custom CSS */
+        type: string
+      global_html:
+        example: <script>/* custom script */</script>
+        type: string
+    type: object
+  internal_handler.DiscordLoginAPIRequest:
+    properties:
+      access_token:
+        example: discord-access-token-xyz
+        type: string
+    required:
+    - access_token
+    type: object
+  internal_handler.DiscordOAuthSettings:
+    properties:
+      client_id:
+        example: your-client-id
+        type: string
+      client_secret:
+        example: '****'
+        type: string
+      enabled:
+        example: true
+        type: boolean
+      redirect_url:
+        example: http://localhost:8080/api/auth/discord/callback
+        type: string
     type: object
   internal_handler.ForgotPasswordRequest:
     properties:
@@ -156,6 +483,21 @@ definitions:
         example: 24
         type: integer
     type: object
+  internal_handler.LoginProtectionSettings:
+    properties:
+      enabled:
+        example: true
+        type: boolean
+      freeze_seconds:
+        example: 300
+        type: integer
+      max_attempts:
+        example: 5
+        type: integer
+      window_seconds:
+        example: 600
+        type: integer
+    type: object
   internal_handler.LoginRequest:
     properties:
       captcha_id:
@@ -173,6 +515,39 @@ definitions:
     required:
     - email
     - password
+    type: object
+  internal_handler.PreviewGiftCardRequest:
+    properties:
+      code:
+        example: XXXX-XXXX-XXXX-XXXX
+        type: string
+    required:
+    - code
+    type: object
+  internal_handler.PurchaseVIPRequest:
+    properties:
+      duration:
+        description: 'Optional: specific duration to purchase (for multiple specifications).
+          If not provided, uses default price/duration.'
+        example: 30
+        type: integer
+      level:
+        example: 1
+        type: integer
+    required:
+    - level
+    type: object
+  internal_handler.RedeemGiftCardRequest:
+    properties:
+      code:
+        example: XXXX-XXXX-XXXX-XXXX
+        type: string
+      confirm:
+        description: Set to true to confirm redemption when VIP conflict exists
+        example: false
+        type: boolean
+    required:
+    - code
     type: object
   internal_handler.RegisterRequest:
     properties:
@@ -221,6 +596,25 @@ definitions:
         example: true
         type: boolean
     type: object
+  internal_handler.SendVerificationEmailRequest:
+    properties:
+      captcha_id:
+        example: abc123
+        type: string
+      email:
+        example: user@example.com
+        type: string
+    required:
+    - email
+    type: object
+  internal_handler.SetLanguageRequest:
+    properties:
+      lang:
+        example: zh
+        type: string
+    required:
+    - lang
+    type: object
   internal_handler.SetUserBalanceRequest:
     properties:
       balance:
@@ -233,17 +627,65 @@ definitions:
         example: true
         type: boolean
     type: object
+  internal_handler.SetUserVIPExpireAtRequest:
+    properties:
+      vip_expire_at:
+        description: ISO 8601 format, empty means clear
+        example: "2025-12-31T23:59:59Z"
+        type: string
+    type: object
   internal_handler.SetUserVIPLevelRequest:
     properties:
       vip_level:
         example: 3
         type: integer
     type: object
+  internal_handler.SignedCallbackRequest:
+    properties:
+      callback_url:
+        example: https://your-app.com/callback
+        type: string
+    required:
+    - callback_url
+    type: object
+  internal_handler.SignedCallbackResponse:
+    properties:
+      callback_url:
+        example: https://your-app.com/callback?uid=123&...&signature=abc123
+        type: string
+    type: object
+  internal_handler.SteamOAuthSettings:
+    properties:
+      api_key:
+        example: '****'
+        type: string
+      enabled:
+        example: true
+        type: boolean
+      redirect_url:
+        example: http://localhost:8080/api/auth/steam/callback
+        type: string
+    type: object
   internal_handler.UpdateCaptchaRequest:
     properties:
       enabled:
         example: true
         type: boolean
+    type: object
+  internal_handler.UpdateDiscordOAuthRequest:
+    properties:
+      client_id:
+        example: your-client-id
+        type: string
+      client_secret:
+        example: your-client-secret
+        type: string
+      enabled:
+        example: true
+        type: boolean
+      redirect_url:
+        example: http://localhost:8080/api/auth/discord/callback
+        type: string
     type: object
   internal_handler.UpdateGmailAPIRequest:
     properties:
@@ -287,6 +729,30 @@ definitions:
         example: your-jwt-secret
         type: string
     type: object
+  internal_handler.UpdatePaymentSettingsRequest:
+    properties:
+      api_key:
+        example: your-api-key
+        type: string
+      api_url:
+        example: https://pypay.meilanyv.cn/api/
+        type: string
+      demo_mode:
+        example: false
+        type: boolean
+      enabled:
+        example: true
+        type: boolean
+      merchant_id:
+        example: your-merchant-id
+        type: string
+      notify_url:
+        example: https://your-domain.com/api/payment/notify
+        type: string
+      return_url:
+        example: https://your-domain.com/payment/result
+        type: string
+    type: object
   internal_handler.UpdateProfileRequest:
     properties:
       avatar:
@@ -296,10 +762,69 @@ definitions:
         example: John Doe
         type: string
     type: object
+  internal_handler.UpdateSiteSettingsRequest:
+    properties:
+      dark_mode:
+        description: 'Dark mode setting: "system", "dark", "light"'
+        example: system
+        type: string
+      description:
+        example: 统一身份认证服务
+        type: string
+      logo:
+        example: https://example.com/logo.png
+        type: string
+      title:
+        example: Common Login Service
+        type: string
+    type: object
+  internal_handler.UpdateSteamOAuthRequest:
+    properties:
+      api_key:
+        example: your-steam-api-key
+        type: string
+      enabled:
+        example: true
+        type: boolean
+      redirect_url:
+        example: http://localhost:8080/api/auth/steam/callback
+        type: string
+    type: object
   internal_handler.UpdateUserBalanceRequest:
     properties:
       amount:
         example: 100.5
+        type: number
+    type: object
+  internal_handler.UpdateVIPLevelsRequest:
+    properties:
+      vip_levels:
+        items:
+          $ref: '#/definitions/internal_handler.VIPLevelRequest'
+        type: array
+    type: object
+  internal_handler.VIPLevelRequest:
+    properties:
+      color:
+        example: '#cd7f32'
+        type: string
+      description:
+        example: 基础会员特权
+        type: string
+      duration:
+        example: 30
+        type: integer
+      icon:
+        example: bi-star
+        type: string
+      level:
+        example: 1
+        type: integer
+      name:
+        example: VIP 1
+        type: string
+      price:
+        example: 9.9
         type: number
     type: object
   internal_handler.ValidateTokenRequest:
@@ -318,6 +843,45 @@ definitions:
         example: true
         type: boolean
     type: object
+  internal_handler.VerifySignatureRequest:
+    properties:
+      balance:
+        example: "100.00"
+        type: string
+      signature:
+        example: abc123def456
+        type: string
+      ts:
+        example: "1703136000"
+        type: string
+      uid:
+        example: "123"
+        type: string
+      vip_level:
+        example: "2"
+        type: string
+    required:
+    - balance
+    - signature
+    - ts
+    - uid
+    - vip_level
+    type: object
+  internal_handler.VerifySignatureResponse:
+    properties:
+      balance:
+        example: 100
+        type: number
+      uid:
+        example: 123
+        type: integer
+      valid:
+        example: true
+        type: boolean
+      vip_level:
+        example: 2
+        type: integer
+    type: object
 host: localhost:8080
 info:
   contact:
@@ -332,6 +896,301 @@ info:
   title: Common Login Service API
   version: "1.0"
 paths:
+  /admin/api-tokens:
+    get:
+      description: Get all API tokens
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: API tokens retrieved
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: List API tokens
+      tags:
+      - admin
+    post:
+      consumes:
+      - application/json
+      description: Create a new API token for external access
+      parameters:
+      - description: API token creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.CreateAPITokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: API token created
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Create API token
+      tags:
+      - admin
+  /admin/api-tokens/{id}:
+    delete:
+      description: Delete an API token
+      parameters:
+      - description: Token ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: API token deleted
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete API token
+      tags:
+      - admin
+  /admin/api-tokens/{id}/toggle:
+    put:
+      description: Enable or disable an API token
+      parameters:
+      - description: Token ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: API token status toggled
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Toggle API token status
+      tags:
+      - admin
+  /admin/balance-logs:
+    get:
+      description: Get balance logs with pagination and optional filters
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Page size
+        in: query
+        name: page_size
+        type: integer
+      - description: Filter by user ID
+        in: query
+        name: user_id
+        type: integer
+      - description: Filter by type (admin, api, gift_card, purchase_vip, payment)
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Balance logs retrieved
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: List balance logs
+      tags:
+      - admin
+  /admin/gift-cards:
+    get:
+      description: Get all gift cards with pagination
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Page size
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Gift cards retrieved
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: List gift cards
+      tags:
+      - admin
+    post:
+      consumes:
+      - application/json
+      description: Create one or multiple gift cards
+      parameters:
+      - description: Gift card creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.CreateGiftCardRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Gift cards created
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Create gift cards
+      tags:
+      - admin
+  /admin/gift-cards/{id}:
+    delete:
+      description: Delete a gift card
+      parameters:
+      - description: Gift card ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Gift card deleted
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete gift card
+      tags:
+      - admin
+  /admin/gift-cards/batch-delete:
+    post:
+      consumes:
+      - application/json
+      description: Delete multiple gift cards by IDs
+      parameters:
+      - description: Gift card IDs to delete
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.BatchDeleteGiftCardsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Gift cards deleted
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "500":
+          description: Failed to delete gift cards
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Batch delete gift cards
+      tags:
+      - admin
+  /admin/gift-cards/export-unused:
+    get:
+      description: Get all unused gift cards for export
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Unused gift cards retrieved
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "500":
+          description: Failed to get gift cards
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Export unused gift cards
+      tags:
+      - admin
   /admin/login:
     post:
       consumes:
@@ -362,6 +1221,48 @@ paths:
       summary: Admin login
       tags:
       - admin
+  /admin/login-logs:
+    get:
+      description: Get login logs with pagination and optional filters
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Page size
+        in: query
+        name: page_size
+        type: integer
+      - description: Filter by IP address
+        in: query
+        name: ip
+        type: string
+      - description: Filter by success status (true/false)
+        in: query
+        name: success
+        type: string
+      - description: Filter by username
+        in: query
+        name: username
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Login logs retrieved
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: List login logs
+      tags:
+      - admin
   /admin/settings:
     get:
       description: Get current system settings
@@ -384,6 +1285,65 @@ paths:
       security:
       - BearerAuth: []
       summary: Get admin settings
+      tags:
+      - admin
+  /admin/settings/access:
+    get:
+      description: Get current registration and login access settings
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Access settings retrieved
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_handler.AccessSettings'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get access settings
+      tags:
+      - admin
+    put:
+      consumes:
+      - application/json
+      description: Update registration and login access settings
+      parameters:
+      - description: Access settings
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.AccessSettings'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Settings updated
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "500":
+          description: Failed to save settings
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Update access settings
       tags:
       - admin
   /admin/settings/captcha:
@@ -420,6 +1380,96 @@ paths:
       security:
       - BearerAuth: []
       summary: Update captcha settings
+      tags:
+      - admin
+  /admin/settings/custom:
+    get:
+      description: Get custom HTML/CSS and footer configuration
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Custom settings retrieved
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get custom settings
+      tags:
+      - admin
+    put:
+      consumes:
+      - application/json
+      description: Update custom HTML/CSS and footer configuration
+      parameters:
+      - description: Custom settings
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.CustomSettings'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Custom settings updated
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "500":
+          description: Failed to save settings
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Update custom settings
+      tags:
+      - admin
+  /admin/settings/discord-oauth:
+    put:
+      consumes:
+      - application/json
+      description: Update Discord OAuth configuration
+      parameters:
+      - description: Discord OAuth settings
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.UpdateDiscordOAuthRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Settings updated
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "500":
+          description: Failed to save settings
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Update Discord OAuth settings
       tags:
       - admin
   /admin/settings/gmail-api:
@@ -528,6 +1578,387 @@ paths:
       security:
       - BearerAuth: []
       summary: Update JWT settings
+      tags:
+      - admin
+  /admin/settings/login-protection:
+    get:
+      description: Get current login protection configuration
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Login protection settings retrieved
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_handler.LoginProtectionSettings'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get login protection settings
+      tags:
+      - admin
+    put:
+      consumes:
+      - application/json
+      description: Update login protection configuration
+      parameters:
+      - description: Login protection settings
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.LoginProtectionSettings'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Settings updated
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "500":
+          description: Failed to save settings
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Update login protection settings
+      tags:
+      - admin
+  /admin/settings/payment:
+    get:
+      description: Get current payment gateway configuration
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Payment settings retrieved
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get payment settings
+      tags:
+      - admin
+    put:
+      consumes:
+      - application/json
+      description: Update payment gateway configuration
+      parameters:
+      - description: Payment settings
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.UpdatePaymentSettingsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Settings updated
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "500":
+          description: Failed to save settings
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Update payment settings
+      tags:
+      - admin
+  /admin/settings/profile-navigation:
+    get:
+      description: Get profile page navigation configuration
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Profile navigation settings retrieved
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get profile navigation settings
+      tags:
+      - admin
+    put:
+      consumes:
+      - application/json
+      description: Update profile page navigation configuration
+      parameters:
+      - description: Profile navigation settings
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/config.ProfileNavigationConfig'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Profile navigation settings updated
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "500":
+          description: Failed to save settings
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Update profile navigation settings
+      tags:
+      - admin
+  /admin/settings/site:
+    get:
+      description: Get current site configuration
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Site settings retrieved
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get site settings
+      tags:
+      - admin
+    put:
+      consumes:
+      - application/json
+      description: Update site configuration (title, description, logo)
+      parameters:
+      - description: Site settings
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.UpdateSiteSettingsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Settings updated
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "500":
+          description: Failed to save settings
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Update site settings
+      tags:
+      - admin
+  /admin/settings/steam-oauth:
+    put:
+      consumes:
+      - application/json
+      description: Update Steam OAuth configuration
+      parameters:
+      - description: Steam OAuth settings
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.UpdateSteamOAuthRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Settings updated
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "500":
+          description: Failed to save settings
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Update Steam OAuth settings
+      tags:
+      - admin
+  /admin/settings/vip-levels:
+    get:
+      description: Get all VIP level configurations
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: VIP levels retrieved
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get VIP levels
+      tags:
+      - admin
+    put:
+      consumes:
+      - application/json
+      description: Update all VIP level configurations
+      parameters:
+      - description: VIP levels
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.UpdateVIPLevelsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: VIP levels updated
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "500":
+          description: Failed to save settings
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Update VIP levels
+      tags:
+      - admin
+  /admin/users:
+    get:
+      description: Get users with pagination and optional search by username, email,
+        or display name
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Page size
+        in: query
+        name: page_size
+        type: integer
+      - description: Search keyword (username, email, display name)
+        in: query
+        name: keyword
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Users retrieved
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: List users
+      tags:
+      - admin
+    post:
+      consumes:
+      - application/json
+      description: Create a new user with specific parameters via admin panel
+      parameters:
+      - description: User creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.AdminCreateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User created
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "409":
+          description: Conflict - user ID/email/username already exists
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Create user (Admin)
       tags:
       - admin
   /admin/users/{id}:
@@ -644,6 +2075,80 @@ paths:
       summary: Set user balance
       tags:
       - admin
+  /admin/users/{id}/logout:
+    post:
+      description: Force logout a user by deleting all their active sessions
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User logged out
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "500":
+          description: Failed to logout user
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Force logout user
+      tags:
+      - admin
+  /admin/users/{id}/reset-password:
+    post:
+      description: Reset user's password to a new random password
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Password reset successful
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "500":
+          description: Failed to reset password
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Reset user password
+      tags:
+      - admin
   /admin/users/{id}/status:
     put:
       consumes:
@@ -683,6 +2188,48 @@ paths:
       security:
       - BearerAuth: []
       summary: Set user status
+      tags:
+      - admin
+  /admin/users/{id}/vip-expire:
+    put:
+      consumes:
+      - application/json
+      description: Set user's VIP expiration time. Use empty string to clear expiration
+        (permanent VIP).
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: VIP expiration set request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.SetUserVIPExpireAtRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: VIP expiration set
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Set user VIP expiration time
       tags:
       - admin
   /admin/users/{id}/vip-level:
@@ -726,6 +2273,217 @@ paths:
       summary: Set user VIP level
       tags:
       - admin
+  /api/payment/notify:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: Receive asynchronous payment notification from PyPay payment system
+      parameters:
+      - description: Merchant ID
+        in: formData
+        name: pid
+        required: true
+        type: string
+      - description: System trade number
+        in: formData
+        name: trade_no
+        required: true
+        type: string
+      - description: Merchant order ID
+        in: formData
+        name: out_trade_no
+        required: true
+        type: string
+      - description: Payment type (alipay/wxpay)
+        in: formData
+        name: type
+        required: true
+        type: string
+      - description: Product name
+        in: formData
+        name: name
+        required: true
+        type: string
+      - description: Payment amount
+        in: formData
+        name: money
+        required: true
+        type: string
+      - description: Trade status (TRADE_SUCCESS)
+        in: formData
+        name: trade_status
+        required: true
+        type: string
+      - description: Signature for verification
+        in: formData
+        name: sign
+        required: true
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: success
+          schema:
+            type: string
+        "400":
+          description: fail
+          schema:
+            type: string
+      summary: Payment notification callback
+      tags:
+      - payment
+  /auth/balance:
+    get:
+      description: Get current user's balance and VIP level
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Balance and VIP info retrieved
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get balance and VIP info
+      tags:
+      - user
+  /auth/change-password:
+    post:
+      consumes:
+      - application/json
+      description: Change the current authenticated user's password
+      parameters:
+      - description: Change password request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Password changed
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Change password
+      tags:
+      - auth
+  /auth/discord/bind:
+    get:
+      description: Redirect to Discord OAuth for binding to existing account
+      responses:
+        "307":
+          description: Redirect to Discord OAuth
+        "400":
+          description: Discord bind not enabled
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Discord OAuth bind
+      tags:
+      - auth
+  /auth/discord/bind/callback:
+    get:
+      description: Handle Discord OAuth callback for binding to existing account
+      parameters:
+      - description: OAuth authorization code
+        in: query
+        name: code
+        required: true
+        type: string
+      responses:
+        "302":
+          description: Redirect to profile page with error
+        "400":
+          description: Discord login not enabled
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      summary: Discord OAuth bind callback
+      tags:
+      - auth
+  /auth/discord/callback:
+    get:
+      description: Handle Discord OAuth callback after user authentication
+      parameters:
+      - description: OAuth authorization code
+        in: query
+        name: code
+        required: true
+        type: string
+      - description: OAuth state parameter
+        in: query
+        name: state
+        type: string
+      responses:
+        "302":
+          description: Redirect to login page with error
+        "400":
+          description: Discord login not enabled
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      summary: Discord OAuth callback
+      tags:
+      - auth
+  /auth/discord/login:
+    get:
+      description: Redirect to Discord OAuth login page
+      responses:
+        "307":
+          description: Redirect to Discord OAuth
+        "400":
+          description: Discord login not enabled
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      summary: Discord OAuth login
+      tags:
+      - auth
+    post:
+      consumes:
+      - application/json
+      description: Login with Discord using access token from frontend SDK
+      parameters:
+      - description: Discord login request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.DiscordLoginAPIRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Login successful
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_e54385991_Common-LoginService_internal_service.AuthResponse'
+              type: object
+        "400":
+          description: Bad request or invalid token
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      summary: Discord OAuth API login
+      tags:
+      - auth
   /auth/forgot-password:
     post:
       consumes:
@@ -752,6 +2510,40 @@ paths:
       summary: Forgot password
       tags:
       - auth
+  /auth/google/bind:
+    get:
+      description: Redirect to Google OAuth for binding to existing account
+      responses:
+        "307":
+          description: Redirect to Google OAuth
+        "400":
+          description: Google bind not enabled
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Google OAuth bind
+      tags:
+      - auth
+  /auth/google/bind/callback:
+    get:
+      description: Handle Google OAuth callback for binding to existing account
+      parameters:
+      - description: OAuth authorization code
+        in: query
+        name: code
+        required: true
+        type: string
+      responses:
+        "302":
+          description: Redirect to profile page with error
+        "400":
+          description: Google login not enabled
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      summary: Google OAuth bind callback
+      tags:
+      - auth
   /auth/google/callback:
     get:
       description: Handle Google OAuth callback after user authentication
@@ -760,6 +2552,10 @@ paths:
         in: query
         name: code
         required: true
+        type: string
+      - description: OAuth state parameter
+        in: query
+        name: state
         type: string
       responses:
         "302":
@@ -864,12 +2660,17 @@ paths:
           description: Invalid credentials
           schema:
             $ref: '#/definitions/internal_handler.Response'
+        "403":
+          description: Login disabled
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
       summary: User login
       tags:
       - auth
   /auth/logout:
     post:
-      description: Log out the current user by clearing the token cookie
+      description: Log out the current user by clearing the token cookie and invalidating
+        the session
       produces:
       - application/json
       responses:
@@ -880,6 +2681,39 @@ paths:
       summary: User logout
       tags:
       - auth
+  /auth/preview-gift-card:
+    post:
+      consumes:
+      - application/json
+      description: Preview a gift card to see its contents and check for VIP conflicts
+        before redeeming
+      parameters:
+      - description: Gift card preview request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.PreviewGiftCardRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Gift card preview
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request or invalid code
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Preview gift card
+      tags:
+      - user
   /auth/profile:
     get:
       description: Get the current authenticated user's profile
@@ -941,6 +2775,77 @@ paths:
       summary: Update user profile
       tags:
       - auth
+  /auth/purchase-vip:
+    post:
+      consumes:
+      - application/json
+      description: Purchase VIP membership using account balance. Supports upgrade
+        from lower VIP levels with discounted prices.
+      parameters:
+      - description: VIP purchase request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.PurchaseVIPRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: VIP purchased
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request or insufficient balance
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Purchase VIP with balance
+      tags:
+      - user
+  /auth/redeem-gift-card:
+    post:
+      consumes:
+      - application/json
+      description: Redeem a gift card to add balance and/or VIP membership to account.
+        If the gift card contains VIP and the user already has an active VIP, confirmation
+        is required.
+      parameters:
+      - description: Gift card redemption request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.RedeemGiftCardRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Gift card redeemed
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request or invalid code
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "409":
+          description: VIP conflict - requires confirmation
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Redeem gift card
+      tags:
+      - user
   /auth/register:
     post:
       consumes:
@@ -967,6 +2872,10 @@ paths:
               type: object
         "400":
           description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "403":
+          description: Registration disabled
           schema:
             $ref: '#/definitions/internal_handler.Response'
       summary: User registration
@@ -996,6 +2905,236 @@ paths:
           schema:
             $ref: '#/definitions/internal_handler.Response'
       summary: Reset password
+      tags:
+      - auth
+  /auth/send-verification-email:
+    post:
+      consumes:
+      - application/json
+      description: Send a verification email to the authenticated user. Rate limited
+        to 1 email per 60 seconds.
+      parameters:
+      - description: Send verification email request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.SendVerificationEmailRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Email sent
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "429":
+          description: Rate limit exceeded
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Send verification email
+      tags:
+      - auth
+  /auth/signed-callback:
+    post:
+      consumes:
+      - application/json
+      description: Generate a callback URL with HMAC-signed user data (UID, VIP level,
+        balance, etc.)
+      parameters:
+      - description: Callback URL request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.SignedCallbackRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Signed callback URL
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_handler.SignedCallbackResponse'
+              type: object
+        "400":
+          description: Bad request or feature disabled
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Generate signed callback URL
+      tags:
+      - auth
+  /auth/signed-url/status:
+    get:
+      description: Check if signed URL callback feature is enabled
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Signed URL status
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      summary: Get signed URL status
+      tags:
+      - auth
+  /auth/steam/bind:
+    get:
+      description: Redirect to Steam OpenID for binding to existing account
+      responses:
+        "307":
+          description: Redirect to Steam OpenID
+        "400":
+          description: Steam bind not enabled
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Steam OpenID bind
+      tags:
+      - auth
+  /auth/steam/bind/callback:
+    get:
+      description: Handle Steam OpenID callback for binding to existing account
+      responses:
+        "302":
+          description: Redirect to profile page with error
+        "400":
+          description: Steam login not enabled
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      summary: Steam OpenID bind callback
+      tags:
+      - auth
+  /auth/steam/callback:
+    get:
+      description: Handle Steam OpenID callback after user authentication
+      responses:
+        "302":
+          description: Redirect to login page with error
+        "400":
+          description: Steam login not enabled
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      summary: Steam OpenID callback
+      tags:
+      - auth
+  /auth/steam/login:
+    get:
+      description: Redirect to Steam OpenID login page
+      responses:
+        "307":
+          description: Redirect to Steam OpenID
+        "400":
+          description: Steam login not enabled
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      summary: Steam OpenID login
+      tags:
+      - auth
+  /auth/third-party-status:
+    get:
+      description: Get the binding status of Google, Steam, and Discord accounts
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Binding status
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get third-party binding status
+      tags:
+      - auth
+  /auth/unbind/discord:
+    post:
+      description: Unbind Discord account from the current user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Unbind successful
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Unbind Discord account
+      tags:
+      - auth
+  /auth/unbind/google:
+    post:
+      description: Unbind Google account from the current user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Unbind successful
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Unbind Google account
+      tags:
+      - auth
+  /auth/unbind/steam:
+    post:
+      description: Unbind Steam account from the current user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Unbind successful
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Unbind Steam account
       tags:
       - auth
   /auth/validate:
@@ -1031,6 +3170,60 @@ paths:
           schema:
             $ref: '#/definitions/internal_handler.Response'
       summary: Validate token
+      tags:
+      - auth
+  /auth/verify-email-token:
+    get:
+      description: Verify email using the token from the verification email
+      parameters:
+      - description: Verification token
+        in: query
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Email verified
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request or invalid token
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      summary: Verify email token
+      tags:
+      - auth
+  /auth/verify-signature:
+    post:
+      consumes:
+      - application/json
+      description: Verify the HMAC signature of user data received from callback
+      parameters:
+      - description: Verification request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.VerifySignatureRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Verification result
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_handler.VerifySignatureResponse'
+              type: object
+        "400":
+          description: Bad request or feature disabled
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      summary: Verify signed callback
       tags:
       - auth
   /captcha/generate:
@@ -1099,6 +3292,366 @@ paths:
       summary: Verify captcha
       tags:
       - captcha
+  /custom-settings:
+    get:
+      description: Get custom HTML/CSS and footer configuration for frontend display
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Custom settings retrieved
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      summary: Get public custom settings
+      tags:
+      - public
+  /external/balance:
+    post:
+      consumes:
+      - application/json
+      description: Update a user's balance using API token authentication
+      parameters:
+      - description: Balance update request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.APIUpdateBalanceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Balance updated
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "403":
+          description: Forbidden - no permission
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - ApiKeyAuth: []
+      summary: Update user balance (API Token)
+      tags:
+      - external-api
+  /external/password:
+    post:
+      consumes:
+      - application/json
+      description: Set a user's password using API token authentication. Requires
+        'password' or 'all' permission.
+      parameters:
+      - description: Password set request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.APISetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Password set
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "403":
+          description: Forbidden - no permission
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - ApiKeyAuth: []
+      summary: Set user password (API Token)
+      tags:
+      - external-api
+  /external/user:
+    get:
+      description: Get a user's information using API token authentication
+      parameters:
+      - description: User ID
+        in: query
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User info retrieved
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - ApiKeyAuth: []
+      summary: Get user info (API Token)
+      tags:
+      - external-api
+    post:
+      consumes:
+      - application/json
+      description: Create a new user with specific parameters using API token authentication.
+        Requires 'user' or 'all' permission.
+      parameters:
+      - description: User creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.APICreateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User created
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "403":
+          description: Forbidden - no permission
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "409":
+          description: Conflict - user ID/email/username already exists
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - ApiKeyAuth: []
+      summary: Create user (API Token)
+      tags:
+      - external-api
+  /external/vip-expire:
+    post:
+      consumes:
+      - application/json
+      description: Set a user's VIP expiration time using API token authentication.
+        Requires 'vip' or 'all' permission.
+      parameters:
+      - description: VIP expiration set request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.APISetVIPExpireAtRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: VIP expiration set
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "403":
+          description: Forbidden - no permission
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - ApiKeyAuth: []
+      summary: Set user VIP expiration time (API Token)
+      tags:
+      - external-api
+  /external/vip-level:
+    post:
+      consumes:
+      - application/json
+      description: Set a user's VIP level using API token authentication
+      parameters:
+      - description: VIP level set request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.APISetVIPLevelRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: VIP level set
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "403":
+          description: Forbidden - no permission
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - ApiKeyAuth: []
+      summary: Set user VIP level (API Token)
+      tags:
+      - external-api
+  /i18n/language:
+    get:
+      description: Get the user's current language preference
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Current language
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      summary: Get language preference
+      tags:
+      - i18n
+  /i18n/set-language:
+    post:
+      consumes:
+      - application/json
+      description: Set the user's preferred language (stored in cookie)
+      parameters:
+      - description: Language setting request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.SetLanguageRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Language set
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      summary: Set language preference
+      tags:
+      - i18n
+  /payment/create:
+    post:
+      consumes:
+      - application/json
+      description: Create a payment order and get PyPay redirect URL
+      parameters:
+      - description: Payment request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.CreatePaymentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Payment order created
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_handler.CreatePaymentResponse'
+              type: object
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "503":
+          description: Payment service unavailable
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Create payment order
+      tags:
+      - payment
+  /payment/status:
+    get:
+      description: Check if payment is enabled and in demo mode
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Payment status
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      summary: Get payment status
+      tags:
+      - payment
+  /profile-navigation:
+    get:
+      description: Get profile navigation configuration for frontend display
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Profile navigation retrieved
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      summary: Get public profile navigation
+      tags:
+      - public
+  /site-settings:
+    get:
+      description: Get site configuration for frontend display
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Site settings retrieved
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      summary: Get public site settings
+      tags:
+      - public
+  /vip-levels:
+    get:
+      description: Get VIP level configurations for frontend display
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: VIP levels retrieved
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      summary: Get public VIP levels
+      tags:
+      - public
 securityDefinitions:
   BearerAuth:
     description: 'JWT token for authorization (format: Bearer {token})'
