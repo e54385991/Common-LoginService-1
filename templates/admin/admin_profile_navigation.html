@@ -276,9 +276,19 @@
                                     <input type="text" class="form-control" value="${item.id}" onchange="updateNavItem(${index}, 'id', this.value)" placeholder="唯一标识">
                                 </div>
                                 <div class="col-md-3 mb-3">
-                                    <label class="form-label">标题</label>
+                                    <label class="form-label">默认标题</label>
                                     <input type="text" class="form-control" value="${item.title}" onchange="updateNavItem(${index}, 'title', this.value)" placeholder="显示标题">
                                 </div>
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label">英文标题</label>
+                                    <input type="text" class="form-control" value="${(item.title_i18n && item.title_i18n.en) || ''}" onchange="updateNavItemI18n(${index}, 'en', this.value)" placeholder="English title">
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label">中文标题</label>
+                                    <input type="text" class="form-control" value="${(item.title_i18n && item.title_i18n.zh) || ''}" onchange="updateNavItemI18n(${index}, 'zh', this.value)" placeholder="中文标题">
+                                </div>
+                            </div>
+                            <div class="row">
                                 <div class="col-md-3 mb-3">
                                     <label class="form-label">图标</label>
                                     <div class="input-group">
@@ -294,12 +304,21 @@
                                         <option value="action" ${item.type === 'action' ? 'selected' : ''}>action (操作)</option>
                                     </select>
                                 </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-4 mb-3">
+                                <div class="col-md-3 mb-3">
                                     <label class="form-label">链接URL</label>
                                     <input type="text" class="form-control" value="${item.url || ''}" onchange="updateNavItem(${index}, 'url', this.value)" placeholder="/recharge 或 https://...">
                                 </div>
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label">特效</label>
+                                    <select class="form-select" onchange="updateNavItem(${index}, 'effect', this.value)">
+                                        <option value="" ${!item.effect ? 'selected' : ''}>无</option>
+                                        <option value="pulse" ${item.effect === 'pulse' ? 'selected' : ''}>pulse (脉冲)</option>
+                                        <option value="glow" ${item.effect === 'glow' ? 'selected' : ''}>glow (光晕)</option>
+                                        <option value="bounce" ${item.effect === 'bounce' ? 'selected' : ''}>bounce (弹跳)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row">
                                 <div class="col-md-2 mb-3">
                                     <label class="form-label">背景色</label>
                                     <div class="color-input-group">
@@ -313,15 +332,6 @@
                                         <input type="color" value="${item.gradient_end || '#764ba2'}" onchange="updateNavItem(${index}, 'gradient_end', this.value)">
                                         <input type="text" class="form-control form-control-sm" value="${item.gradient_end || '#764ba2'}" onchange="updateNavItem(${index}, 'gradient_end', this.value)">
                                     </div>
-                                </div>
-                                <div class="col-md-2 mb-3">
-                                    <label class="form-label">特效</label>
-                                    <select class="form-select" onchange="updateNavItem(${index}, 'effect', this.value)">
-                                        <option value="" ${!item.effect ? 'selected' : ''}>无</option>
-                                        <option value="pulse" ${item.effect === 'pulse' ? 'selected' : ''}>pulse (脉冲)</option>
-                                        <option value="glow" ${item.effect === 'glow' ? 'selected' : ''}>glow (光晕)</option>
-                                        <option value="bounce" ${item.effect === 'bounce' ? 'selected' : ''}>bounce (弹跳)</option>
-                                    </select>
                                 </div>
                                 <div class="col-md-2 mb-3">
                                     <label class="form-label">新标签页</label>
@@ -363,6 +373,13 @@
             navItems[index][field] = value;
             renderNavItems();
             renderPreview();
+        }
+
+        function updateNavItemI18n(index, lang, value) {
+            if (!navItems[index].title_i18n) {
+                navItems[index].title_i18n = {};
+            }
+            navItems[index].title_i18n[lang] = value;
         }
 
         function toggleVisibility(index) {

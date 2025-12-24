@@ -284,6 +284,112 @@
                 grid-template-columns: 1fr;
             }
         }
+        /* Mobile Bottom Toolbar */
+        .mobile-toolbar {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--card-bg, #ffffff);
+            border-top: 1px solid var(--border-color, #e0e0e0);
+            padding: 8px 0;
+            z-index: 1030;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+        }
+        @media (max-width: 768px) {
+            .mobile-toolbar.enabled {
+                display: block;
+            }
+            body.has-mobile-toolbar {
+                padding-bottom: 70px;
+            }
+        }
+        .mobile-toolbar-items {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+        .mobile-toolbar-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: var(--text-muted, #666);
+            font-size: 0.75rem;
+            padding: 4px 12px;
+            transition: color 0.2s;
+        }
+        .mobile-toolbar-item i {
+            font-size: 1.3rem;
+            margin-bottom: 2px;
+        }
+        .mobile-toolbar-item:hover,
+        .mobile-toolbar-item.active {
+            color: var(--primary-color, #667eea);
+        }
+        [data-theme="dark"] .mobile-toolbar {
+            background: var(--card-bg, #1e1e2f);
+            border-color: var(--border-color, rgba(255,255,255,0.1));
+        }
+        [data-theme="dark"] .mobile-toolbar-item {
+            color: var(--text-muted, #a0a0a0);
+        }
+        [data-theme="dark"] .mobile-toolbar-item:hover,
+        [data-theme="dark"] .mobile-toolbar-item.active {
+            color: var(--primary-color, #667eea);
+        }
+        /* Message Box Styles */
+        .message-item {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .message-item:hover {
+            background: #f8f9fa;
+        }
+        .message-item.unread {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+            border-left: 3px solid #667eea;
+        }
+        .message-item .message-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .message-item.unread .message-title {
+            color: #333;
+        }
+        .message-item .message-preview {
+            color: #666;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .message-item .message-time {
+            color: #999;
+            font-size: 0.8rem;
+        }
+        .message-type-badge {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+        }
+        [data-theme="dark"] .message-item:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        [data-theme="dark"] .message-item.unread {
+            background: rgba(102, 126, 234, 0.1);
+        }
+        [data-theme="dark"] .message-item .message-preview {
+            color: #aaa;
+        }
+        #unread-badge {
+            transform: translate(-25%, -25%) !important;
+        }
     </style>
     {{if .custom.GlobalCSS}}<style>{{.custom.GlobalCSS}}</style>{{end}}
 </head>
@@ -312,6 +418,15 @@
                         <a class="nav-link" href="/vip"><i class="bi bi-gem me-1"></i>{{t .lang "nav.vip"}}</a>
                     </li>
                     {{if .logged}}
+                    <!-- Message Box -->
+                    <li class="nav-item">
+                        <a class="nav-link position-relative" href="#" data-bs-toggle="modal" data-bs-target="#messagesModal" onclick="loadMessages()">
+                            <i class="bi bi-bell"></i>
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="unread-badge" style="display: none; font-size: 0.65rem;">
+                                0
+                            </span>
+                        </a>
+                    </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
                             {{if .user.Avatar}}
@@ -391,7 +506,7 @@
                                     <div class="vip-status-title">{{t .lang "profile.current_level"}}</div>
                                     <div class="vip-status-level" id="vip-level-name">VIP {{.user.VIPLevel}}</div>
                                     <div class="vip-status-expire" id="vip-expire-info">{{t .lang "profile.vip_expire_calculating"}}</div>
-                                    <a href="/recharge" class="vip-upgrade-btn">
+                                    <a href="/vip" class="vip-upgrade-btn">
                                         <i class="bi bi-arrow-up-circle me-1"></i>{{t .lang "profile.vip_renew_upgrade"}}
                                     </a>
                                 </div>
@@ -761,6 +876,59 @@
         </div>
     </div>
 
+    <!-- Messages Modal -->
+    <div class="modal fade" id="messagesModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <h5 class="modal-title"><i class="bi bi-bell me-2"></i>{{t .lang "messages.title"}}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <!-- Messages Header -->
+                    <div class="d-flex justify-content-between align-items-center p-3 border-bottom bg-light">
+                        <span class="text-muted">
+                            <span id="messages-count">0</span> {{t .lang "messages.inbox"}}
+                        </span>
+                        <button class="btn btn-sm btn-outline-primary" onclick="markAllMessagesAsRead()">
+                            <i class="bi bi-check-all me-1"></i>{{t .lang "messages.mark_all_read"}}
+                        </button>
+                    </div>
+                    <!-- Messages List -->
+                    <div id="messages-list" style="max-height: 400px; overflow-y: auto;">
+                        <div class="text-center py-5 text-muted" id="messages-empty">
+                            <i class="bi bi-inbox display-4 d-block mb-3"></i>
+                            <h6>{{t .lang "messages.empty_title"}}</h6>
+                            <p class="small">{{t .lang "messages.empty_desc"}}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message Detail Modal -->
+    <div class="modal fade" id="messageDetailModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="message-detail-title"></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="message-detail-meta" class="text-muted small mb-3"></div>
+                    <div id="message-detail-content"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-danger" onclick="deleteCurrentMessage()">
+                        <i class="bi bi-trash me-1"></i>{{t .lang "messages.delete"}}
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{t .lang "profile.cancel"}}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{else}}
     <!-- Not Logged In -->
     <div class="container py-5">
@@ -777,6 +945,13 @@
     </div>
     {{end}}
 
+    <!-- Mobile Bottom Toolbar -->
+    <nav class="mobile-toolbar" id="mobile-toolbar">
+        <div class="mobile-toolbar-items" id="mobile-toolbar-items">
+            <!-- Items will be loaded dynamically -->
+        </div>
+    </nav>
+
     <!-- Footer -->
     <footer class="bg-dark text-white py-4 mt-auto">
         <div class="container text-center">
@@ -787,21 +962,26 @@
     <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
     <script src="/static/js/app.js"></script>
     <script>
+        const currentLang = "{{.lang}}";
         let vipLevels = [];
         let navItems = [];
         let bindingStatus = {};
         let selectedRechargeAmount = 0;
         let paymentMethod = 'alipay';
+        let currentMessageId = null;
+        let messagesData = [];
 
         document.addEventListener('DOMContentLoaded', function() {
             loadVIPLevels();
             loadUserBalance();
             loadProfileNavigation();
             loadThirdPartyBindingStatus();
+            loadMobileToolbar();
             formatCreatedAt();
             initGiftCardInput();
             checkUrlMessages();
             renderRechargeAmounts();
+            loadUnreadCount();
         });
 
         // Check URL parameters for success/error messages
@@ -864,7 +1044,7 @@
             if (bindingStatus.google) {
                 const googleRow = document.getElementById('binding-google-row');
                 const googleStatus = document.getElementById('binding-google-status');
-                if (bindingStatus.google.allow_bind || bindingStatus.google.bound) {
+                if (bindingStatus.google.enabled || bindingStatus.google.bound) {
                     googleRow.style.display = 'flex';
                     hasAnyBinding = true;
                     googleStatus.innerHTML = renderBindingButton('google', bindingStatus.google);
@@ -875,7 +1055,7 @@
             if (bindingStatus.steam) {
                 const steamRow = document.getElementById('binding-steam-row');
                 const steamStatus = document.getElementById('binding-steam-status');
-                if (bindingStatus.steam.allow_bind || bindingStatus.steam.bound) {
+                if (bindingStatus.steam.enabled || bindingStatus.steam.bound) {
                     steamRow.style.display = 'flex';
                     hasAnyBinding = true;
                     steamStatus.innerHTML = renderBindingButton('steam', bindingStatus.steam);
@@ -886,7 +1066,7 @@
             if (bindingStatus.discord) {
                 const discordRow = document.getElementById('binding-discord-row');
                 const discordStatus = document.getElementById('binding-discord-status');
-                if (bindingStatus.discord.allow_bind || bindingStatus.discord.bound) {
+                if (bindingStatus.discord.enabled || bindingStatus.discord.bound) {
                     discordRow.style.display = 'flex';
                     hasAnyBinding = true;
                     discordStatus.innerHTML = renderBindingButton('discord', bindingStatus.discord);
@@ -980,6 +1160,44 @@
             }
         }
 
+        async function loadMobileToolbar() {
+            try {
+                const response = await fetch('/api/mobile-toolbar');
+                const result = await response.json();
+                if (result.success && result.enabled) {
+                    renderMobileToolbar(result.data);
+                }
+            } catch (error) {
+                console.error('Failed to load mobile toolbar:', error);
+            }
+        }
+
+        function renderMobileToolbar(items) {
+            const toolbar = document.getElementById('mobile-toolbar');
+            const container = document.getElementById('mobile-toolbar-items');
+            if (!toolbar || !container || !items || items.length === 0) return;
+
+            toolbar.classList.add('enabled');
+            document.body.classList.add('has-mobile-toolbar');
+
+            // Sort by order
+            const sortedItems = [...items].sort((a, b) => a.order - b.order);
+            const currentPath = window.location.pathname;
+
+            container.innerHTML = sortedItems.map(item => {
+                const title = (item.title_i18n && item.title_i18n[currentLang]) || item.title;
+                const isActive = currentPath === item.url || (item.url !== '/' && currentPath.startsWith(item.url));
+                const activeClass = isActive ? 'active' : '';
+                const safeIcon = item.icon || 'bi-link';
+                const safeUrl = item.url || '#';
+                
+                return `<a href="${safeUrl}" class="mobile-toolbar-item ${activeClass}">
+                    <i class="${safeIcon}"></i>
+                    <span>${title}</span>
+                </a>`;
+            }).join('');
+        }
+
         async function loadProfileNavigation() {
             try {
                 const response = await fetch('/api/profile-navigation');
@@ -1011,8 +1229,10 @@
                 const target = item.new_tab ? 'target="_blank" rel="noopener"' : '';
                 // Sanitize icon class to prevent injection
                 const safeIcon = sanitizeIconClass(item.icon) || 'bi-link';
+                // Get i18n title if available, otherwise use default title
+                const titleText = (item.title_i18n && item.title_i18n[currentLang]) || item.title;
                 // Escape HTML in title
-                const safeTitle = escapeHtml(item.title);
+                const safeTitle = escapeHtml(titleText);
                 
                 let element;
                 if (item.type === 'action') {
@@ -1235,12 +1455,19 @@
         function formatCreatedAt() {
             const el = document.getElementById('created-at');
             if (el) {
-                const date = new Date(el.textContent);
-                el.textContent = date.toLocaleDateString('zh-CN', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                });
+                const rawDate = el.textContent.trim();
+                const date = new Date(rawDate);
+                // Check if date is valid
+                if (!isNaN(date.getTime()) && date.getFullYear() > 1970) {
+                    el.textContent = date.toLocaleDateString('zh-CN', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                    });
+                } else {
+                    // If date is invalid, show a fallback
+                    el.textContent = '-';
+                }
             }
         }
 
@@ -1876,6 +2103,208 @@
             document.body.insertAdjacentHTML('beforeend', modalHtml);
             new bootstrap.Modal(document.getElementById('paymentDemoModal')).show();
         }
+
+        // Message Box i18n strings
+        const messagesI18n = {
+            title: "{{t .lang "messages.title"}}",
+            inbox: "{{t .lang "messages.inbox"}}",
+            noMessages: "{{t .lang "messages.no_messages"}}",
+            markAllRead: "{{t .lang "messages.mark_all_read"}}",
+            unread: "{{t .lang "messages.unread"}}",
+            read: "{{t .lang "messages.read"}}",
+            deleteConfirm: "{{t .lang "messages.delete_confirm"}}",
+            deleteSuccess: "{{t .lang "messages.delete_success"}}",
+            markReadSuccess: "{{t .lang "messages.mark_read_success"}}",
+            markAllReadSuccess: "{{t .lang "messages.mark_all_read_success"}}",
+            emptyTitle: "{{t .lang "messages.empty_title"}}",
+            emptyDesc: "{{t .lang "messages.empty_desc"}}",
+            typeNormal: "{{t .lang "messages.type_normal"}}",
+            typeSystem: "{{t .lang "messages.type_system"}}",
+            typeAnnouncement: "{{t .lang "messages.type_announcement"}}",
+            timeJustNow: "{{t .lang "messages.time_just_now"}}",
+            timeMinutesAgo: "{{t .lang "messages.time_minutes_ago"}}",
+            timeHoursAgo: "{{t .lang "messages.time_hours_ago"}}",
+            timeDaysAgo: "{{t .lang "messages.time_days_ago"}}"
+        };
+
+        // Load unread message count
+        async function loadUnreadCount() {
+            try {
+                const response = await fetch('/api/messages/unread-count');
+                const result = await response.json();
+                if (result.success && result.data) {
+                    const count = result.data.unread_count || 0;
+                    const badge = document.getElementById('unread-badge');
+                    if (badge) {
+                        if (count > 0) {
+                            badge.textContent = count > 99 ? '99+' : count;
+                            badge.style.display = 'inline-block';
+                        } else {
+                            badge.style.display = 'none';
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load unread count:', error);
+            }
+        }
+
+        // Load messages
+        async function loadMessages() {
+            try {
+                const response = await fetch('/api/messages?page_size=50');
+                const result = await response.json();
+                if (result.success && result.data) {
+                    messagesData = result.data.messages || [];
+                    renderMessages(messagesData);
+                    document.getElementById('messages-count').textContent = result.data.total || 0;
+                }
+            } catch (error) {
+                console.error('Failed to load messages:', error);
+            }
+        }
+
+        // Render messages list
+        function renderMessages(messages) {
+            const container = document.getElementById('messages-list');
+            const emptyState = document.getElementById('messages-empty');
+            
+            if (!messages || messages.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-inbox display-4 d-block mb-3"></i>
+                        <h6>${messagesI18n.emptyTitle}</h6>
+                        <p class="small">${messagesI18n.emptyDesc}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = messages.map(msg => {
+                const isUnread = !msg.is_read;
+                const typeClass = msg.type === 'system' ? 'bg-info' : 
+                                 msg.type === 'announcement' ? 'bg-warning' : 'bg-secondary';
+                const typeText = msg.type === 'system' ? messagesI18n.typeSystem : 
+                                msg.type === 'announcement' ? messagesI18n.typeAnnouncement : messagesI18n.typeNormal;
+                const date = new Date(msg.created_at);
+                const timeStr = formatMessageTime(date);
+                const previewContent = escapeHtml(msg.content.substring(0, 100)) + (msg.content.length > 100 ? '...' : '');
+                
+                return `
+                    <div class="message-item ${isUnread ? 'unread' : ''}" onclick="openMessage(${msg.id})">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="message-title">
+                                ${isUnread ? '<span class="badge bg-primary" style="font-size: 0.65rem;">NEW</span>' : ''}
+                                ${escapeHtml(msg.title)}
+                                <span class="badge ${typeClass} message-type-badge">${typeText}</span>
+                            </div>
+                            <span class="message-time">${timeStr}</span>
+                        </div>
+                        <div class="message-preview">${previewContent}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Format message time
+        function formatMessageTime(date) {
+            const now = new Date();
+            const diff = now - date;
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(diff / 3600000);
+            const days = Math.floor(diff / 86400000);
+
+            if (minutes < 1) return messagesI18n.timeJustNow;
+            if (minutes < 60) return messagesI18n.timeMinutesAgo.replace('{n}', minutes);
+            if (hours < 24) return messagesI18n.timeHoursAgo.replace('{n}', hours);
+            if (days < 7) return messagesI18n.timeDaysAgo.replace('{n}', days);
+            
+            return date.toLocaleDateString(currentLang === 'zh' ? 'zh-CN' : 'en-US', {
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+
+        // Open message detail
+        async function openMessage(messageId) {
+            currentMessageId = messageId;
+            try {
+                const response = await fetch(`/api/messages/${messageId}`);
+                const result = await response.json();
+                if (result.success && result.data) {
+                    const msg = result.data;
+                    document.getElementById('message-detail-title').textContent = msg.title;
+                    
+                    const typeText = msg.type === 'system' ? messagesI18n.typeSystem : 
+                                    msg.type === 'announcement' ? messagesI18n.typeAnnouncement : messagesI18n.typeNormal;
+                    const date = new Date(msg.created_at).toLocaleString(currentLang === 'zh' ? 'zh-CN' : 'en-US');
+                    document.getElementById('message-detail-meta').innerHTML = `
+                        <span class="badge ${msg.type === 'system' ? 'bg-info' : msg.type === 'announcement' ? 'bg-warning' : 'bg-secondary'}">${typeText}</span>
+                        <span class="ms-2">${date}</span>
+                    `;
+                    document.getElementById('message-detail-content').innerHTML = escapeHtml(msg.content).replace(/\n/g, '<br>');
+                    
+                    // Hide messages modal and show detail modal
+                    bootstrap.Modal.getInstance(document.getElementById('messagesModal')).hide();
+                    setTimeout(() => {
+                        new bootstrap.Modal(document.getElementById('messageDetailModal')).show();
+                    }, 200);
+                    
+                    // Refresh unread count and messages list
+                    loadUnreadCount();
+                    loadMessages();
+                }
+            } catch (error) {
+                console.error('Failed to open message:', error);
+            }
+        }
+
+        // Delete current message
+        async function deleteCurrentMessage() {
+            if (!currentMessageId) return;
+            
+            if (!confirm(messagesI18n.deleteConfirm)) return;
+            
+            try {
+                const response = await fetch(`/api/messages/${currentMessageId}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+                if (result.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('messageDetailModal')).hide();
+                    showToast(messagesI18n.deleteSuccess, false);
+                    loadMessages();
+                    loadUnreadCount();
+                } else {
+                    showToast(result.message || 'Delete failed', true);
+                }
+            } catch (error) {
+                showToast('Delete failed', true);
+            }
+        }
+
+        // Mark all messages as read
+        async function markAllMessagesAsRead() {
+            try {
+                const response = await fetch('/api/messages/read-all', {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showToast(messagesI18n.markAllReadSuccess, false);
+                    loadMessages();
+                    loadUnreadCount();
+                }
+            } catch (error) {
+                console.error('Failed to mark all as read:', error);
+            }
+        }
+
+        // Configuration constants for message polling
+        const MESSAGE_POLL_INTERVAL_MS = 30000; // 30 seconds
+
+        // Poll for new messages at configured interval
+        setInterval(loadUnreadCount, MESSAGE_POLL_INTERVAL_MS);
     </script>
     {{if .custom.GlobalHTML}}{{.custom.GlobalHTML}}{{end}}
 </body>

@@ -18,6 +18,12 @@
                 <span>用户管理</span>
             </a>
         </li>
+        <li class="nav-item {{if eq .activeMenu "messages"}}active{{end}}">
+            <a href="/admin/messages" class="nav-link">
+                <i class="bi bi-envelope"></i>
+                <span>消息管理</span>
+            </a>
+        </li>
         <li class="nav-item {{if eq .activeMenu "balance-logs"}}active{{end}}">
             <a href="/admin/balance-logs" class="nav-link">
                 <i class="bi bi-journal-text"></i>
@@ -42,6 +48,12 @@
                 <span>个人中心导航</span>
             </a>
         </li>
+        <li class="nav-item {{if eq .activeMenu "mobile-toolbar"}}active{{end}}">
+            <a href="/admin/mobile-toolbar" class="nav-link">
+                <i class="bi bi-phone"></i>
+                <span>移动端工具栏</span>
+            </a>
+        </li>
         <li class="nav-item {{if eq .activeMenu "api-tokens"}}active{{end}}">
             <a href="/admin/api-tokens" class="nav-link">
                 <i class="bi bi-key"></i>
@@ -58,6 +70,12 @@
             <a href="/admin/settings" class="nav-link">
                 <i class="bi bi-gear"></i>
                 <span>系统设置</span>
+            </a>
+        </li>
+        <li class="nav-item {{if eq .activeMenu "integration-guide"}}active{{end}}">
+            <a href="/admin/integration-guide" class="nav-link">
+                <i class="bi bi-code-square"></i>
+                <span>[开发] 接入指南</span>
             </a>
         </li>
     </ul>

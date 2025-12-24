@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>移动端工具栏配置 - {{.config.Site.Title}} 管理后台</title>
+    <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="/static/css/admin.css" rel="stylesheet">
+    <style>
+        .toolbar-preview {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 24px;
+        }
+        .toolbar-preview-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: #666;
+            font-size: 0.75rem;
+            padding: 4px 12px;
+        }
+        .toolbar-preview-item i {
+            font-size: 1.3rem;
+            margin-bottom: 4px;
+        }
+        .toolbar-preview-item.active {
+            color: #667eea;
+        }
+        .toolbar-item-card {
+            border-radius: 12px;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-bottom: 16px;
+            background: white;
+            border: 1px solid #dee2e6;
+        }
+        .toolbar-item-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-wrapper">
+        {{template "admin_sidebar" .}}
+        
+        <!-- Main Content -->
+        <main class="admin-main">
+            <header class="admin-header">
+                <h1 class="page-title"><i class="bi bi-phone me-2"></i>移动端工具栏配置</h1>
+            </header>
+            
+            <div class="admin-content">
+                <div id="alert-container"></div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-gear me-2"></i>工具栏设置</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="toolbar-enabled">
+                            <label class="form-check-label" for="toolbar-enabled">启用移动端底部工具栏</label>
+                        </div>
+                        <small class="text-muted">开启后，移动端设备将在底部显示导航工具栏</small>
+                    </div>
+                    
+                    <h6 class="mb-3"><i class="bi bi-eye me-2"></i>预览效果</h6>
+                    <div class="toolbar-preview" id="toolbar-preview">
+                        <!-- Preview will be rendered here -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-list me-2"></i>导航项管理</h5>
+                    <button class="btn btn-primary btn-sm" onclick="addToolbarItem()">
+                        <i class="bi bi-plus-lg me-1"></i>添加导航项
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="toolbar-items-container">
+                        <!-- Items will be rendered here -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="d-flex justify-content-end gap-2 mt-4">
+                <button class="btn btn-secondary" onclick="loadToolbarConfig()">
+                    <i class="bi bi-arrow-counterclockwise me-2"></i>重置
+                </button>
+                <button class="btn btn-primary" onclick="saveToolbarConfig()">
+                    <i class="bi bi-check-lg me-2"></i>保存配置
+                </button>
+            </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+    <script>
+        let toolbarConfig = {
+            enabled: false,
+            items: []
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadToolbarConfig();
+        });
+
+        async function loadToolbarConfig() {
+            try {
+                const response = await fetch('/api/admin/settings/mobile-toolbar');
+                const result = await response.json();
+                if (result.success && result.data) {
+                    toolbarConfig = result.data;
+                    document.getElementById('toolbar-enabled').checked = toolbarConfig.enabled;
+                    renderToolbarItems();
+                    renderPreview();
+                }
+            } catch (error) {
+                console.error('Failed to load toolbar config:', error);
+            }
+        }
+
+        function renderToolbarItems() {
+            const container = document.getElementById('toolbar-items-container');
+            if (!toolbarConfig.items || toolbarConfig.items.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center py-4">暂无导航项，点击"添加导航项"创建</p>';
+                return;
+            }
+
+            const sortedItems = [...toolbarConfig.items].sort((a, b) => a.order - b.order);
+            
+            container.innerHTML = sortedItems.map((item, index) => `
+                <div class="toolbar-item-card" data-index="${index}">
+                    <div class="p-3">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">标识 (ID)</label>
+                                <input type="text" class="form-control" value="${item.id || ''}" 
+                                       onchange="updateItem(${index}, 'id', this.value)">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">默认标题</label>
+                                <input type="text" class="form-control" value="${item.title || ''}" 
+                                       onchange="updateItem(${index}, 'title', this.value)">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">英文标题 (title_i18n.en)</label>
+                                <input type="text" class="form-control" value="${(item.title_i18n && item.title_i18n.en) || ''}" 
+                                       onchange="updateItemI18n(${index}, 'en', this.value)">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">中文标题 (title_i18n.zh)</label>
+                                <input type="text" class="form-control" value="${(item.title_i18n && item.title_i18n.zh) || ''}" 
+                                       onchange="updateItemI18n(${index}, 'zh', this.value)">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">图标 (Bootstrap Icons)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="${item.icon || 'bi-link'}"></i></span>
+                                    <input type="text" class="form-control" value="${item.icon || ''}" 
+                                           onchange="updateItem(${index}, 'icon', this.value); renderPreview();">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">链接URL</label>
+                                <input type="text" class="form-control" value="${item.url || ''}" 
+                                       onchange="updateItem(${index}, 'url', this.value)">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">排序</label>
+                                <input type="number" class="form-control" value="${item.order || 0}" 
+                                       onchange="updateItem(${index}, 'order', parseInt(this.value)); renderToolbarItems(); renderPreview();">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">显示</label>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox" ${item.visible ? 'checked' : ''} 
+                                           onchange="updateItem(${index}, 'visible', this.checked); renderPreview();">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-3 text-end">
+                            <button class="btn btn-outline-danger btn-sm" onclick="removeItem(${index})">
+                                <i class="bi bi-trash me-1"></i>删除
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderPreview() {
+            const container = document.getElementById('toolbar-preview');
+            const visibleItems = toolbarConfig.items.filter(item => item.visible).sort((a, b) => a.order - b.order);
+            
+            if (visibleItems.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center">暂无可显示的导航项</p>';
+                return;
+            }
+
+            container.innerHTML = visibleItems.map((item, index) => `
+                <div class="toolbar-preview-item ${index === 0 ? 'active' : ''}">
+                    <i class="${item.icon || 'bi-link'}"></i>
+                    <span>${(item.title_i18n && item.title_i18n.zh) || item.title}</span>
+                </div>
+            `).join('');
+        }
+
+        function updateItem(index, field, value) {
+            const sortedItems = [...toolbarConfig.items].sort((a, b) => a.order - b.order);
+            const realIndex = toolbarConfig.items.indexOf(sortedItems[index]);
+            if (realIndex !== -1) {
+                toolbarConfig.items[realIndex][field] = value;
+            }
+        }
+
+        function updateItemI18n(index, lang, value) {
+            const sortedItems = [...toolbarConfig.items].sort((a, b) => a.order - b.order);
+            const realIndex = toolbarConfig.items.indexOf(sortedItems[index]);
+            if (realIndex !== -1) {
+                if (!toolbarConfig.items[realIndex].title_i18n) {
+                    toolbarConfig.items[realIndex].title_i18n = {};
+                }
+                toolbarConfig.items[realIndex].title_i18n[lang] = value;
+            }
+        }
+
+        function addToolbarItem() {
+            const newOrder = toolbarConfig.items.length > 0 
+                ? Math.max(...toolbarConfig.items.map(i => i.order)) + 1 
+                : 1;
+            
+            toolbarConfig.items.push({
+                id: 'new-item-' + Date.now(),
+                title: '新导航项',
+                title_i18n: { en: 'New Item', zh: '新导航项' },
+                icon: 'bi-link',
+                url: '/',
+                type: 'link',
+                visible: true,
+                order: newOrder
+            });
+            
+            renderToolbarItems();
+            renderPreview();
+        }
+
+        function removeItem(index) {
+            if (!confirm('确定要删除此导航项吗？')) return;
+            
+            const sortedItems = [...toolbarConfig.items].sort((a, b) => a.order - b.order);
+            const realIndex = toolbarConfig.items.indexOf(sortedItems[index]);
+            if (realIndex !== -1) {
+                toolbarConfig.items.splice(realIndex, 1);
+            }
+            
+            renderToolbarItems();
+            renderPreview();
+        }
+
+        async function saveToolbarConfig() {
+            toolbarConfig.enabled = document.getElementById('toolbar-enabled').checked;
+            
+            try {
+                const response = await fetch('/api/admin/settings/mobile-toolbar', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(toolbarConfig)
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert('配置已保存');
+                } else {
+                    alert('保存失败: ' + (result.message || '未知错误'));
+                }
+            } catch (error) {
+                console.error('Failed to save config:', error);
+                alert('保存失败');
+            }
+        }
+    </script>
+</body>
+</html>

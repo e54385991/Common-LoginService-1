@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/e54385991/Common-LoginService/config"
 	_ "github.com/e54385991/Common-LoginService/docs"
@@ -69,6 +70,10 @@ func loadTemplates(templatesDir string) (*template.Template, error) {
 		"urlquery": func(s string) string {
 			return template.URLQueryEscaper(s)
 		},
+		// hasSuffix checks if a string ends with a given suffix
+		"hasSuffix": func(s, suffix string) bool {
+			return strings.HasSuffix(s, suffix)
+		},
 	})
 
 	err := filepath.Walk(templatesDir, func(path string, info os.FileInfo, err error) error {
@@ -121,7 +126,7 @@ func main() {
 	}
 
 	// Auto migrate
-	if err := db.AutoMigrate(&model.User{}, &model.Session{}, &model.SystemConfig{}, &model.PasswordResetRequest{}, &model.APIToken{}, &model.GiftCard{}, &model.PaymentOrder{}, &model.BalanceLog{}, &model.LoginLog{}, &model.EmailVerificationToken{}); err != nil {
+	if err := db.AutoMigrate(&model.User{}, &model.Session{}, &model.SystemConfig{}, &model.PasswordResetRequest{}, &model.APIToken{}, &model.GiftCard{}, &model.PaymentOrder{}, &model.BalanceLog{}, &model.LoginLog{}, &model.EmailVerificationToken{}, &model.RegistrationLog{}, &model.Message{}, &model.MessageBatchTask{}); err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
 
@@ -134,6 +139,9 @@ func main() {
 	balanceLogRepo := repository.NewBalanceLogRepository(db)
 	loginLogRepo := repository.NewLoginLogRepository(db)
 	emailVerificationRepo := repository.NewEmailVerificationRepository(db)
+	registrationLogRepo := repository.NewRegistrationLogRepository(db)
+	messageRepo := repository.NewMessageRepository(db)
+	messageBatchTaskRepo := repository.NewMessageBatchTaskRepository(db)
 
 	// Initialize session store based on configuration
 	var sessionStore repository.SessionStore
@@ -161,6 +169,7 @@ func main() {
 	authHandler.SetGiftCardRepo(giftCardRepo)
 	authHandler.SetBalanceLogRepo(balanceLogRepo)
 	authHandler.SetEmailVerificationRepo(emailVerificationRepo)
+	authHandler.SetRegistrationLogRepo(registrationLogRepo)
 	googleHandler := handler.NewGoogleAuthHandler(authService, cfg)
 	steamHandler := handler.NewSteamAuthHandler(authService, cfg)
 	discordHandler := handler.NewDiscordAuthHandler(authService, cfg)
@@ -168,6 +177,7 @@ func main() {
 	adminHandler.SetLoginLogRepo(loginLogRepo)
 	captchaHandler := handler.NewCaptchaHandler(captchaService, cfg)
 	paymentHandler := handler.NewPaymentHandler(cfg, paymentOrderRepo, userRepo, balanceLogRepo)
+	messageHandler := handler.NewMessageHandler(messageRepo, messageBatchTaskRepo, userRepo)
 
 	// Initialize Gin
 	gin.SetMode(gin.ReleaseMode)
@@ -255,6 +265,7 @@ func main() {
 			protected.PUT("/auth/profile", authHandler.UpdateProfile)
 			protected.POST("/auth/change-password", authHandler.ChangePassword)
 			protected.POST("/auth/purchase-vip", authHandler.PurchaseVIP)
+			protected.POST("/auth/renew-vip", authHandler.RenewVIP)
 			protected.POST("/auth/preview-gift-card", authHandler.PreviewGiftCard)
 			protected.POST("/auth/redeem-gift-card", authHandler.RedeemGiftCard)
 			protected.GET("/auth/balance", authHandler.GetBalance)
@@ -275,6 +286,13 @@ func main() {
 			// Email verification routes (protected - requires authentication)
 			protected.POST("/auth/send-verification-email", authHandler.SendVerificationEmail)
 			protected.POST("/auth/verify-email-code", authHandler.VerifyEmailCode)
+			// Message routes (protected - requires authentication)
+			protected.GET("/messages", messageHandler.GetMessages)
+			protected.GET("/messages/unread-count", messageHandler.GetUnreadCount)
+			protected.GET("/messages/:id", messageHandler.GetMessage)
+			protected.POST("/messages/:id/read", messageHandler.MarkAsRead)
+			protected.POST("/messages/read-all", messageHandler.MarkAllAsRead)
+			protected.DELETE("/messages/:id", messageHandler.DeleteMessage)
 		}
 
 		// Payment routes
@@ -309,8 +327,11 @@ func main() {
 			adminProtected.GET("/api-tokens", adminHandler.AdminAPITokens)
 			adminProtected.GET("/gift-cards", adminHandler.AdminGiftCards)
 			adminProtected.GET("/profile-navigation", adminHandler.AdminProfileNavigation)
+			adminProtected.GET("/mobile-toolbar", adminHandler.AdminMobileToolbar)
 			adminProtected.GET("/balance-logs", adminHandler.AdminBalanceLogs)
 			adminProtected.GET("/login-logs", adminHandler.AdminLoginLogs)
+			adminProtected.GET("/integration-guide", adminHandler.AdminIntegrationGuide)
+			adminProtected.GET("/messages", messageHandler.AdminMessagesPage)
 		}
 	}
 
@@ -337,12 +358,15 @@ func main() {
 			adminAPIProtected.PUT("/settings/vip-levels", adminHandler.UpdateVIPLevels)
 			adminAPIProtected.GET("/settings/profile-navigation", adminHandler.GetProfileNavigation)
 			adminAPIProtected.PUT("/settings/profile-navigation", adminHandler.UpdateProfileNavigation)
+			adminAPIProtected.GET("/settings/mobile-toolbar", adminHandler.GetMobileToolbar)
+			adminAPIProtected.PUT("/settings/mobile-toolbar", adminHandler.UpdateMobileToolbar)
 			adminAPIProtected.GET("/settings/access", adminHandler.GetAccessSettings)
 			adminAPIProtected.PUT("/settings/access", adminHandler.UpdateAccessSettings)
 			adminAPIProtected.GET("/settings/custom", adminHandler.GetCustomSettings)
 			adminAPIProtected.PUT("/settings/custom", adminHandler.UpdateCustomSettings)
 			adminAPIProtected.GET("/settings/login-protection", adminHandler.GetLoginProtectionSettings)
 			adminAPIProtected.PUT("/settings/login-protection", adminHandler.UpdateLoginProtectionSettings)
+			adminAPIProtected.PUT("/settings/registration-protection", adminHandler.UpdateRegistrationProtectionSettings)
 
 			// User management routes
 			adminAPIProtected.GET("/users", adminHandler.ListUsers)
@@ -352,6 +376,7 @@ func main() {
 			adminAPIProtected.PUT("/users/:id/balance", adminHandler.SetUserBalance)
 			adminAPIProtected.PUT("/users/:id/vip-level", adminHandler.SetUserVIPLevel)
 			adminAPIProtected.PUT("/users/:id/vip-expire", adminHandler.SetUserVIPExpireAt)
+			adminAPIProtected.POST("/users/:id/vip-renew", adminHandler.RenewUserVIP)
 			adminAPIProtected.PUT("/users/:id/status", adminHandler.SetUserStatus)
 			adminAPIProtected.POST("/users/:id/reset-password", adminHandler.ResetUserPassword)
 			adminAPIProtected.POST("/users/:id/logout", adminHandler.LogoutUser)
@@ -374,6 +399,13 @@ func main() {
 
 			// Login log management routes
 			adminAPIProtected.GET("/login-logs", adminHandler.ListLoginLogs)
+
+			// Message management routes
+			adminAPIProtected.GET("/messages", messageHandler.AdminListMessages)
+			adminAPIProtected.POST("/messages/send", messageHandler.AdminSendMessage)
+			adminAPIProtected.POST("/messages/batch-send", messageHandler.AdminBatchSendMessage)
+			adminAPIProtected.GET("/messages/batch-progress/:id", messageHandler.AdminGetBatchProgress)
+			adminAPIProtected.GET("/messages/batch-tasks", messageHandler.AdminListBatchTasks)
 		}
 	}
 
@@ -393,6 +425,7 @@ func main() {
 	api.GET("/vip-levels", adminHandler.GetPublicVIPLevels)
 	api.GET("/site-settings", adminHandler.GetPublicSiteSettings)
 	api.GET("/profile-navigation", adminHandler.GetPublicProfileNavigation)
+	api.GET("/mobile-toolbar", adminHandler.GetPublicMobileToolbar)
 	api.GET("/custom-settings", adminHandler.GetPublicCustomSettings)
 
 	// Swagger documentation route

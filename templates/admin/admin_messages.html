@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>消息管理 - Common Login Service 管理后台</title>
+    <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="/static/css/admin.css" rel="stylesheet">
+    <style>
+        .progress-container {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .progress-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        .message-preview {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+        .message-preview h6 {
+            margin-bottom: 10px;
+            color: #666;
+        }
+        .batch-task-item {
+            border-left: 3px solid #667eea;
+            padding-left: 15px;
+            margin-bottom: 15px;
+        }
+        .batch-task-item.completed {
+            border-left-color: #28a745;
+        }
+        .batch-task-item.running {
+            border-left-color: #ffc107;
+        }
+        .batch-task-item.failed {
+            border-left-color: #dc3545;
+        }
+        .send-options .form-check {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-wrapper">
+        {{template "admin_sidebar" .}}
+
+        <!-- Main Content -->
+        <main class="admin-main">
+            <header class="admin-header">
+                <h1 class="page-title"><i class="bi bi-envelope me-2"></i>消息管理</h1>
+            </header>
+
+            <div class="admin-content">
+                <div class="row g-4">
+                    <!-- Send Message Form -->
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="bi bi-send me-2"></i>发送消息</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="send-message-form">
+                                    <div class="mb-3">
+                                        <label class="form-label">发送模式</label>
+                                        <div class="send-options">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="sendMode" id="sendModeSingle" value="single" checked>
+                                                <label class="form-check-label" for="sendModeSingle">
+                                                    <i class="bi bi-person me-1"></i>单用户发送
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="sendMode" id="sendModeAll" value="all">
+                                                <label class="form-check-label" for="sendModeAll">
+                                                    <i class="bi bi-people me-1"></i>全部用户发送
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="sendMode" id="sendModeSpecific" value="specific">
+                                                <label class="form-check-label" for="sendModeSpecific">
+                                                    <i class="bi bi-person-lines-fill me-1"></i>指定用户发送
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3" id="singleUserIdField">
+                                        <label for="userId" class="form-label">用户ID</label>
+                                        <input type="number" class="form-control" id="userId" placeholder="输入用户ID">
+                                    </div>
+                                    
+                                    <div class="mb-3" id="specificUserIdsField" style="display: none;">
+                                        <label for="userIds" class="form-label">用户ID列表</label>
+                                        <input type="text" class="form-control" id="userIds" placeholder="输入用户ID，用逗号分隔（如：1,2,3）">
+                                        <small class="text-muted">多个用户ID用逗号分隔</small>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="messageType" class="form-label">消息类型</label>
+                                        <select class="form-select" id="messageType">
+                                            <option value="normal">普通消息</option>
+                                            <option value="system">系统消息</option>
+                                            <option value="announcement">公告</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="messageTitle" class="form-label">消息标题</label>
+                                        <input type="text" class="form-control" id="messageTitle" placeholder="输入消息标题" required>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="messageContent" class="form-label">消息内容</label>
+                                        <textarea class="form-control" id="messageContent" rows="5" placeholder="输入消息内容" required></textarea>
+                                    </div>
+                                    
+                                    <button type="submit" class="btn btn-primary w-100" id="sendBtn">
+                                        <i class="bi bi-send me-2"></i>发送消息
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Progress & Tasks -->
+                    <div class="col-lg-6">
+                        <!-- Active Task Progress -->
+                        <div class="card mb-4" id="progressCard" style="display: none;">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0"><i class="bi bi-hourglass-split me-2"></i>发送进度</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="progress-container">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span id="progressTitle">正在发送...</span>
+                                        <span class="badge bg-warning" id="progressStatus">进行中</span>
+                                    </div>
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar progress-bar-striped progress-bar-animated" id="progressBar" role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                    <div class="progress-stats">
+                                        <span>已发送: <strong id="sentCount">0</strong></span>
+                                        <span>失败: <strong id="failedCount" class="text-danger">0</strong></span>
+                                        <span>总计: <strong id="totalCount">0</strong></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Batch Task History -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>批量任务历史</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="batchTaskList">
+                                    <div class="text-center text-muted py-4">
+                                        <i class="bi bi-inbox display-4 d-block mb-2"></i>
+                                        暂无批量任务
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+    <script>
+        let activeTaskId = null;
+        let progressInterval = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadBatchTasks();
+            setupFormListeners();
+        });
+
+        // Configuration constants for progress tracking
+        const PROGRESS_POLL_INTERVAL_MS = 500; // 500ms for responsive progress updates
+
+        function setupFormListeners() {
+            // Send mode radio buttons
+            document.querySelectorAll('input[name="sendMode"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    const singleField = document.getElementById('singleUserIdField');
+                    const specificField = document.getElementById('specificUserIdsField');
+                    
+                    if (this.value === 'single') {
+                        singleField.style.display = 'block';
+                        specificField.style.display = 'none';
+                    } else if (this.value === 'specific') {
+                        singleField.style.display = 'none';
+                        specificField.style.display = 'block';
+                    } else {
+                        singleField.style.display = 'none';
+                        specificField.style.display = 'none';
+                    }
+                });
+            });
+
+            // Form submission
+            document.getElementById('send-message-form').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                await sendMessage();
+            });
+        }
+
+        async function sendMessage() {
+            const sendMode = document.querySelector('input[name="sendMode"]:checked').value;
+            const messageType = document.getElementById('messageType').value;
+            const title = document.getElementById('messageTitle').value.trim();
+            const content = document.getElementById('messageContent').value.trim();
+
+            if (!title || !content) {
+                showToast('请填写消息标题和内容', true);
+                return;
+            }
+
+            const sendBtn = document.getElementById('sendBtn');
+            const originalText = sendBtn.innerHTML;
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>发送中...';
+
+            try {
+                if (sendMode === 'single') {
+                    const userId = parseInt(document.getElementById('userId').value);
+                    if (!userId) {
+                        showToast('请输入用户ID', true);
+                        sendBtn.disabled = false;
+                        sendBtn.innerHTML = originalText;
+                        return;
+                    }
+                    await sendSingleMessage(userId, title, content, messageType);
+                } else {
+                    let userIds = [];
+                    if (sendMode === 'specific') {
+                        const userIdsStr = document.getElementById('userIds').value.trim();
+                        if (!userIdsStr) {
+                            showToast('请输入用户ID列表', true);
+                            sendBtn.disabled = false;
+                            sendBtn.innerHTML = originalText;
+                            return;
+                        }
+                        userIds = userIdsStr.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+                        if (userIds.length === 0) {
+                            showToast('请输入有效的用户ID', true);
+                            sendBtn.disabled = false;
+                            sendBtn.innerHTML = originalText;
+                            return;
+                        }
+                    }
+                    await sendBatchMessage(userIds, title, content, messageType);
+                }
+                
+                // Clear form on success
+                document.getElementById('messageTitle').value = '';
+                document.getElementById('messageContent').value = '';
+            } catch (error) {
+                console.error('Send error:', error);
+                showToast('发送失败: ' + error.message, true);
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = originalText;
+            }
+        }
+
+        async function sendSingleMessage(userId, title, content, type) {
+            const response = await fetch('/api/admin/messages/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: userId,
+                    title: title,
+                    content: content,
+                    type: type
+                })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                showToast('消息发送成功', false);
+            } else {
+                showToast(result.message || '发送失败', true);
+            }
+        }
+
+        async function sendBatchMessage(userIds, title, content, type) {
+            const response = await fetch('/api/admin/messages/batch-send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_ids: userIds.length > 0 ? userIds : null,
+                    title: title,
+                    content: content,
+                    type: type
+                })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                showToast('批量发送任务已启动', false);
+                activeTaskId = result.data.task_id;
+                startProgressTracking(activeTaskId);
+            } else {
+                showToast(result.message || '发送失败', true);
+            }
+        }
+
+        function startProgressTracking(taskId) {
+            const progressCard = document.getElementById('progressCard');
+            progressCard.style.display = 'block';
+            
+            document.getElementById('progressBar').style.width = '0%';
+            document.getElementById('progressStatus').textContent = '进行中';
+            document.getElementById('progressStatus').className = 'badge bg-warning';
+            document.getElementById('sentCount').textContent = '0';
+            document.getElementById('failedCount').textContent = '0';
+            document.getElementById('totalCount').textContent = '0';
+
+            if (progressInterval) {
+                clearInterval(progressInterval);
+            }
+
+            progressInterval = setInterval(() => updateProgress(taskId), PROGRESS_POLL_INTERVAL_MS);
+        }
+
+        async function updateProgress(taskId) {
+            try {
+                const response = await fetch(`/api/admin/messages/batch-progress/${taskId}`);
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    const data = result.data;
+                    const total = data.total_users || 0;
+                    const sent = data.sent_count || 0;
+                    const failed = data.failed_count || 0;
+                    const progress = total > 0 ? Math.round(((sent + failed) / total) * 100) : 0;
+
+                    document.getElementById('progressBar').style.width = progress + '%';
+                    document.getElementById('sentCount').textContent = sent;
+                    document.getElementById('failedCount').textContent = failed;
+                    document.getElementById('totalCount').textContent = total;
+
+                    if (data.status === 'completed') {
+                        document.getElementById('progressStatus').textContent = '已完成';
+                        document.getElementById('progressStatus').className = 'badge bg-success';
+                        document.getElementById('progressBar').className = 'progress-bar bg-success';
+                        clearInterval(progressInterval);
+                        loadBatchTasks();
+                    } else if (data.status === 'failed') {
+                        document.getElementById('progressStatus').textContent = '失败';
+                        document.getElementById('progressStatus').className = 'badge bg-danger';
+                        document.getElementById('progressBar').className = 'progress-bar bg-danger';
+                        clearInterval(progressInterval);
+                        loadBatchTasks();
+                    }
+                }
+            } catch (error) {
+                console.error('Progress update error:', error);
+            }
+        }
+
+        async function loadBatchTasks() {
+            try {
+                const response = await fetch('/api/admin/messages/batch-tasks?page_size=10');
+                const result = await response.json();
+                
+                const container = document.getElementById('batchTaskList');
+                if (result.success && result.data.tasks && result.data.tasks.length > 0) {
+                    container.innerHTML = result.data.tasks.map(task => {
+                        const statusClass = task.status === 'completed' ? 'completed' : 
+                                           task.status === 'running' ? 'running' : 
+                                           task.status === 'failed' ? 'failed' : '';
+                        const statusBadge = task.status === 'completed' ? '<span class="badge bg-success">已完成</span>' :
+                                           task.status === 'running' ? '<span class="badge bg-warning">进行中</span>' :
+                                           task.status === 'failed' ? '<span class="badge bg-danger">失败</span>' :
+                                           '<span class="badge bg-secondary">待处理</span>';
+                        const date = new Date(task.created_at).toLocaleString('zh-CN');
+                        const progress = task.total_users > 0 ? 
+                            Math.round(((task.sent_count + task.failed_count) / task.total_users) * 100) : 0;
+                        
+                        return `
+                            <div class="batch-task-item ${statusClass}">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <strong>${escapeHtml(task.title)}</strong>
+                                        ${statusBadge}
+                                        <br>
+                                        <small class="text-muted">${date}</small>
+                                    </div>
+                                </div>
+                                <div class="mt-2">
+                                    <small>
+                                        发送: ${task.sent_count}/${task.total_users} 
+                                        ${task.failed_count > 0 ? `<span class="text-danger">(失败: ${task.failed_count})</span>` : ''}
+                                    </small>
+                                    <div class="progress mt-1" style="height: 5px;">
+                                        <div class="progress-bar ${task.status === 'completed' ? 'bg-success' : task.status === 'failed' ? 'bg-danger' : ''}" 
+                                             style="width: ${progress}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    container.innerHTML = `
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-inbox display-4 d-block mb-2"></i>
+                            暂无批量任务
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Load batch tasks error:', error);
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showToast(message, isError = false) {
+            let container = document.querySelector('.toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+                document.body.appendChild(container);
+            }
+
+            const toastId = 'toast-' + Date.now();
+            const toastHtml = `
+                <div id="${toastId}" class="toast ${isError ? 'bg-danger' : 'bg-success'} text-white" role="alert">
+                    <div class="toast-body d-flex align-items-center">
+                        <i class="bi ${isError ? 'bi-exclamation-circle' : 'bi-check-circle'} me-2"></i>
+                        ${escapeHtml(message)}
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', toastHtml);
+            
+            const toastEl = document.getElementById(toastId);
+            const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+            toast.show();
+            
+            toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+        }
+    </script>
+</body>
+</html>

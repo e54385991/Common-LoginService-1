@@ -21,6 +21,58 @@
             <div class="admin-content">
                 <div id="alert-container"></div>
 
+                <!-- Website Settings -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-globe me-2"></i>网站设置</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="site-form">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="site-title" class="form-label">网站标题（默认）</label>
+                                        <input type="text" class="form-control" id="site-title" value="{{.config.Site.Title}}" placeholder="输入网站标题">
+                                        <small class="text-muted">作为默认标题，当没有对应语言的标题时使用</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="site-description" class="form-label">网站描述</label>
+                                        <input type="text" class="form-control" id="site-description" value="{{.config.Site.Description}}" placeholder="输入网站描述">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="site-title-zh" class="form-label">网站标题（中文）</label>
+                                        <input type="text" class="form-control" id="site-title-zh" value="{{if .config.Site.TitleI18n}}{{index .config.Site.TitleI18n "zh"}}{{end}}" placeholder="输入中文标题">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="site-title-en" class="form-label">网站标题（英文）</label>
+                                        <input type="text" class="form-control" id="site-title-en" value="{{if .config.Site.TitleI18n}}{{index .config.Site.TitleI18n "en"}}{{end}}" placeholder="Enter English title">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="site-logo" class="form-label">Logo URL</label>
+                                <input type="text" class="form-control" id="site-logo" value="{{.config.Site.Logo}}" placeholder="输入 Logo 图片 URL（可选）">
+                            </div>
+                            <div class="mb-3">
+                                <label for="site-base-url" class="form-label">站点URL</label>
+                                <input type="text" class="form-control" id="site-base-url" value="{{.config.Site.BaseURL}}" placeholder="例如: https://user.yuelk.com">
+                                <small class="text-muted">强制设置站点URL，用于生成API地址、邮件链接等。留空则自动从请求中获取。</small>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save me-2"></i>保存网站设置
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
                 <!-- Google OAuth Settings -->
                 <div class="card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
@@ -46,6 +98,23 @@
                                 <label for="google-redirect-url" class="form-label">Redirect URL</label>
                                 <input type="text" class="form-control" id="google-redirect-url" value="{{.config.GoogleOAuth.RedirectURL}}" placeholder="例如: http://localhost:8080/api/auth/google/callback">
                             </div>
+                            <hr class="my-3">
+                            <h6 class="mb-3"><i class="bi bi-link-45deg me-2"></i>{{t .lang "admin.binding_settings"}}</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="google-allow-bind" {{if .config.GoogleOAuth.AllowBind}}checked{{end}}>
+                                        <label class="form-check-label" for="google-allow-bind">{{t .lang "admin.allow_bind_google"}}</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="google-allow-unbind" {{if .config.GoogleOAuth.AllowUnbind}}checked{{end}}>
+                                        <label class="form-check-label" for="google-allow-unbind">{{t .lang "admin.allow_unbind_google"}}</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <small class="text-muted d-block mb-3">{{t .lang "admin.binding_hint_google"}}</small>
                             <button type="submit" class="btn btn-primary">
                                 <i class="bi bi-save me-2"></i>保存 Google OAuth 设置
                             </button>
@@ -78,6 +147,23 @@
                                 <label for="steam-redirect-url" class="form-label">Redirect URL</label>
                                 <input type="text" class="form-control" id="steam-redirect-url" value="{{.config.SteamOAuth.RedirectURL}}" placeholder="例如: http://localhost:8080/api/auth/steam/callback">
                             </div>
+                            <hr class="my-3">
+                            <h6 class="mb-3"><i class="bi bi-link-45deg me-2"></i>{{t .lang "admin.binding_settings"}}</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="steam-allow-bind" {{if .config.SteamOAuth.AllowBind}}checked{{end}}>
+                                        <label class="form-check-label" for="steam-allow-bind">{{t .lang "admin.allow_bind_steam"}}</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="steam-allow-unbind" {{if .config.SteamOAuth.AllowUnbind}}checked{{end}}>
+                                        <label class="form-check-label" for="steam-allow-unbind">{{t .lang "admin.allow_unbind_steam"}}</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <small class="text-muted d-block mb-3">{{t .lang "admin.binding_hint_steam"}}</small>
                             <button type="submit" class="btn btn-primary">
                                 <i class="bi bi-save me-2"></i>保存 Steam 登录设置
                             </button>
@@ -114,6 +200,23 @@
                                 <label for="discord-redirect-url" class="form-label">Redirect URL</label>
                                 <input type="text" class="form-control" id="discord-redirect-url" value="{{.config.DiscordOAuth.RedirectURL}}" placeholder="例如: http://localhost:8080/api/auth/discord/callback">
                             </div>
+                            <hr class="my-3">
+                            <h6 class="mb-3"><i class="bi bi-link-45deg me-2"></i>{{t .lang "admin.binding_settings"}}</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="discord-allow-bind" {{if .config.DiscordOAuth.AllowBind}}checked{{end}}>
+                                        <label class="form-check-label" for="discord-allow-bind">{{t .lang "admin.allow_bind_discord"}}</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="discord-allow-unbind" {{if .config.DiscordOAuth.AllowUnbind}}checked{{end}}>
+                                        <label class="form-check-label" for="discord-allow-unbind">{{t .lang "admin.allow_unbind_discord"}}</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <small class="text-muted d-block mb-3">{{t .lang "admin.binding_hint_discord"}}</small>
                             <button type="submit" class="btn btn-primary">
                                 <i class="bi bi-save me-2"></i>保存 Discord OAuth 设置
                             </button>
@@ -306,11 +409,92 @@
                                     </div>
                                 </div>
                             </div>
+                            <!-- Password Complexity Settings -->
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <h6 class="mb-3"><i class="bi bi-key me-2"></i>密码复杂度要求</h6>
+                                            <div class="row">
+                                                <div class="col-md-3">
+                                                    <div class="mb-3">
+                                                        <label for="password-min-length" class="form-label">最小长度</label>
+                                                        <input type="number" class="form-control" id="password-min-length" value="{{if .config.Access.PasswordMinLength}}{{.config.Access.PasswordMinLength}}{{else}}6{{end}}" min="1" max="128">
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-9">
+                                                    <label class="form-label">必须包含</label>
+                                                    <div class="d-flex flex-wrap gap-3">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" id="password-require-letter" {{if .config.Access.PasswordRequireLetter}}checked{{end}}>
+                                                            <label class="form-check-label" for="password-require-letter">
+                                                                <i class="bi bi-alphabet me-1"></i>字母（不区分大小写）
+                                                            </label>
+                                                        </div>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" id="password-require-number" {{if .config.Access.PasswordRequireNumber}}checked{{end}}>
+                                                            <label class="form-check-label" for="password-require-number">
+                                                                <i class="bi bi-123 me-1"></i>数字
+                                                            </label>
+                                                        </div>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" id="password-require-special" {{if .config.Access.PasswordRequireSpecial}}checked{{end}}>
+                                                            <label class="form-check-label" for="password-require-special">
+                                                                <i class="bi bi-hash me-1"></i>特殊字符
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                             <div class="mt-3">
                                 <button type="submit" class="btn btn-primary">
                                     <i class="bi bi-save me-2"></i>保存访问控制设置
                                 </button>
                             </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Registration Rate Limiting Settings -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-person-plus me-2"></i>注册限制设置
+                        </h5>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" id="registration-protection-enabled" {{if .config.RegistrationProtection.Enabled}}checked{{end}}>
+                            <label class="form-check-label" for="registration-protection-enabled">启用</label>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <form id="registration-protection-form">
+                            <div class="alert alert-info mb-3">
+                                <i class="bi bi-info-circle me-2"></i>
+                                注册限制功能可以防止恶意批量注册。当同一IP地址在指定时间窗口内注册次数超过阈值时，该IP将被临时禁止注册。
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="max-registrations" class="form-label">最大注册次数</label>
+                                        <input type="number" class="form-control" id="max-registrations" value="{{.config.RegistrationProtection.MaxRegistrations}}" min="1" max="100">
+                                        <small class="text-muted">同一IP在时间窗口内允许的最大注册次数</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="registration-window-seconds" class="form-label">时间窗口（秒）</label>
+                                        <input type="number" class="form-control" id="registration-window-seconds" value="{{.config.RegistrationProtection.WindowSeconds}}" min="1">
+                                        <small class="text-muted">统计注册次数的时间窗口（例如：3600秒=1小时）</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save me-2"></i>保存注册限制设置
+                            </button>
                         </form>
                     </div>
                 </div>
@@ -338,6 +522,17 @@
                                         <li><strong>默认亮色</strong>：强制使用亮色模式，隐藏切换按钮</li>
                                     </ul>
                                 </small>
+                            </div>
+                            <hr class="my-3">
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0"><i class="bi bi-house-door me-2"></i>首页重定向到个人中心</h6>
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input" type="checkbox" id="redirect-home-to-profile" {{if .config.Site.RedirectHomeToProfile}}checked{{end}}>
+                                        <label class="form-check-label" for="redirect-home-to-profile">启用</label>
+                                    </div>
+                                </div>
+                                <small class="text-muted">启用后，已登录用户访问首页时将自动跳转到个人中心页面</small>
                             </div>
                             <button type="submit" class="btn btn-primary">
                                 <i class="bi bi-save me-2"></i>保存外观设置
@@ -445,6 +640,38 @@
             resultModal.show();
         }
 
+        // Site Settings Form
+        document.getElementById('site-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const titleI18n = {};
+            const titleZh = document.getElementById('site-title-zh').value.trim();
+            const titleEn = document.getElementById('site-title-en').value.trim();
+            if (titleZh) titleI18n['zh'] = titleZh;
+            if (titleEn) titleI18n['en'] = titleEn;
+            
+            const data = {
+                title: document.getElementById('site-title').value,
+                title_i18n: Object.keys(titleI18n).length > 0 ? titleI18n : null,
+                description: document.getElementById('site-description').value,
+                logo: document.getElementById('site-logo').value,
+                base_url: document.getElementById('site-base-url').value
+            };
+            
+            try {
+                const response = await fetch('/api/admin/settings/site', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                showModal(result.success ? 'success' : 'danger', result.message);
+            } catch (error) {
+                showModal('danger', '网络错误，请稍后重试');
+            }
+        });
+
         // Google OAuth Form
         document.getElementById('google-oauth-form').addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -453,7 +680,9 @@
                 enabled: document.getElementById('google-oauth-enabled').checked,
                 client_id: document.getElementById('google-client-id').value,
                 client_secret: document.getElementById('google-client-secret').value,
-                redirect_url: document.getElementById('google-redirect-url').value
+                redirect_url: document.getElementById('google-redirect-url').value,
+                allow_bind: document.getElementById('google-allow-bind').checked,
+                allow_unbind: document.getElementById('google-allow-unbind').checked
             };
             
             try {
@@ -477,7 +706,9 @@
             const data = {
                 enabled: document.getElementById('steam-oauth-enabled').checked,
                 api_key: document.getElementById('steam-api-key').value,
-                redirect_url: document.getElementById('steam-redirect-url').value
+                redirect_url: document.getElementById('steam-redirect-url').value,
+                allow_bind: document.getElementById('steam-allow-bind').checked,
+                allow_unbind: document.getElementById('steam-allow-unbind').checked
             };
             
             try {
@@ -502,7 +733,9 @@
                 enabled: document.getElementById('discord-oauth-enabled').checked,
                 client_id: document.getElementById('discord-client-id').value,
                 client_secret: document.getElementById('discord-client-secret').value,
-                redirect_url: document.getElementById('discord-redirect-url').value
+                redirect_url: document.getElementById('discord-redirect-url').value,
+                allow_bind: document.getElementById('discord-allow-bind').checked,
+                allow_unbind: document.getElementById('discord-allow-unbind').checked
             };
             
             try {
@@ -602,7 +835,11 @@
                 registration_start_uid: parseInt(document.getElementById('registration-start-uid').value) || 0,
                 allow_email_login: document.getElementById('allow-email-login').checked,
                 allow_username_login: document.getElementById('allow-username-login').checked,
-                require_email_verification: document.getElementById('require-email-verification').checked
+                require_email_verification: document.getElementById('require-email-verification').checked,
+                password_min_length: parseInt(document.getElementById('password-min-length').value) || 6,
+                password_require_letter: document.getElementById('password-require-letter').checked,
+                password_require_number: document.getElementById('password-require-number').checked,
+                password_require_special: document.getElementById('password-require-special').checked
             };
             
             try {
@@ -619,12 +856,37 @@
             }
         });
 
-        // Appearance Settings Form (Dark Mode)
+        // Registration Protection Form
+        document.getElementById('registration-protection-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const data = {
+                enabled: document.getElementById('registration-protection-enabled').checked,
+                max_registrations: parseInt(document.getElementById('max-registrations').value) || 3,
+                window_seconds: parseInt(document.getElementById('registration-window-seconds').value) || 3600
+            };
+            
+            try {
+                const response = await fetch('/api/admin/settings/registration-protection', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                showModal(result.success ? 'success' : 'danger', result.message);
+            } catch (error) {
+                showModal('danger', '网络错误，请稍后重试');
+            }
+        });
+
+        // Appearance Settings Form (Dark Mode, Home Redirect)
         document.getElementById('appearance-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const data = {
-                dark_mode: document.getElementById('dark-mode').value
+                dark_mode: document.getElementById('dark-mode').value,
+                redirect_home_to_profile: document.getElementById('redirect-home-to-profile').checked
             };
             
             try {

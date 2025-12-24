@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -9,6 +11,7 @@ import (
 	"time"
 
 	"github.com/e54385991/Common-LoginService/config"
+	"github.com/e54385991/Common-LoginService/internal/i18n"
 	"github.com/e54385991/Common-LoginService/internal/model"
 	"github.com/e54385991/Common-LoginService/internal/service"
 	"github.com/e54385991/Common-LoginService/pkg/utils"
@@ -86,6 +89,7 @@ type AuthHandler struct {
 		SetVIPLevel(id uint, level int) (*model.User, error)
 		SetVIPLevelWithDuration(id uint, level int, durationDays int) (*model.User, error)
 		SetVIPLevelWithUpgrade(id uint, level int, durationDays int, oldPrice float64, newPrice float64) (*model.User, int, error)
+		RenewVIPLevel(id uint, level int, durationDays int) (*model.User, error)
 		SetEmailVerified(id uint, verified bool) (*model.User, error)
 		UpdateEmail(id uint, email string) (*model.User, error)
 		ExistsByEmail(email string) bool
@@ -103,6 +107,10 @@ type AuthHandler struct {
 		FindByUserIDAndCode(userID uint, code string) (*model.EmailVerificationToken, error)
 		MarkUsed(id uint) error
 		CanSendVerificationEmail(userID uint) (bool, int, error)
+	}
+	registrationLogRepo interface {
+		Create(log *model.RegistrationLog) error
+		CanRegister(ip string, maxRegistrations int, windowSeconds int) (bool, int64, error)
 	}
 }
 
@@ -123,6 +131,7 @@ func (h *AuthHandler) SetUserRepo(userRepo interface {
 	SetVIPLevel(id uint, level int) (*model.User, error)
 	SetVIPLevelWithDuration(id uint, level int, durationDays int) (*model.User, error)
 	SetVIPLevelWithUpgrade(id uint, level int, durationDays int, oldPrice float64, newPrice float64) (*model.User, int, error)
+	RenewVIPLevel(id uint, level int, durationDays int) (*model.User, error)
 	SetEmailVerified(id uint, verified bool) (*model.User, error)
 	UpdateEmail(id uint, email string) (*model.User, error)
 	ExistsByEmail(email string) bool
@@ -156,6 +165,14 @@ func (h *AuthHandler) SetEmailVerificationRepo(emailVerificationRepo interface {
 	h.emailVerificationRepo = emailVerificationRepo
 }
 
+// SetRegistrationLogRepo sets the registration log repository for AuthHandler
+func (h *AuthHandler) SetRegistrationLogRepo(registrationLogRepo interface {
+	Create(log *model.RegistrationLog) error
+	CanRegister(ip string, maxRegistrations int, windowSeconds int) (bool, int64, error)
+}) {
+	h.registrationLogRepo = registrationLogRepo
+}
+
 // isSecureRequest checks if the request is over HTTPS
 func isSecureRequest(c *gin.Context) bool {
 	return c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
@@ -184,6 +201,30 @@ func isValidCallbackURL(callbackURL string) bool {
 	return true
 }
 
+// getSiteTitle returns the site title for the given language, falling back to default title
+func (h *AuthHandler) getSiteTitle(lang string) string {
+	if h.cfg.Site.TitleI18n != nil {
+		if title, ok := h.cfg.Site.TitleI18n[lang]; ok && title != "" {
+			return title
+		}
+	}
+	return h.cfg.Site.Title
+}
+
+// translateError translates service errors with i18n support
+// Detects PasswordValidationError and translates it, otherwise returns the original error message
+func translateError(err error, lang string) string {
+	var pwErr *utils.PasswordValidationError
+	if errors.As(err, &pwErr) {
+		msg := i18n.T(lang, pwErr.Code)
+		if pwErr.Code == "error.password_too_short" && pwErr.MinLength > 0 {
+			return fmt.Sprintf(msg, pwErr.MinLength)
+		}
+		return msg
+	}
+	return err.Error()
+}
+
 // Register handles user registration
 // @Summary User registration
 // @Description Register a new user with email, username and password
@@ -194,6 +235,7 @@ func isValidCallbackURL(callbackURL string) bool {
 // @Success 200 {object} handler.Response{data=service.AuthResponse} "Registration successful"
 // @Failure 400 {object} handler.Response "Bad request"
 // @Failure 403 {object} handler.Response "Registration disabled"
+// @Failure 429 {object} handler.Response "Too many registrations from this IP"
 // @Router /auth/register [post]
 func (h *AuthHandler) Register(c *gin.Context) {
 	// Check if registration is enabled
@@ -207,6 +249,27 @@ func (h *AuthHandler) Register(c *gin.Context) {
 			"message": message,
 		})
 		return
+	}
+
+	clientIP := c.ClientIP()
+
+	// Check registration rate limit if enabled
+	if h.cfg.RegistrationProtection.Enabled && h.registrationLogRepo != nil && clientIP != "" {
+		canRegister, remaining, err := h.registrationLogRepo.CanRegister(
+			clientIP,
+			h.cfg.RegistrationProtection.MaxRegistrations,
+			h.cfg.RegistrationProtection.WindowSeconds,
+		)
+		if err == nil && !canRegister {
+			windowMinutes := h.cfg.RegistrationProtection.WindowSeconds / 60
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"success":   false,
+				"message":   "注册过于频繁，请稍后再试",
+				"remaining": remaining,
+				"window":    windowMinutes,
+			})
+			return
+		}
 	}
 
 	var input struct {
@@ -235,11 +298,24 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	response, err := h.authService.Register(&input.RegisterInput)
 	if err != nil {
+		lang := c.GetString("lang")
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
-			"message": err.Error(),
+			"message": translateError(err, lang),
 		})
 		return
+	}
+
+	// Log successful registration for rate limiting
+	if h.registrationLogRepo != nil && clientIP != "" {
+		regLog := &model.RegistrationLog{
+			IP:      clientIP,
+			UserID:  &response.User.ID,
+			Success: true,
+		}
+		if err := h.registrationLogRepo.Create(regLog); err != nil {
+			log.Printf("Failed to log registration for rate limiting: %v", err)
+		}
 	}
 
 	// Set cookie (secure flag based on request protocol)
@@ -462,9 +538,10 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	}
 
 	if err := h.authService.ChangePassword(userID, input.OldPassword, input.NewPassword); err != nil {
+		lang := c.GetString("lang")
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
-			"message": err.Error(),
+			"message": translateError(err, lang),
 		})
 		return
 	}
@@ -506,13 +583,8 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 		return
 	}
 
-	// Send email
-	baseURL := c.Request.Host
-	if c.Request.TLS != nil {
-		baseURL = "https://" + baseURL
-	} else {
-		baseURL = "http://" + baseURL
-	}
+	// Get base URL from config or request
+	baseURL := utils.GetBaseURL(c, h.cfg.Site.BaseURL)
 
 	if err := h.emailService.SendPasswordResetEmail(input.Email, token, baseURL); err != nil {
 		// If email fails, log the error but return success for security
@@ -554,9 +626,10 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 	}
 
 	if err := h.authService.ResetPassword(input.Token, input.NewPassword); err != nil {
+		lang := c.GetString("lang")
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
-			"message": err.Error(),
+			"message": translateError(err, lang),
 		})
 		return
 	}
@@ -749,11 +822,17 @@ func (h *AuthHandler) HomePage(c *gin.Context) {
 		user = u.(*model.User)
 	}
 
+	// Check if we should redirect logged-in users to profile page
+	if user != nil && h.cfg.Site.RedirectHomeToProfile {
+		c.Redirect(http.StatusFound, "/profile")
+		return
+	}
+
 	c.HTML(http.StatusOK, "home.html", gin.H{
 		"lang":      lang,
 		"user":      user,
 		"logged":    user != nil,
-		"siteTitle": h.cfg.Site.Title,
+		"siteTitle": h.getSiteTitle(lang),
 		"custom":    h.cfg.Custom,
 		"darkMode":  h.cfg.Site.DarkMode,
 	})
@@ -771,7 +850,7 @@ func (h *AuthHandler) RechargePage(c *gin.Context) {
 		"lang":      lang,
 		"user":      user,
 		"logged":    user != nil,
-		"siteTitle": h.cfg.Site.Title,
+		"siteTitle": h.getSiteTitle(lang),
 		"custom":    h.cfg.Custom,
 		"darkMode":  h.cfg.Site.DarkMode,
 	})
@@ -789,7 +868,7 @@ func (h *AuthHandler) VIPPage(c *gin.Context) {
 		"lang":      lang,
 		"user":      user,
 		"logged":    user != nil,
-		"siteTitle": h.cfg.Site.Title,
+		"siteTitle": h.getSiteTitle(lang),
 		"custom":    h.cfg.Custom,
 		"darkMode":  h.cfg.Site.DarkMode,
 	})
@@ -807,7 +886,7 @@ func (h *AuthHandler) ProfilePage(c *gin.Context) {
 		"lang":      lang,
 		"user":      user,
 		"logged":    user != nil,
-		"siteTitle": h.cfg.Site.Title,
+		"siteTitle": h.getSiteTitle(lang),
 		"custom":    h.cfg.Custom,
 		"darkMode":  h.cfg.Site.DarkMode,
 	})
@@ -817,6 +896,12 @@ func (h *AuthHandler) ProfilePage(c *gin.Context) {
 type PurchaseVIPRequest struct {
 	Level    int `json:"level" binding:"required" example:"1"`
 	Duration int `json:"duration" example:"30"` // Optional: specific duration to purchase (for multiple specifications). If not provided, uses default price/duration.
+}
+
+// RenewVIPRequest represents VIP renewal request
+type RenewVIPRequest struct {
+	Level    int `json:"level" binding:"required" example:"1"`
+	Duration int `json:"duration" example:"30"` // Duration to add in days (for multiple specifications). If not provided, uses default duration.
 }
 
 // RedeemGiftCardRequest represents gift card redemption request
@@ -1070,6 +1155,190 @@ func (h *AuthHandler) PurchaseVIP(c *gin.Context) {
 		"success": true,
 		"message": responseMessage,
 		"data":    responseData,
+	})
+}
+
+// RenewVIP allows users to renew/extend their VIP membership using balance
+// @Summary Renew VIP with balance
+// @Description Renew VIP membership using account balance. If the user has active VIP, the duration is added to the current expiration. Only works if allow_renewal is enabled for the VIP level.
+// @Tags user
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body RenewVIPRequest true "VIP renewal request"
+// @Success 200 {object} handler.Response "VIP renewed"
+// @Failure 400 {object} handler.Response "Bad request, insufficient balance, or renewal not allowed"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Router /auth/renew-vip [post]
+func (h *AuthHandler) RenewVIP(c *gin.Context) {
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"message": "请先登录",
+		})
+		return
+	}
+
+	currentUser := user.(*model.User)
+
+	var input RenewVIPRequest
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	// Find the VIP level in config
+	var vipConfig *config.VIPLevelConfig
+	for _, v := range h.cfg.VIPLevels {
+		if v.Level == input.Level {
+			vipConfig = &v
+			break
+		}
+	}
+
+	if vipConfig == nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "VIP等级不存在",
+		})
+		return
+	}
+
+	// Check if renewal is allowed for this VIP level
+	if !vipConfig.AllowRenewal {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "该VIP等级不支持续期",
+		})
+		return
+	}
+
+	// User must have the same VIP level to renew
+	if currentUser.VIPLevel != input.Level {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "只能续期当前VIP等级",
+			"data": gin.H{
+				"current_level":   currentUser.VIPLevel,
+				"requested_level": input.Level,
+			},
+		})
+		return
+	}
+
+	// Determine the actual price and duration based on specifications or default
+	actualPrice := vipConfig.Price
+	actualDuration := vipConfig.Duration
+	var selectedSpec *config.VIPSpecification
+
+	// If duration is specified and specifications exist, find the matching specification
+	if input.Duration > 0 && len(vipConfig.Specifications) > 0 {
+		for i, spec := range vipConfig.Specifications {
+			if spec.Duration == input.Duration {
+				selectedSpec = &vipConfig.Specifications[i]
+				actualPrice = spec.Price
+				actualDuration = spec.Duration
+				break
+			}
+		}
+		// If duration specified but no matching specification found, use default
+		if selectedSpec == nil {
+			actualPrice = vipConfig.Price
+			actualDuration = vipConfig.Duration
+		}
+	} else if input.Duration == 0 && len(vipConfig.Specifications) > 0 {
+		// No duration specified but specifications exist - try to find matching default duration
+		for i, spec := range vipConfig.Specifications {
+			if spec.Duration == vipConfig.Duration {
+				selectedSpec = &vipConfig.Specifications[i]
+				actualPrice = spec.Price
+				actualDuration = spec.Duration
+				break
+			}
+		}
+	}
+
+	// Check if user has enough balance
+	if currentUser.Balance < actualPrice {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "余额不足，请先充值",
+			"data": gin.H{
+				"balance":  currentUser.Balance,
+				"required": actualPrice,
+			},
+		})
+		return
+	}
+
+	if h.userRepo == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "服务暂不可用",
+		})
+		return
+	}
+
+	// Store balance before deduction for logging
+	balanceBefore := currentUser.Balance
+
+	// Deduct balance
+	updatedUser, err := h.userRepo.UpdateBalance(currentUser.ID, -actualPrice)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "扣款失败",
+		})
+		return
+	}
+
+	// Renew VIP (adds to existing expiration)
+	updatedUser, err = h.userRepo.RenewVIPLevel(currentUser.ID, input.Level, actualDuration)
+	if err != nil {
+		// Refund balance if VIP renewal fails
+		if _, refundErr := h.userRepo.UpdateBalance(currentUser.ID, actualPrice); refundErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"message": "VIP续期失败且退款异常，请联系客服",
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "VIP续期失败，已退款",
+		})
+		return
+	}
+
+	// Create balance log for VIP renewal
+	if h.balanceLogRepo != nil {
+		balanceLog := &model.BalanceLog{
+			UserID:        currentUser.ID,
+			Amount:        -actualPrice,
+			BalanceBefore: balanceBefore,
+			BalanceAfter:  updatedUser.Balance,
+			Type:          "renew_vip",
+			Reason:        "续期" + vipConfig.Name,
+			OperatorType:  "user",
+		}
+		h.balanceLogRepo.Create(balanceLog)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "VIP续期成功",
+		"data": gin.H{
+			"vip_level":     updatedUser.VIPLevel,
+			"vip_name":      vipConfig.Name,
+			"vip_expire_at": updatedUser.VIPExpireAt,
+			"balance":       updatedUser.Balance,
+			"price_paid":    actualPrice,
+			"duration_days": actualDuration,
+		},
 	})
 }
 
@@ -1895,13 +2164,8 @@ func (h *AuthHandler) SendVerificationEmail(c *gin.Context) {
 		return
 	}
 
-	// Build base URL
-	baseURL := c.Request.Host
-	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
-		baseURL = "https://" + baseURL
-	} else {
-		baseURL = "http://" + baseURL
-	}
+	// Get base URL from config or request
+	baseURL := utils.GetBaseURL(c, h.cfg.Site.BaseURL)
 
 	// Send verification email
 	if err := h.emailService.SendEmailVerificationEmail(targetEmail, verifyToken.Token, baseURL); err != nil {

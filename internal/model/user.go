@@ -147,3 +147,12 @@ type EmailVerificationToken struct {
 	ExpiresAt time.Time `json:"expires_at"`
 	Used      bool      `gorm:"default:false" json:"used"`
 }
+
+// RegistrationLog represents a registration attempt log entry (for rate limiting)
+type RegistrationLog struct {
+	ID        uint      `gorm:"primarykey" json:"id"`
+	CreatedAt time.Time `gorm:"index:idx_registration_logs_rate_limit,priority:3" json:"created_at"`
+	IP        string    `gorm:"size:45;index:idx_registration_logs_rate_limit,priority:1" json:"ip"` // IP address of the registration attempt
+	UserID    *uint     `gorm:"index" json:"user_id"`                                               // User ID if registration was successful
+	Success   bool      `gorm:"default:false;index:idx_registration_logs_rate_limit,priority:2" json:"success"` // Whether registration was successful
+}

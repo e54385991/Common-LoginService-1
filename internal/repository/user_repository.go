@@ -2,6 +2,7 @@ package repository
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -117,7 +118,7 @@ func (r *UserRepository) List(page, pageSize int) ([]model.User, int64, error) {
 	return users, total, err
 }
 
-// Search searches users by username, email, or display name with pagination
+// Search searches users by username, email, display name, or user ID with pagination
 func (r *UserRepository) Search(keyword string, page, pageSize int) ([]model.User, int64, error) {
 	var users []model.User
 	var total int64
@@ -125,12 +126,18 @@ func (r *UserRepository) Search(keyword string, page, pageSize int) ([]model.Use
 	query := r.db.Model(&model.User{})
 	
 	if keyword != "" {
-		// Escape special SQL LIKE characters to prevent SQL injection
-		escapedKeyword := strings.ReplaceAll(keyword, "\\", "\\\\")
-		escapedKeyword = strings.ReplaceAll(escapedKeyword, "%", "\\%")
-		escapedKeyword = strings.ReplaceAll(escapedKeyword, "_", "\\_")
-		searchPattern := "%" + escapedKeyword + "%"
-		query = query.Where("username LIKE ? OR email LIKE ? OR display_name LIKE ?", searchPattern, searchPattern, searchPattern)
+		// Check if keyword is a numeric ID
+		if id, err := strconv.ParseUint(keyword, 10, 32); err == nil {
+			// Search by user ID (exact match)
+			query = query.Where("id = ?", uint(id))
+		} else {
+			// Escape special SQL LIKE characters to prevent SQL injection
+			escapedKeyword := strings.ReplaceAll(keyword, "\\", "\\\\")
+			escapedKeyword = strings.ReplaceAll(escapedKeyword, "%", "\\%")
+			escapedKeyword = strings.ReplaceAll(escapedKeyword, "_", "\\_")
+			searchPattern := "%" + escapedKeyword + "%"
+			query = query.Where("username LIKE ? OR email LIKE ? OR display_name LIKE ?", searchPattern, searchPattern, searchPattern)
+		}
 	}
 
 	query.Count(&total)
@@ -334,6 +341,44 @@ func (r *UserRepository) SetVIPLevelWithUpgrade(id uint, level int, durationDays
 		return nil, 0, err
 	}
 	return &user, bonusDays, nil
+}
+
+// RenewVIPLevel renews/extends the user's VIP membership.
+// If the user already has an active VIP (not expired), the duration is added to the current expiration time.
+// If the VIP has expired or the user has no VIP, the duration is added from the current time.
+// If duration is 0, the VIP becomes permanent (no expiration).
+// The level parameter is optional - if 0, it keeps the current level (must be > 0 already).
+func (r *UserRepository) RenewVIPLevel(id uint, level int, durationDays int) (*model.User, error) {
+	var user model.User
+	if err := r.db.First(&user, id).Error; err != nil {
+		return nil, err
+	}
+
+	// Set VIP level if provided, otherwise keep current level
+	if level > 0 {
+		user.VIPLevel = level
+	}
+
+	if durationDays > 0 {
+		var baseTime time.Time
+		// If user has active VIP with valid expiration, add to existing time
+		if user.VIPExpireAt != nil && user.VIPExpireAt.After(time.Now()) {
+			baseTime = *user.VIPExpireAt
+		} else {
+			// Start from now if expired or no expiration
+			baseTime = time.Now()
+		}
+		expireAt := baseTime.AddDate(0, 0, durationDays)
+		user.VIPExpireAt = &expireAt
+	} else {
+		// Permanent VIP - no expiration
+		user.VIPExpireAt = nil
+	}
+
+	if err := r.db.Save(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
 }
 
 // CheckAndExpireVIP checks if VIP has expired and resets if necessary

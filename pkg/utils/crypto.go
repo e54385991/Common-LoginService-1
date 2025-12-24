@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"regexp"
 	"strings"
+	"unicode"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -52,9 +53,74 @@ func IsValidUsername(username string) bool {
 	return usernameRegex.MatchString(username)
 }
 
-// IsValidPassword validates a password (min 6 chars)
+// IsValidPassword validates a password (min 6 chars) - basic validation for backward compatibility
 func IsValidPassword(password string) bool {
 	return len(password) >= 6
+}
+
+// PasswordValidationError represents a password validation error code
+type PasswordValidationError struct {
+	Code      string // Error key for i18n (e.g., "error.password_too_short")
+	MinLength int    // Used for password_too_short error
+}
+
+// Error implements the error interface
+func (e *PasswordValidationError) Error() string {
+	return e.Code
+}
+
+// ValidatePasswordComplexity validates a password with configurable complexity rules
+// Returns nil if valid, or a PasswordValidationError with error code if invalid
+func ValidatePasswordComplexity(password string, minLength int, requireLetter, requireNumber, requireSpecial bool) *PasswordValidationError {
+	if minLength < 1 {
+		minLength = 6 // Default minimum length
+	}
+
+	if len(password) < minLength {
+		return &PasswordValidationError{Code: "error.password_too_short", MinLength: minLength}
+	}
+
+	if requireLetter {
+		hasLetter := false
+		for _, c := range password {
+			if unicode.IsLetter(c) {
+				hasLetter = true
+				break
+			}
+		}
+		if !hasLetter {
+			return &PasswordValidationError{Code: "error.password_require_letter"}
+		}
+	}
+
+	if requireNumber {
+		hasNumber := false
+		for _, c := range password {
+			if unicode.IsDigit(c) {
+				hasNumber = true
+				break
+			}
+		}
+		if !hasNumber {
+			return &PasswordValidationError{Code: "error.password_require_number"}
+		}
+	}
+
+	if requireSpecial {
+		hasSpecial := false
+		specialChars := "!@#$%^&*()_+-=[]{}|;':\",./<>?`~"
+		for _, c := range password {
+			if strings.ContainsRune(specialChars, c) {
+				hasSpecial = true
+				break
+			}
+		}
+		if !hasSpecial {
+			return &PasswordValidationError{Code: "error.password_require_special"}
+		}
+	}
+
+	return nil
 }
 
 // SanitizeString sanitizes a string for safe display

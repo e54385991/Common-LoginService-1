@@ -85,8 +85,16 @@ func (s *AuthService) Register(input *RegisterInput) (*AuthResponse, error) {
 	if !utils.IsValidUsername(input.Username) {
 		return nil, errors.New("用户名只能包含字母、数字和下划线，长度2-32个字符")
 	}
-	if !utils.IsValidPassword(input.Password) {
-		return nil, errors.New("密码长度至少6个字符")
+	
+	// Validate password complexity
+	if pwErr := utils.ValidatePasswordComplexity(
+		input.Password,
+		s.cfg.Access.PasswordMinLength,
+		s.cfg.Access.PasswordRequireLetter,
+		s.cfg.Access.PasswordRequireNumber,
+		s.cfg.Access.PasswordRequireSpecial,
+	); pwErr != nil {
+		return nil, pwErr
 	}
 
 	// Check if email exists
@@ -640,8 +648,15 @@ func (s *AuthService) RequestPasswordReset(email string) (string, error) {
 
 // ResetPassword resets a user's password
 func (s *AuthService) ResetPassword(token, newPassword string) error {
-	if !utils.IsValidPassword(newPassword) {
-		return errors.New("密码长度至少6个字符")
+	// Validate password complexity
+	if pwErr := utils.ValidatePasswordComplexity(
+		newPassword,
+		s.cfg.Access.PasswordMinLength,
+		s.cfg.Access.PasswordRequireLetter,
+		s.cfg.Access.PasswordRequireNumber,
+		s.cfg.Access.PasswordRequireSpecial,
+	); pwErr != nil {
+		return pwErr
 	}
 
 	user, err := s.userRepo.FindByResetToken(token)
@@ -715,9 +730,15 @@ func (s *AuthService) ChangePassword(userID uint, oldPassword, newPassword strin
 		return errors.New("原密码错误")
 	}
 
-	// Validate new password
-	if !utils.IsValidPassword(newPassword) {
-		return errors.New("新密码长度至少6个字符")
+	// Validate new password complexity
+	if pwErr := utils.ValidatePasswordComplexity(
+		newPassword,
+		s.cfg.Access.PasswordMinLength,
+		s.cfg.Access.PasswordRequireLetter,
+		s.cfg.Access.PasswordRequireNumber,
+		s.cfg.Access.PasswordRequireSpecial,
+	); pwErr != nil {
+		return pwErr
 	}
 
 	// Hash new password
@@ -965,18 +986,24 @@ func (s *AuthService) GetThirdPartyBindingStatus(userID uint) (map[string]interf
 	// Check if user has a password (can unbind all OAuth if password exists)
 	hasPassword := user.Password != ""
 
+	// For allow_bind: when an OAuth provider is enabled, binding is also enabled by default.
+	// This matches user expectations: enabling Steam/Google/Discord login also enables account binding.
+	// The AllowBind config can still be used to explicitly disable binding if needed.
 	return map[string]interface{}{
 		"google": map[string]interface{}{
+			"enabled":      s.cfg.GoogleOAuth.Enabled,
 			"bound":        user.GoogleID != "",
 			"allow_bind":   s.cfg.GoogleOAuth.Enabled && s.cfg.GoogleOAuth.AllowBind,
 			"allow_unbind": s.cfg.GoogleOAuth.AllowUnbind,
 		},
 		"steam": map[string]interface{}{
+			"enabled":      s.cfg.SteamOAuth.Enabled,
 			"bound":        user.SteamID != "",
 			"allow_bind":   s.cfg.SteamOAuth.Enabled && s.cfg.SteamOAuth.AllowBind,
 			"allow_unbind": s.cfg.SteamOAuth.AllowUnbind,
 		},
 		"discord": map[string]interface{}{
+			"enabled":      s.cfg.DiscordOAuth.Enabled,
 			"bound":        user.DiscordID != "",
 			"allow_bind":   s.cfg.DiscordOAuth.Enabled && s.cfg.DiscordOAuth.AllowBind,
 			"allow_unbind": s.cfg.DiscordOAuth.AllowUnbind,

@@ -246,6 +246,132 @@
             padding: 120px 0;
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
         }
+        /* Dark Mode Styles */
+        [data-theme="dark"] .recharge-tabs-section {
+            background: linear-gradient(180deg, var(--section-bg, #1a1a2e) 0%, var(--body-bg, #16213e) 100%);
+        }
+        [data-theme="dark"] .recharge-nav-tabs {
+            background: var(--card-bg, #1e1e2f);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        [data-theme="dark"] .recharge-nav-tabs .nav-link {
+            color: var(--text-muted, #a0a0a0);
+        }
+        [data-theme="dark"] .recharge-nav-tabs .nav-link:hover {
+            color: var(--text-color, #e0e0e0);
+            background: rgba(255,255,255,0.05);
+        }
+        [data-theme="dark"] .tab-content-card {
+            background: var(--card-bg, #1e1e2f);
+            border-color: var(--border-color, rgba(255,255,255,0.1));
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        [data-theme="dark"] .gift-card-input {
+            background: var(--input-bg, #2a2a3e);
+            border-color: var(--border-color, rgba(255,255,255,0.1));
+            color: var(--text-color, #e0e0e0);
+        }
+        [data-theme="dark"] .gift-card-input:focus {
+            border-color: #9b59b6;
+            box-shadow: 0 0 0 4px rgba(155,89,182,0.25);
+        }
+        [data-theme="dark"] .recharge-amount-card {
+            background: var(--card-bg, #1e1e2f);
+            border-color: var(--border-color, rgba(255,255,255,0.1));
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+        }
+        [data-theme="dark"] .recharge-amount-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        }
+        [data-theme="dark"] .recharge-amount-card .amount {
+            color: var(--text-color, #e0e0e0);
+        }
+        [data-theme="dark"] .payment-modal .modal-content {
+            background: var(--card-bg, #1e1e2f);
+            color: var(--text-color, #e0e0e0);
+        }
+        [data-theme="dark"] .payment-info {
+            background: var(--section-bg, #1a1a2e);
+        }
+        [data-theme="dark"] .payment-method {
+            background: var(--card-bg, #1e1e2f);
+            border-color: var(--border-color, rgba(255,255,255,0.1));
+            color: var(--text-color, #e0e0e0);
+        }
+        [data-theme="dark"] .payment-method:hover,
+        [data-theme="dark"] .payment-method.selected {
+            border-color: #667eea;
+        }
+        [data-theme="dark"] .payment-method.selected {
+            background: linear-gradient(135deg, rgba(102,126,234,0.2) 0%, rgba(118,75,162,0.2) 100%);
+        }
+        [data-theme="dark"] .not-logged-in-section {
+            background: linear-gradient(135deg, var(--section-bg, #1a1a2e) 0%, var(--body-bg, #16213e) 100%);
+        }
+        [data-theme="dark"] .custom-amount-input {
+            background: var(--input-bg, #2a2a3e);
+            border-color: var(--border-color, rgba(255,255,255,0.1));
+            color: var(--text-color, #e0e0e0);
+        }
+        [data-theme="dark"] .text-muted {
+            color: var(--text-muted, #a0a0a0) !important;
+        }
+        /* Mobile Bottom Toolbar */
+        .mobile-toolbar {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--card-bg, #ffffff);
+            border-top: 1px solid var(--border-color, #e0e0e0);
+            padding: 8px 0;
+            z-index: 1030;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+        }
+        @media (max-width: 768px) {
+            .mobile-toolbar.enabled {
+                display: block;
+            }
+            body.has-mobile-toolbar {
+                padding-bottom: 70px;
+            }
+        }
+        .mobile-toolbar-items {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+        .mobile-toolbar-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: var(--text-muted, #666);
+            font-size: 0.75rem;
+            padding: 4px 12px;
+            transition: color 0.2s;
+        }
+        .mobile-toolbar-item i {
+            font-size: 1.3rem;
+            margin-bottom: 2px;
+        }
+        .mobile-toolbar-item:hover,
+        .mobile-toolbar-item.active {
+            color: var(--primary-color, #667eea);
+        }
+        [data-theme="dark"] .mobile-toolbar {
+            background: var(--card-bg, #1e1e2f);
+            border-color: var(--border-color, rgba(255,255,255,0.1));
+        }
+        [data-theme="dark"] .mobile-toolbar-item {
+            color: var(--text-muted, #a0a0a0);
+        }
+        [data-theme="dark"] .mobile-toolbar-item:hover,
+        [data-theme="dark"] .mobile-toolbar-item.active {
+            color: var(--primary-color, #667eea);
+        }
     </style>
     {{if .custom.GlobalCSS}}<style>{{.custom.GlobalCSS}}</style>{{end}}
 </head>
@@ -485,6 +611,13 @@
     </section>
     {{end}}
 
+    <!-- Mobile Bottom Toolbar -->
+    <nav class="mobile-toolbar" id="mobile-toolbar">
+        <div class="mobile-toolbar-items" id="mobile-toolbar-items">
+            <!-- Items will be loaded dynamically -->
+        </div>
+    </nav>
+
     <!-- Footer -->
     <footer class="footer py-4 bg-dark text-white">
         <div class="container text-center">
@@ -495,6 +628,7 @@
     <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
     <script src="/static/js/app.js"></script>
     <script>
+        const currentLang = "{{.lang}}";
         let selectedRechargeAmount = 0;
         let paymentMethod = 'alipay';
 
@@ -550,10 +684,48 @@
 
         document.addEventListener('DOMContentLoaded', function() {
             loadSiteSettings();
+            loadMobileToolbar();
             renderRechargeAmounts();
             setupPaymentMethods();
             setupGiftCardInput();
         });
+
+        async function loadMobileToolbar() {
+            try {
+                const response = await fetch('/api/mobile-toolbar');
+                const result = await response.json();
+                if (result.success && result.enabled) {
+                    renderMobileToolbar(result.data);
+                }
+            } catch (error) {
+                console.error('Failed to load mobile toolbar:', error);
+            }
+        }
+
+        function renderMobileToolbar(items) {
+            const toolbar = document.getElementById('mobile-toolbar');
+            const container = document.getElementById('mobile-toolbar-items');
+            if (!toolbar || !container || !items || items.length === 0) return;
+
+            toolbar.classList.add('enabled');
+            document.body.classList.add('has-mobile-toolbar');
+
+            const sortedItems = [...items].sort((a, b) => a.order - b.order);
+            const currentPath = window.location.pathname;
+
+            container.innerHTML = sortedItems.map(item => {
+                const title = (item.title_i18n && item.title_i18n[currentLang]) || item.title;
+                const isActive = currentPath === item.url || (item.url !== '/' && currentPath.startsWith(item.url));
+                const activeClass = isActive ? 'active' : '';
+                const safeIcon = item.icon || 'bi-link';
+                const safeUrl = item.url || '#';
+                
+                return `<a href="${safeUrl}" class="mobile-toolbar-item ${activeClass}">
+                    <i class="${safeIcon}"></i>
+                    <span>${title}</span>
+                </a>`;
+            }).join('');
+        }
 
         async function loadSiteSettings() {
             try {

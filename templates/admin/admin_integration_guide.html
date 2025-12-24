@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>[开发] 接入指南 - {{.config.Site.Title}} 管理后台</title>
+    <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="/static/css/admin.css" rel="stylesheet">
+    <style>
+        pre {
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+        pre code {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        .code-comment { color: #6a9955; }
+        .code-string { color: #ce9178; }
+        .code-keyword { color: #569cd6; }
+        .code-function { color: #dcdcaa; }
+        .step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            background-color: #0d6efd;
+            color: white;
+            border-radius: 50%;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-wrapper">
+        {{template "admin_sidebar" .}}
+
+        <!-- Main Content -->
+        <main class="admin-main">
+            <header class="admin-header">
+                <h1 class="page-title"><i class="bi bi-code-square me-2"></i>[开发] 其他系统接入本系统登录指南</h1>
+            </header>
+
+            <div class="admin-content">
+                <!-- Introduction -->
+                <div class="alert alert-info mb-4">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>简介：</strong> 本指南介绍如何让您的其他网站或应用使用本系统（{{.config.Site.Title}}）作为统一登录入口。
+                    用户点击"使用 {{.config.Site.Title}} 登录"按钮后，将跳转到本系统进行身份验证，验证成功后返回您的网站并携带用户信息。
+                </div>
+
+                <!-- Overview Card -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>接入流程概述</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-md-3 mb-3">
+                                <div class="p-3 border rounded">
+                                    <i class="bi bi-1-circle-fill text-primary fs-2"></i>
+                                    <p class="mt-2 mb-0">用户点击<br/>"使用 {{.config.Site.Title}} 登录"</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="p-3 border rounded">
+                                    <i class="bi bi-2-circle-fill text-primary fs-2"></i>
+                                    <p class="mt-2 mb-0">跳转到本系统<br/>进行登录认证</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="p-3 border rounded">
+                                    <i class="bi bi-3-circle-fill text-primary fs-2"></i>
+                                    <p class="mt-2 mb-0">登录成功后<br/>带签名回调您的网站</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="p-3 border rounded">
+                                    <i class="bi bi-4-circle-fill text-primary fs-2"></i>
+                                    <p class="mt-2 mb-0">您的网站验证签名<br/>并完成登录</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Prerequisites -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-check2-square me-2"></i>准备工作</h5>
+                    </div>
+                    <div class="card-body">
+                        <ol>
+                            <li class="mb-2">在 <a href="/admin/api-tokens">API令牌管理</a> 页面创建一个API令牌（需要所有权限或至少包含 user 权限）</li>
+                            <li class="mb-2">记录下生成的API令牌，用于后续验证签名</li>
+                            <li class="mb-2">确保您的网站可以接收GET请求的回调，并能处理URL查询参数（user_id, username, timestamp, signature）</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <!-- Python Example -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-filetype-py me-2"></i>Python 示例代码 (Flask)</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted mb-3">以下是使用 Python Flask 框架接入本系统登录的完整示例：</p>
+
+                        <h6><span class="step-number">1</span>安装依赖</h6>
+<pre><code>pip install flask requests</code></pre>
+
+                        <h6 class="mt-4"><span class="step-number">2</span>完整示例代码</h6>
+<pre><code><span class="code-comment"># app.py - 使用 {{.config.Site.Title}} 登录的示例</span>
+<span class="code-keyword">import</span> os
+<span class="code-keyword">from</span> flask <span class="code-keyword">import</span> Flask, redirect, request, session, jsonify
+<span class="code-keyword">import</span> requests
+<span class="code-keyword">import</span> urllib.parse
+
+app = Flask(__name__)
+app.secret_key = os.environ.get(<span class="code-string">'SECRET_KEY'</span>, <span class="code-string">'change-this-to-a-secure-random-key'</span>)
+
+<span class="code-comment"># ========== 配置信息（建议使用环境变量）==========</span>
+LOGIN_SERVICE_URL = os.environ.get(<span class="code-string">'LOGIN_SERVICE_URL'</span>, <span class="code-string">'{{.baseURL}}'</span>)
+API_TOKEN = os.environ.get(<span class="code-string">'API_TOKEN'</span>)  <span class="code-comment"># 从API令牌管理页面获取</span>
+CALLBACK_URL = os.environ.get(<span class="code-string">'CALLBACK_URL'</span>, <span class="code-string">'http://your-site.com/callback'</span>)
+
+<span class="code-comment"># ========== 步骤1: 跳转到登录系统 ==========</span>
+@app.<span class="code-function">route</span>(<span class="code-string">'/login'</span>)
+<span class="code-keyword">def</span> <span class="code-function">login</span>():
+    <span class="code-comment"># 构建登录URL，将用户重定向到登录系统</span>
+    callback = urllib.parse.quote(CALLBACK_URL, safe=<span class="code-string">''</span>)
+    login_url = f<span class="code-string">'{LOGIN_SERVICE_URL}/auth/login?callback={callback}'</span>
+    <span class="code-keyword">return</span> redirect(login_url)
+
+<span class="code-comment"># ========== 步骤2: 处理登录回调 ==========</span>
+@app.<span class="code-function">route</span>(<span class="code-string">'/callback'</span>)
+<span class="code-keyword">def</span> <span class="code-function">callback</span>():
+    <span class="code-comment"># 从URL参数获取签名信息</span>
+    user_id = request.args.get(<span class="code-string">'user_id'</span>)
+    username = request.args.get(<span class="code-string">'username'</span>)
+    timestamp = request.args.get(<span class="code-string">'timestamp'</span>)
+    signature = request.args.get(<span class="code-string">'signature'</span>)
+    
+    <span class="code-keyword">if not</span> all([user_id, username, timestamp, signature]):
+        <span class="code-keyword">return</span> <span class="code-string">'登录失败：缺少必要参数'</span>, 400
+    
+    <span class="code-comment"># 步骤3: 验证签名（重要！）</span>
+    verify_url = f<span class="code-string">'{LOGIN_SERVICE_URL}/api/auth/verify-signature'</span>
+    verify_data = {
+        <span class="code-string">'user_id'</span>: user_id,
+        <span class="code-string">'username'</span>: username,
+        <span class="code-string">'timestamp'</span>: timestamp,
+        <span class="code-string">'signature'</span>: signature
+    }
+    
+    <span class="code-keyword">try</span>:
+        response = requests.post(
+            verify_url,
+            json=verify_data,
+            headers={<span class="code-string">'X-API-Key'</span>: API_TOKEN},
+            timeout=10
+        )
+        result = response.json()
+        
+        <span class="code-keyword">if</span> result.get(<span class="code-string">'success'</span>):
+            <span class="code-comment"># 签名验证成功，用户已登录</span>
+            user_data = result.get(<span class="code-string">'data'</span>, {})
+            session[<span class="code-string">'user_id'</span>] = user_data.get(<span class="code-string">'user_id'</span>)
+            session[<span class="code-string">'username'</span>] = user_data.get(<span class="code-string">'username'</span>)
+            session[<span class="code-string">'vip_level'</span>] = user_data.get(<span class="code-string">'vip_level'</span>, 0)
+            <span class="code-keyword">return</span> redirect(<span class="code-string">'/dashboard'</span>)
+        <span class="code-keyword">else</span>:
+            <span class="code-keyword">return</span> f<span class="code-string">'登录失败：{result.get("message", "签名验证失败")}'</span>, 401
+    <span class="code-keyword">except</span> Exception <span class="code-keyword">as</span> e:
+        <span class="code-keyword">return</span> f<span class="code-string">'登录失败：{str(e)}'</span>, 500
+
+<span class="code-comment"># ========== 示例：受保护的页面 ==========</span>
+@app.<span class="code-function">route</span>(<span class="code-string">'/dashboard'</span>)
+<span class="code-keyword">def</span> <span class="code-function">dashboard</span>():
+    <span class="code-keyword">if</span> <span class="code-string">'user_id'</span> <span class="code-keyword">not in</span> session:
+        <span class="code-keyword">return</span> redirect(<span class="code-string">'/login'</span>)
+    <span class="code-keyword">return</span> f<span class="code-string">'欢迎，{session["username"]}！您的VIP等级：{session.get("vip_level", 0)}'</span>
+
+<span class="code-comment"># ========== 登出 ==========</span>
+@app.<span class="code-function">route</span>(<span class="code-string">'/logout'</span>)
+<span class="code-keyword">def</span> <span class="code-function">logout</span>():
+    session.clear()
+    <span class="code-keyword">return</span> redirect(<span class="code-string">'/'</span>)
+
+<span class="code-keyword">if</span> __name__ == <span class="code-string">'__main__'</span>:
+    app.run(debug=<span class="code-keyword">True</span>, port=5000)</code></pre>
+
+                        <h6 class="mt-4"><span class="step-number">3</span>在您的网站添加登录按钮</h6>
+<pre><code><span class="code-comment">&lt;!-- 在您的HTML页面中添加登录按钮 --&gt;</span>
+&lt;a href=<span class="code-string">"/login"</span> class=<span class="code-string">"btn btn-primary"</span>&gt;
+    使用 {{.config.Site.Title}} 登录
+&lt;/a&gt;</code></pre>
+                    </div>
+                </div>
+
+                <!-- API Reference -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-book me-2"></i>API 参考</h5>
+                    </div>
+                    <div class="card-body">
+                        <h6>1. 登录页面 URL</h6>
+                        <p class="text-muted">将用户重定向到此URL进行登录：</p>
+<pre><code>GET {{.baseURL}}/auth/login?callback=YOUR_CALLBACK_URL</code></pre>
+                        <ul class="text-muted mt-2">
+                            <li><code>callback</code> - 登录成功后的回调地址（需要URL编码）</li>
+                        </ul>
+
+                        <h6 class="mt-4">2. 回调参数</h6>
+                        <p class="text-muted">登录成功后，用户将被重定向到您的回调地址，并携带以下参数：</p>
+<pre><code>GET YOUR_CALLBACK_URL?user_id=123&username=testuser&timestamp=1703123456&signature=xxx</code></pre>
+                        <ul class="text-muted mt-2">
+                            <li><code>user_id</code> - 用户ID</li>
+                            <li><code>username</code> - 用户名</li>
+                            <li><code>timestamp</code> - 时间戳（Unix秒）</li>
+                            <li><code>signature</code> - 签名（用于验证）</li>
+                        </ul>
+
+                        <h6 class="mt-4">3. 验证签名 API</h6>
+                        <p class="text-muted">在您的服务器端验证签名的有效性：</p>
+<pre><code>POST {{.baseURL}}/api/auth/verify-signature
+Content-Type: application/json
+X-API-Key: your-api-token
+
+{
+  "user_id": "123",
+  "username": "testuser",
+  "timestamp": "1703123456",
+  "signature": "xxx"
+}</code></pre>
+                        <p class="text-muted mt-2">成功响应：</p>
+<pre><code>{
+  "success": true,
+  "message": "签名验证成功",
+  "data": {
+    "user_id": 123,
+    "username": "testuser",
+    "email": "user@example.com",
+    "vip_level": 1,
+    "vip_expire_at": "2025-12-31T23:59:59Z"
+  }
+}</code></pre>
+                    </div>
+                </div>
+
+                <!-- Security Notes -->
+                <div class="card mb-4">
+                    <div class="card-header bg-warning">
+                        <h5 class="mb-0"><i class="bi bi-shield-exclamation me-2"></i>安全注意事项</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="mb-0">
+                            <li class="mb-2"><strong>必须验证签名：</strong>回调收到的参数可能被伪造，务必在服务器端调用验证签名API确认真实性</li>
+                            <li class="mb-2"><strong>检查时间戳：</strong>签名有效期默认为5分钟，超时的签名会验证失败</li>
+                            <li class="mb-2"><strong>保护API令牌：</strong>API令牌应保存在服务器端，不要暴露给前端，建议使用环境变量或安全的配置管理系统存储</li>
+                            <li class="mb-2"><strong>使用HTTPS：</strong>生产环境请确保所有通信使用HTTPS加密</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Help -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-question-circle me-2"></i>需要帮助？</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-2">如需更多帮助，请参考：</p>
+                        <ul class="mb-0">
+                            <li><a href="/admin/api-tokens">API令牌管理</a> - 创建和管理API令牌</li>
+                            <li><a href="/swagger/index.html" target="_blank">API文档 (Swagger)</a> - 完整的API参考文档</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+</body>
+</html>

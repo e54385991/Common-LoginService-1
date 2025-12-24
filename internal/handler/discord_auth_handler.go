@@ -22,29 +22,47 @@ type DiscordAuthHandler struct {
 }
 
 // DiscordEndpoint is the OAuth2 endpoint for Discord
+// AuthStyleInParams is required because Discord requires client_id and client_secret
+// to be sent in the POST body, not as HTTP Basic Auth header.
 var DiscordEndpoint = oauth2.Endpoint{
-	AuthURL:  "https://discord.com/api/oauth2/authorize",
-	TokenURL: "https://discord.com/api/oauth2/token",
+	AuthURL:   "https://discord.com/api/oauth2/authorize",
+	TokenURL:  "https://discord.com/api/oauth2/token",
+	AuthStyle: oauth2.AuthStyleInParams,
 }
 
 // NewDiscordAuthHandler creates a new DiscordAuthHandler
 func NewDiscordAuthHandler(authService *service.AuthService, cfg *config.Config) *DiscordAuthHandler {
-	var oauthConfig *oauth2.Config
-	if cfg.DiscordOAuth.Enabled {
-		oauthConfig = &oauth2.Config{
-			ClientID:     cfg.DiscordOAuth.ClientID,
-			ClientSecret: cfg.DiscordOAuth.ClientSecret,
-			RedirectURL:  cfg.DiscordOAuth.RedirectURL,
-			Scopes:       []string{"identify", "email"},
-			Endpoint:     DiscordEndpoint,
-		}
-	}
-
 	return &DiscordAuthHandler{
 		authService: authService,
 		cfg:         cfg,
-		oauthConfig: oauthConfig,
+		oauthConfig: nil, // Will be initialized on first use if Discord is enabled
 	}
+}
+
+// getOAuthConfig returns the OAuth config, creating it if necessary
+// This allows Discord OAuth to work even if it was enabled after server start
+func (h *DiscordAuthHandler) getOAuthConfig() *oauth2.Config {
+	// If config exists and matches current settings, return it
+	if h.oauthConfig != nil &&
+		h.oauthConfig.ClientID == h.cfg.DiscordOAuth.ClientID &&
+		h.oauthConfig.ClientSecret == h.cfg.DiscordOAuth.ClientSecret &&
+		h.oauthConfig.RedirectURL == h.cfg.DiscordOAuth.RedirectURL {
+		return h.oauthConfig
+	}
+
+	// Create new config if Discord is enabled
+	if h.cfg.DiscordOAuth.Enabled && h.cfg.DiscordOAuth.ClientID != "" && h.cfg.DiscordOAuth.ClientSecret != "" {
+		h.oauthConfig = &oauth2.Config{
+			ClientID:     h.cfg.DiscordOAuth.ClientID,
+			ClientSecret: h.cfg.DiscordOAuth.ClientSecret,
+			RedirectURL:  h.cfg.DiscordOAuth.RedirectURL,
+			Scopes:       []string{"identify", "email"},
+			Endpoint:     DiscordEndpoint,
+		}
+		return h.oauthConfig
+	}
+
+	return nil
 }
 
 // DiscordUserInfo represents user info from Discord
@@ -81,7 +99,8 @@ func generateState() (string, error) {
 // @Failure 400 {object} Response "Discord login not enabled"
 // @Router /auth/discord/login [get]
 func (h *DiscordAuthHandler) DiscordLogin(c *gin.Context) {
-	if !h.cfg.DiscordOAuth.Enabled || h.oauthConfig == nil {
+	oauthConfig := h.getOAuthConfig()
+	if !h.cfg.DiscordOAuth.Enabled || oauthConfig == nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
 			"message": "Discord 登录未启用",
@@ -102,7 +121,7 @@ func (h *DiscordAuthHandler) DiscordLogin(c *gin.Context) {
 	// Store state in cookie for verification in callback
 	c.SetCookie("discord_oauth_state", state, 600, "/", "", isSecureRequest(c), true)
 
-	url := h.oauthConfig.AuthCodeURL(state, oauth2.AccessTypeOnline)
+	url := oauthConfig.AuthCodeURL(state, oauth2.AccessTypeOnline)
 	c.Redirect(http.StatusTemporaryRedirect, url)
 }
 
@@ -117,7 +136,8 @@ func (h *DiscordAuthHandler) DiscordLogin(c *gin.Context) {
 // @Failure 400 {object} Response "Discord login not enabled"
 // @Router /auth/discord/callback [get]
 func (h *DiscordAuthHandler) DiscordCallback(c *gin.Context) {
-	if !h.cfg.DiscordOAuth.Enabled || h.oauthConfig == nil {
+	oauthConfig := h.getOAuthConfig()
+	if !h.cfg.DiscordOAuth.Enabled || oauthConfig == nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
 			"message": "Discord 登录未启用",
@@ -129,7 +149,7 @@ func (h *DiscordAuthHandler) DiscordCallback(c *gin.Context) {
 	state := c.Query("state")
 	storedState, err := c.Cookie("discord_oauth_state")
 	if err != nil || state == "" || state != storedState {
-		c.Redirect(http.StatusFound, "/auth/login?error=discord_auth_failed")
+		c.Redirect(http.StatusFound, "/auth/login?error=discord_state_invalid")
 		return
 	}
 	// Clear the state cookie
@@ -143,21 +163,21 @@ func (h *DiscordAuthHandler) DiscordCallback(c *gin.Context) {
 
 	code := c.Query("code")
 	if code == "" {
-		c.Redirect(http.StatusFound, "/auth/login?error=discord_auth_failed")
+		c.Redirect(http.StatusFound, "/auth/login?error=discord_code_missing")
 		return
 	}
 
 	// Exchange code for token
-	token, err := h.oauthConfig.Exchange(context.Background(), code)
+	token, err := oauthConfig.Exchange(context.Background(), code)
 	if err != nil {
-		c.Redirect(http.StatusFound, "/auth/login?error=discord_auth_failed")
+		c.Redirect(http.StatusFound, "/auth/login?error=discord_token_exchange_failed")
 		return
 	}
 
 	// Get user info from Discord API
 	userInfo, err := h.getDiscordUserInfo(token.AccessToken)
 	if err != nil {
-		c.Redirect(http.StatusFound, "/auth/login?error=discord_auth_failed")
+		c.Redirect(http.StatusFound, "/auth/login?error=discord_userinfo_failed")
 		return
 	}
 
@@ -190,6 +210,12 @@ func (h *DiscordAuthHandler) DiscordCallback(c *gin.Context) {
 // This is called when the state parameter starts with "bind_", indicating a bind flow
 // that was redirected to the login callback URL due to shared redirect URL
 func (h *DiscordAuthHandler) handleBindCallback(c *gin.Context) {
+	// Check if Discord OAuth is enabled
+	if !h.cfg.DiscordOAuth.Enabled {
+		c.Redirect(http.StatusFound, "/profile?error=discord_bind_failed")
+		return
+	}
+
 	// Get user ID from JWT token in cookie (user must be logged in)
 	tokenString, err := c.Cookie("token")
 	if err != nil || tokenString == "" {
@@ -210,8 +236,19 @@ func (h *DiscordAuthHandler) handleBindCallback(c *gin.Context) {
 		return
 	}
 
+	// For bind flow that comes through login callback, the redirect URL is the login callback URL
+	// This is because when BindRedirectURL is empty, it falls back to RedirectURL,
+	// which means Discord redirects to the login callback URL
+	bindOauthConfig := &oauth2.Config{
+		ClientID:     h.cfg.DiscordOAuth.ClientID,
+		ClientSecret: h.cfg.DiscordOAuth.ClientSecret,
+		RedirectURL:  h.cfg.DiscordOAuth.RedirectURL, // Use login redirect URL since bind flow came through login callback
+		Scopes:       []string{"identify", "email"},
+		Endpoint:     DiscordEndpoint,
+	}
+
 	// Exchange code for token
-	token, err := h.oauthConfig.Exchange(context.Background(), code)
+	token, err := bindOauthConfig.Exchange(context.Background(), code)
 	if err != nil {
 		c.Redirect(http.StatusFound, "/profile?error=discord_bind_failed")
 		return
@@ -349,7 +386,8 @@ func (h *DiscordAuthHandler) getDiscordUserInfo(accessToken string) (*DiscordUse
 // @Failure 400 {object} Response "Discord bind not enabled"
 // @Router /auth/discord/bind [get]
 func (h *DiscordAuthHandler) DiscordBindLogin(c *gin.Context) {
-	if !h.cfg.DiscordOAuth.Enabled || h.oauthConfig == nil {
+	oauthConfig := h.getOAuthConfig()
+	if !h.cfg.DiscordOAuth.Enabled || oauthConfig == nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
 			"message": "Discord 登录未启用",
@@ -406,7 +444,8 @@ func (h *DiscordAuthHandler) DiscordBindLogin(c *gin.Context) {
 // @Failure 400 {object} Response "Discord login not enabled"
 // @Router /auth/discord/bind/callback [get]
 func (h *DiscordAuthHandler) DiscordBindCallback(c *gin.Context) {
-	if !h.cfg.DiscordOAuth.Enabled || h.oauthConfig == nil {
+	oauthConfig := h.getOAuthConfig()
+	if !h.cfg.DiscordOAuth.Enabled || oauthConfig == nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
 			"message": "Discord 登录未启用",

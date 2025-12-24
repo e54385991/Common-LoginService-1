@@ -48,7 +48,7 @@ func (r *LoginLogRepository) GetLastFailedAttemptTime(ip string) (*time.Time, er
 }
 
 // List returns login logs with pagination and optional filters
-func (r *LoginLogRepository) List(page, pageSize int, ip string, success *bool, username string) ([]model.LoginLog, int64, error) {
+func (r *LoginLogRepository) List(page, pageSize int, ip string, success *bool, username string, userID *uint) ([]model.LoginLog, int64, error) {
 	var logs []model.LoginLog
 	var total int64
 
@@ -63,6 +63,9 @@ func (r *LoginLogRepository) List(page, pageSize int, ip string, success *bool, 
 	}
 	if username != "" {
 		query = query.Where("username LIKE ?", "%"+username+"%")
+	}
+	if userID != nil {
+		query = query.Where("user_id = ?", *userID)
 	}
 
 	// Count total

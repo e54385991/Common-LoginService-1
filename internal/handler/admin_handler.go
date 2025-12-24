@@ -56,6 +56,12 @@ type SetUserVIPLevelRequest struct {
 	VIPLevel int `json:"vip_level" example:"3"`
 }
 
+// RenewUserVIPRequest represents user VIP renewal request
+type RenewUserVIPRequest struct {
+	VIPLevel     int `json:"vip_level" example:"3"`      // VIP level to set (0 means keep current level)
+	DurationDays int `json:"duration_days" example:"30"` // Duration to add in days (0 means permanent)
+}
+
 // SetUserStatusRequest represents user status set request
 type SetUserStatusRequest struct {
 	IsActive bool `json:"is_active" example:"true"`
@@ -263,6 +269,21 @@ func (h *AdminHandler) AdminUsers(c *gin.Context) {
 	c.HTML(http.StatusOK, "admin_users.html", gin.H{
 		"lang":       lang,
 		"activeMenu": "users",
+	})
+}
+
+// AdminIntegrationGuide renders the integration guide page for external systems
+func (h *AdminHandler) AdminIntegrationGuide(c *gin.Context) {
+	lang := c.GetString("lang")
+	
+	// Get base URL from config or request
+	baseURL := utils.GetBaseURL(c, h.cfg.Site.BaseURL)
+	
+	c.HTML(http.StatusOK, "admin_integration_guide.html", gin.H{
+		"lang":       lang,
+		"config":     h.cfg,
+		"baseURL":    baseURL,
+		"activeMenu": "integration-guide",
 	})
 }
 
@@ -659,6 +680,10 @@ func (h *AdminHandler) GetAccessSettings(c *gin.Context) {
 			"allow_email_login":            h.cfg.Access.AllowEmailLogin,
 			"allow_username_login":         h.cfg.Access.AllowUsernameLogin,
 			"require_email_verification":   h.cfg.Access.RequireEmailVerification,
+			"password_min_length":          h.cfg.Access.PasswordMinLength,
+			"password_require_letter":      h.cfg.Access.PasswordRequireLetter,
+			"password_require_number":      h.cfg.Access.PasswordRequireNumber,
+			"password_require_special":     h.cfg.Access.PasswordRequireSpecial,
 		},
 	})
 }
@@ -686,6 +711,10 @@ func (h *AdminHandler) UpdateAccessSettings(c *gin.Context) {
 		AllowEmailLogin            bool   `json:"allow_email_login"`
 		AllowUsernameLogin         bool   `json:"allow_username_login"`
 		RequireEmailVerification   bool   `json:"require_email_verification"`
+		PasswordMinLength          *int   `json:"password_min_length"`
+		PasswordRequireLetter      *bool  `json:"password_require_letter"`
+		PasswordRequireNumber      *bool  `json:"password_require_number"`
+		PasswordRequireSpecial     *bool  `json:"password_require_special"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -712,6 +741,27 @@ func (h *AdminHandler) UpdateAccessSettings(c *gin.Context) {
 	h.cfg.Access.AllowEmailLogin = input.AllowEmailLogin
 	h.cfg.Access.AllowUsernameLogin = input.AllowUsernameLogin
 	h.cfg.Access.RequireEmailVerification = input.RequireEmailVerification
+	
+	// Update password complexity settings if provided
+	if input.PasswordMinLength != nil {
+		minLen := *input.PasswordMinLength
+		if minLen < 1 {
+			minLen = 6
+		}
+		if minLen > 128 {
+			minLen = 128
+		}
+		h.cfg.Access.PasswordMinLength = minLen
+	}
+	if input.PasswordRequireLetter != nil {
+		h.cfg.Access.PasswordRequireLetter = *input.PasswordRequireLetter
+	}
+	if input.PasswordRequireNumber != nil {
+		h.cfg.Access.PasswordRequireNumber = *input.PasswordRequireNumber
+	}
+	if input.PasswordRequireSpecial != nil {
+		h.cfg.Access.PasswordRequireSpecial = *input.PasswordRequireSpecial
+	}
 
 	// Save to file
 	if err := config.Save("config.json"); err != nil {
@@ -1218,6 +1268,75 @@ func (h *AdminHandler) SetUserVIPExpireAt(c *gin.Context) {
 	})
 }
 
+// RenewUserVIP renews/extends a user's VIP membership
+// @Summary Renew user VIP
+// @Description Renew/extend a user's VIP membership. If the user has active VIP, the duration is added to the current expiration. Otherwise, it starts from now.
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "User ID"
+// @Param request body RenewUserVIPRequest true "VIP renewal request"
+// @Success 200 {object} handler.Response "VIP renewed"
+// @Failure 400 {object} handler.Response "Bad request"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Failure 404 {object} handler.Response "User not found"
+// @Router /admin/users/{id}/vip-renew [post]
+func (h *AdminHandler) RenewUserVIP(c *gin.Context) {
+	idStr := c.Param("id")
+	var id uint
+	if _, err := parseUint(idStr, &id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "无效的用户ID",
+		})
+		return
+	}
+
+	var input struct {
+		VIPLevel     int `json:"vip_level"`
+		DurationDays int `json:"duration_days"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	if input.VIPLevel < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "VIP等级不能为负数",
+		})
+		return
+	}
+
+	if input.DurationDays < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "续期天数不能为负数",
+		})
+		return
+	}
+
+	user, err := h.userRepo.RenewVIPLevel(id, input.VIPLevel, input.DurationDays)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"success": false,
+			"message": "用户不存在或更新失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "VIP续期成功",
+		"data":    user,
+	})
+}
+
 // SetUserStatus sets a user's active status
 // @Summary Set user status
 // @Description Enable or disable a user account
@@ -1395,10 +1514,12 @@ func parseUint(s string, result *uint) (bool, error) {
 
 // UpdateSiteSettingsRequest represents site settings update request
 type UpdateSiteSettingsRequest struct {
-	Title       string `json:"title" example:"Common Login Service"`
-	Description string `json:"description" example:"统一身份认证服务"`
-	Logo        string `json:"logo" example:"https://example.com/logo.png"`
-	DarkMode    string `json:"dark_mode" example:"system"` // Dark mode setting: "system", "dark", "light"
+	Title                 string `json:"title" example:"Common Login Service"`
+	Description           string `json:"description" example:"统一身份认证服务"`
+	Logo                  string `json:"logo" example:"https://example.com/logo.png"`
+	DarkMode              string `json:"dark_mode" example:"system"`               // Dark mode setting: "system", "dark", "light"
+	RedirectHomeToProfile bool   `json:"redirect_home_to_profile" example:"false"` // When enabled, redirect logged-in users from homepage to /profile
+	BaseURL               string `json:"base_url" example:"https://user.yuelk.com"` // Forced site base URL (overrides auto-detected URL)
 }
 
 // UpdatePaymentSettingsRequest represents payment settings update request
@@ -1448,6 +1569,16 @@ func (h *AdminHandler) AdminProfileNavigation(c *gin.Context) {
 	})
 }
 
+// AdminMobileToolbar renders the admin mobile toolbar settings page
+func (h *AdminHandler) AdminMobileToolbar(c *gin.Context) {
+	lang := c.GetString("lang")
+	c.HTML(http.StatusOK, "admin_mobile_toolbar.html", gin.H{
+		"lang":       lang,
+		"config":     h.cfg,
+		"activeMenu": "mobile-toolbar",
+	})
+}
+
 // GetSiteSettings returns site settings
 // @Summary Get site settings
 // @Description Get current site configuration
@@ -1462,9 +1593,11 @@ func (h *AdminHandler) GetSiteSettings(c *gin.Context) {
 		"success": true,
 		"data": gin.H{
 			"title":       h.cfg.Site.Title,
+			"title_i18n":  h.cfg.Site.TitleI18n,
 			"description": h.cfg.Site.Description,
 			"logo":        h.cfg.Site.Logo,
 			"dark_mode":   h.cfg.Site.DarkMode,
+			"base_url":    h.cfg.Site.BaseURL,
 		},
 	})
 }
@@ -1484,10 +1617,13 @@ func (h *AdminHandler) GetSiteSettings(c *gin.Context) {
 // @Router /admin/settings/site [put]
 func (h *AdminHandler) UpdateSiteSettings(c *gin.Context) {
 	var input struct {
-		Title       string `json:"title"`
-		Description string `json:"description"`
-		Logo        string `json:"logo"`
-		DarkMode    string `json:"dark_mode"`
+		Title                 string            `json:"title"`
+		TitleI18n             map[string]string `json:"title_i18n"`
+		Description           string            `json:"description"`
+		Logo                  string            `json:"logo"`
+		DarkMode              string            `json:"dark_mode"`
+		RedirectHomeToProfile *bool             `json:"redirect_home_to_profile"`
+		BaseURL               *string           `json:"base_url"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -1506,11 +1642,33 @@ func (h *AdminHandler) UpdateSiteSettings(c *gin.Context) {
 		return
 	}
 
+	// Validate base_url format if provided
+	if input.BaseURL != nil && *input.BaseURL != "" {
+		baseURL := strings.TrimSuffix(*input.BaseURL, "/")
+		if !strings.HasPrefix(baseURL, "http://") && !strings.HasPrefix(baseURL, "https://") {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "站点URL格式无效，必须以 http:// 或 https:// 开头",
+			})
+			return
+		}
+	}
+
 	h.cfg.Site.Title = input.Title
+	if input.TitleI18n != nil {
+		h.cfg.Site.TitleI18n = input.TitleI18n
+	}
 	h.cfg.Site.Description = input.Description
 	h.cfg.Site.Logo = input.Logo
 	if input.DarkMode != "" {
 		h.cfg.Site.DarkMode = input.DarkMode
+	}
+	if input.RedirectHomeToProfile != nil {
+		h.cfg.Site.RedirectHomeToProfile = *input.RedirectHomeToProfile
+	}
+	if input.BaseURL != nil {
+		// Remove trailing slash for consistency
+		h.cfg.Site.BaseURL = strings.TrimSuffix(*input.BaseURL, "/")
 	}
 
 	if err := config.Save("config.json"); err != nil {
@@ -1770,6 +1928,93 @@ func (h *AdminHandler) GetPublicProfileNavigation(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
+		"data":    visibleItems,
+	})
+}
+
+// ==================== Mobile Toolbar Settings ====================
+
+// GetMobileToolbar returns mobile toolbar settings
+// @Summary Get mobile toolbar settings
+// @Description Get mobile bottom toolbar configuration
+// @Tags admin
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} handler.Response "Mobile toolbar settings retrieved"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Router /admin/settings/mobile-toolbar [get]
+func (h *AdminHandler) GetMobileToolbar(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    h.cfg.MobileToolbar,
+	})
+}
+
+// UpdateMobileToolbar updates mobile toolbar settings
+// @Summary Update mobile toolbar settings
+// @Description Update mobile bottom toolbar configuration
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body config.MobileToolbarConfig true "Mobile toolbar settings"
+// @Success 200 {object} handler.Response "Mobile toolbar settings updated"
+// @Failure 400 {object} handler.Response "Bad request"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Failure 500 {object} handler.Response "Failed to save settings"
+// @Router /admin/settings/mobile-toolbar [put]
+func (h *AdminHandler) UpdateMobileToolbar(c *gin.Context) {
+	var input config.MobileToolbarConfig
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	h.cfg.MobileToolbar = input
+
+	if err := config.Save("config.json"); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "保存配置失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "移动工具栏设置已更新",
+	})
+}
+
+// GetPublicMobileToolbar returns mobile toolbar for public access
+// @Summary Get public mobile toolbar
+// @Description Get mobile toolbar configuration for frontend display
+// @Tags public
+// @Produce json
+// @Success 200 {object} handler.Response "Mobile toolbar retrieved"
+// @Router /mobile-toolbar [get]
+func (h *AdminHandler) GetPublicMobileToolbar(c *gin.Context) {
+	if !h.cfg.MobileToolbar.Enabled {
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"enabled": false,
+			"data":    []config.MobileNavItem{},
+		})
+		return
+	}
+	// Only return visible items, sorted by order
+	var visibleItems []config.MobileNavItem
+	for _, item := range h.cfg.MobileToolbar.Items {
+		if item.Visible {
+			visibleItems = append(visibleItems, item)
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"enabled": true,
 		"data":    visibleItems,
 	})
 }
@@ -3203,6 +3448,59 @@ func (h *AdminHandler) UpdateLoginProtectionSettings(c *gin.Context) {
 	})
 }
 
+// UpdateRegistrationProtectionSettings updates registration rate limiting settings
+// @Summary Update registration rate limiting settings
+// @Description Update registration protection configuration (IP-based rate limiting)
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} handler.Response "Settings updated"
+// @Failure 400 {object} handler.Response "Bad request"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Failure 500 {object} handler.Response "Failed to save settings"
+// @Router /admin/settings/registration-protection [put]
+func (h *AdminHandler) UpdateRegistrationProtectionSettings(c *gin.Context) {
+	var input struct {
+		Enabled          bool `json:"enabled"`
+		MaxRegistrations int  `json:"max_registrations"`
+		WindowSeconds    int  `json:"window_seconds"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	// Validate input
+	if input.MaxRegistrations < 1 {
+		input.MaxRegistrations = 1
+	}
+	if input.WindowSeconds < 1 {
+		input.WindowSeconds = 1
+	}
+
+	h.cfg.RegistrationProtection.Enabled = input.Enabled
+	h.cfg.RegistrationProtection.MaxRegistrations = input.MaxRegistrations
+	h.cfg.RegistrationProtection.WindowSeconds = input.WindowSeconds
+
+	// Save to file
+	if err := config.Save("config.json"); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "保存配置失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "注册限制设置已更新",
+	})
+}
+
 // ==================== Login Logs ====================
 
 // AdminLoginLogs renders the admin login logs page
@@ -3226,6 +3524,7 @@ func (h *AdminHandler) AdminLoginLogs(c *gin.Context) {
 // @Param ip query string false "Filter by IP address"
 // @Param success query string false "Filter by success status (true/false)"
 // @Param username query string false "Filter by username"
+// @Param user_id query int false "Filter by user ID"
 // @Success 200 {object} handler.Response "Login logs retrieved"
 // @Failure 401 {object} handler.Response "Unauthorized"
 // @Router /admin/login-logs [get]
@@ -3266,7 +3565,15 @@ func (h *AdminHandler) ListLoginLogs(c *gin.Context) {
 		success = &val
 	}
 
-	logs, total, err := h.loginLogRepo.List(page, pageSize, ip, success, username)
+	var userID *uint
+	if uid := c.Query("user_id"); uid != "" {
+		var id uint
+		if _, err := parseUint(uid, &id); err == nil {
+			userID = &id
+		}
+	}
+
+	logs, total, err := h.loginLogRepo.List(page, pageSize, ip, success, username, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,

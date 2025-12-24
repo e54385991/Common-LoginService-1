@@ -75,13 +75,16 @@
                             </div>
                             <div class="col-md-8">
                                 <div class="row g-2">
-                                    <div class="col-md-3">
+                                    <div class="col-md-2">
                                         <input type="text" class="form-control form-control-sm" id="filterIP" placeholder="IP地址">
                                     </div>
                                     <div class="col-md-3">
                                         <input type="text" class="form-control form-control-sm" id="filterUsername" placeholder="用户名/邮箱">
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-md-2">
+                                        <input type="text" class="form-control form-control-sm" id="filterUserID" placeholder="用户ID">
+                                    </div>
+                                    <div class="col-md-2">
                                         <select class="form-select form-select-sm" id="filterSuccess">
                                             <option value="">全部状态</option>
                                             <option value="true">成功</option>
@@ -249,11 +252,13 @@
             currentPage = page;
             const ip = document.getElementById('filterIP').value;
             const username = document.getElementById('filterUsername').value;
+            const userID = document.getElementById('filterUserID').value;
             const success = document.getElementById('filterSuccess').value;
 
             let url = `/api/admin/login-logs?page=${page}&page_size=${pageSize}`;
             if (ip) url += `&ip=${encodeURIComponent(ip)}`;
             if (username) url += `&username=${encodeURIComponent(username)}`;
+            if (userID) url += `&user_id=${encodeURIComponent(userID)}`;
             if (success) url += `&success=${success}`;
 
             try {

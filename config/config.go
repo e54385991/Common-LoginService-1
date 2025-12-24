@@ -8,24 +8,26 @@ import (
 
 // Config holds all application configuration
 type Config struct {
-	Server            ServerConfig            `json:"server"`
-	Database          DatabaseConfig          `json:"database"`
-	JWT               JWTConfig               `json:"jwt"`
-	Session           SessionConfig           `json:"session"`
-	GoogleOAuth       GoogleOAuthConfig       `json:"google_oauth"`
-	SteamOAuth        SteamOAuthConfig        `json:"steam_oauth"`
-	DiscordOAuth      DiscordOAuthConfig      `json:"discord_oauth"`
-	GmailAPI          GmailAPIConfig          `json:"gmail_api"`
-	Admin             AdminConfig             `json:"admin"`
-	Captcha           CaptchaConfig           `json:"captcha"`
-	Site              SiteConfig              `json:"site"`
-	Custom            CustomConfig            `json:"custom"`
-	Access            AccessConfig            `json:"access"`
-	Payment           PaymentConfig           `json:"payment"`
-	VIPLevels         []VIPLevelConfig        `json:"vip_levels"`
-	SignedURL         SignedURLConfig         `json:"signed_url"`
-	ProfileNavigation ProfileNavigationConfig `json:"profile_navigation"`
-	LoginProtection   LoginProtectionConfig   `json:"login_protection"`
+	Server                 ServerConfig                 `json:"server"`
+	Database               DatabaseConfig               `json:"database"`
+	JWT                    JWTConfig                    `json:"jwt"`
+	Session                SessionConfig                `json:"session"`
+	GoogleOAuth            GoogleOAuthConfig            `json:"google_oauth"`
+	SteamOAuth             SteamOAuthConfig             `json:"steam_oauth"`
+	DiscordOAuth           DiscordOAuthConfig           `json:"discord_oauth"`
+	GmailAPI               GmailAPIConfig               `json:"gmail_api"`
+	Admin                  AdminConfig                  `json:"admin"`
+	Captcha                CaptchaConfig                `json:"captcha"`
+	Site                   SiteConfig                   `json:"site"`
+	Custom                 CustomConfig                 `json:"custom"`
+	Access                 AccessConfig                 `json:"access"`
+	Payment                PaymentConfig                `json:"payment"`
+	VIPLevels              []VIPLevelConfig             `json:"vip_levels"`
+	SignedURL              SignedURLConfig              `json:"signed_url"`
+	ProfileNavigation      ProfileNavigationConfig      `json:"profile_navigation"`
+	MobileToolbar          MobileToolbarConfig          `json:"mobile_toolbar"`
+	LoginProtection        LoginProtectionConfig        `json:"login_protection"`
+	RegistrationProtection RegistrationProtectionConfig `json:"registration_protection"`
 }
 
 // LoginProtectionConfig holds configuration for login protection (IP-based rate limiting)
@@ -36,6 +38,13 @@ type LoginProtectionConfig struct {
 	WindowSeconds  int  `json:"window_seconds"`  // Time window in seconds to count failed attempts
 }
 
+// RegistrationProtectionConfig holds configuration for registration rate limiting (IP-based)
+type RegistrationProtectionConfig struct {
+	Enabled          bool `json:"enabled"`           // Whether registration rate limiting is enabled
+	MaxRegistrations int  `json:"max_registrations"` // Maximum registrations allowed from same IP within the time window
+	WindowSeconds    int  `json:"window_seconds"`    // Time window in seconds to count registrations
+}
+
 // ProfileNavigationConfig holds configuration for profile page navigation items
 type ProfileNavigationConfig struct {
 	Items []ProfileNavItem `json:"items"`
@@ -43,17 +52,36 @@ type ProfileNavigationConfig struct {
 
 // ProfileNavItem represents a single navigation item in the profile page
 type ProfileNavItem struct {
-	ID          string `json:"id"`           // Unique identifier
-	Title       string `json:"title"`        // Display title
-	Icon        string `json:"icon"`         // Bootstrap icon class (e.g., "bi-star")
-	URL         string `json:"url"`          // Link URL (optional, for links)
-	Type        string `json:"type"`         // "link", "button", or "action"
-	Color       string `json:"color"`        // Background color (e.g., "#667eea")
-	GradientEnd string `json:"gradient_end"` // Gradient end color (optional)
-	Effect      string `json:"effect"`       // Button effect: "pulse", "glow", "bounce", or empty
-	NewTab      bool   `json:"new_tab"`      // Open in new tab
-	Visible     bool   `json:"visible"`      // Whether the item is visible
-	Order       int    `json:"order"`        // Display order
+	ID          string            `json:"id"`                      // Unique identifier
+	Title       string            `json:"title"`                   // Display title
+	TitleI18n   map[string]string `json:"title_i18n,omitempty"`    // I18n titles (e.g., {"en": "Home", "zh": "首页"})
+	Icon        string            `json:"icon"`                    // Bootstrap icon class (e.g., "bi-star")
+	URL         string            `json:"url"`                     // Link URL (optional, for links)
+	Type        string            `json:"type"`                    // "link", "button", or "action"
+	Color       string            `json:"color"`                   // Background color (e.g., "#667eea")
+	GradientEnd string            `json:"gradient_end"`            // Gradient end color (optional)
+	Effect      string            `json:"effect"`                  // Button effect: "pulse", "glow", "bounce", or empty
+	NewTab      bool              `json:"new_tab"`                 // Open in new tab
+	Visible     bool              `json:"visible"`                 // Whether the item is visible
+	Order       int               `json:"order"`                   // Display order
+}
+
+// MobileToolbarConfig holds configuration for mobile bottom toolbar
+type MobileToolbarConfig struct {
+	Enabled bool               `json:"enabled"` // Whether to show mobile toolbar
+	Items   []MobileNavItem    `json:"items"`   // Navigation items for the toolbar
+}
+
+// MobileNavItem represents a single navigation item in the mobile toolbar
+type MobileNavItem struct {
+	ID        string            `json:"id"`                    // Unique identifier
+	Title     string            `json:"title"`                 // Display title
+	TitleI18n map[string]string `json:"title_i18n,omitempty"`  // I18n titles (e.g., {"en": "Home", "zh": "首页"})
+	Icon      string            `json:"icon"`                  // Bootstrap icon class
+	URL       string            `json:"url"`                   // Link URL
+	Type      string            `json:"type"`                  // "link" or "action"
+	Visible   bool              `json:"visible"`               // Whether the item is visible
+	Order     int               `json:"order"`                 // Display order
 }
 
 // SignedURLConfig holds configuration for HMAC-signed URL callback feature
@@ -65,10 +93,13 @@ type SignedURLConfig struct {
 
 // SiteConfig holds website configuration
 type SiteConfig struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	Logo        string `json:"logo"`
-	DarkMode    string `json:"dark_mode"` // Dark mode setting: "system" (follow system), "dark" (always dark), "light" (always light)
+	Title                 string            `json:"title"`
+	TitleI18n             map[string]string `json:"title_i18n,omitempty"`    // I18n titles (e.g., {"en": "My Site", "zh": "我的网站"})
+	Description           string            `json:"description"`
+	Logo                  string            `json:"logo"`
+	DarkMode              string            `json:"dark_mode"`               // Dark mode setting: "system" (follow system), "dark" (always dark), "light" (always light)
+	RedirectHomeToProfile bool              `json:"redirect_home_to_profile"` // When enabled, redirect logged-in users from homepage to /profile
+	BaseURL               string            `json:"base_url,omitempty"`      // Forced site base URL (e.g., https://user.yuelk.com). If set, overrides auto-detected URL from request.
 }
 
 // CustomConfig holds custom HTML/CSS and footer text configuration
@@ -88,6 +119,10 @@ type AccessConfig struct {
 	AllowEmailLogin            bool   `json:"allow_email_login"`            // Allow login with email (default: true)
 	AllowUsernameLogin         bool   `json:"allow_username_login"`         // Allow login with username (default: false)
 	RequireEmailVerification   bool   `json:"require_email_verification"`   // Require email verification for new users
+	PasswordMinLength          int    `json:"password_min_length"`          // Minimum password length (default: 6)
+	PasswordRequireLetter      bool   `json:"password_require_letter"`      // Require at least one letter (case-insensitive)
+	PasswordRequireNumber      bool   `json:"password_require_number"`      // Require at least one number
+	PasswordRequireSpecial     bool   `json:"password_require_special"`     // Require at least one special character
 }
 
 // PaymentConfig holds payment gateway configuration
@@ -126,6 +161,7 @@ type VIPLevelConfig struct {
 	Features       []VIPFeature       `json:"features,omitempty"`        // List of features for this VIP level
 	UpgradePrices  map[string]float64 `json:"upgrade_prices,omitempty"`  // Upgrade prices from other VIP levels (key: from level as string, value: upgrade price) (kept for backward compatibility)
 	Specifications []VIPSpecification `json:"specifications,omitempty"`  // Multiple duration/price options for this VIP level
+	AllowRenewal   bool               `json:"allow_renewal,omitempty"`   // Allow users to renew this VIP level (add time to existing expiration)
 }
 
 // CaptchaConfig holds captcha configuration
@@ -309,6 +345,10 @@ func Load(configPath string) (*Config, error) {
 				AllowEmailLogin:            true,  // Allow login with email by default
 				AllowUsernameLogin:         false, // Allow login with username, disabled by default
 				RequireEmailVerification:   false, // Require email verification for new users, disabled by default
+				PasswordMinLength:          6,     // Minimum password length
+				PasswordRequireLetter:      false, // Don't require letter by default
+				PasswordRequireNumber:      false, // Don't require number by default
+				PasswordRequireSpecial:     false, // Don't require special char by default
 			},
 			Payment: PaymentConfig{
 				Enabled:    false,
@@ -331,10 +371,19 @@ func Load(configPath string) (*Config, error) {
 			},
 			ProfileNavigation: ProfileNavigationConfig{
 				Items: []ProfileNavItem{
-					{ID: "recharge", Title: "充值中心", Icon: "bi-wallet2", URL: "/recharge", Type: "link", Color: "#28a745", GradientEnd: "#20c997", Effect: "glow", NewTab: false, Visible: true, Order: 1},
-					{ID: "vip", Title: "VIP会员", Icon: "bi-gem", URL: "/vip", Type: "link", Color: "#ffd700", GradientEnd: "#ffb300", Effect: "pulse", NewTab: false, Visible: true, Order: 2},
-					{ID: "settings", Title: "账号设置", Icon: "bi-gear", URL: "", Type: "action", Color: "#667eea", GradientEnd: "#764ba2", Effect: "", NewTab: false, Visible: true, Order: 3},
-					{ID: "logout", Title: "退出登录", Icon: "bi-box-arrow-right", URL: "", Type: "action", Color: "#6c757d", GradientEnd: "#495057", Effect: "", NewTab: false, Visible: true, Order: 4},
+					{ID: "recharge", Title: "充值中心", TitleI18n: map[string]string{"en": "Recharge", "zh": "充值中心"}, Icon: "bi-wallet2", URL: "/recharge", Type: "link", Color: "#28a745", GradientEnd: "#20c997", Effect: "glow", NewTab: false, Visible: true, Order: 1},
+					{ID: "vip", Title: "VIP会员", TitleI18n: map[string]string{"en": "VIP", "zh": "VIP会员"}, Icon: "bi-gem", URL: "/vip", Type: "link", Color: "#ffd700", GradientEnd: "#ffb300", Effect: "pulse", NewTab: false, Visible: true, Order: 2},
+					{ID: "settings", Title: "账号设置", TitleI18n: map[string]string{"en": "Settings", "zh": "账号设置"}, Icon: "bi-gear", URL: "", Type: "action", Color: "#667eea", GradientEnd: "#764ba2", Effect: "", NewTab: false, Visible: true, Order: 3},
+					{ID: "logout", Title: "退出登录", TitleI18n: map[string]string{"en": "Logout", "zh": "退出登录"}, Icon: "bi-box-arrow-right", URL: "", Type: "action", Color: "#6c757d", GradientEnd: "#495057", Effect: "", NewTab: false, Visible: true, Order: 4},
+				},
+			},
+			MobileToolbar: MobileToolbarConfig{
+				Enabled: false,
+				Items: []MobileNavItem{
+					{ID: "home", Title: "首页", TitleI18n: map[string]string{"en": "Home", "zh": "首页"}, Icon: "bi-house", URL: "/", Type: "link", Visible: true, Order: 1},
+					{ID: "vip", Title: "VIP", TitleI18n: map[string]string{"en": "VIP", "zh": "VIP"}, Icon: "bi-gem", URL: "/vip", Type: "link", Visible: true, Order: 2},
+					{ID: "recharge", Title: "充值", TitleI18n: map[string]string{"en": "Recharge", "zh": "充值"}, Icon: "bi-wallet2", URL: "/recharge", Type: "link", Visible: true, Order: 3},
+					{ID: "profile", Title: "我的", TitleI18n: map[string]string{"en": "Profile", "zh": "我的"}, Icon: "bi-person", URL: "/profile", Type: "link", Visible: true, Order: 4},
 				},
 			},
 			LoginProtection: LoginProtectionConfig{
@@ -342,6 +391,11 @@ func Load(configPath string) (*Config, error) {
 				MaxAttempts:   5,              // 5 failed attempts
 				FreezeSeconds: 300,            // 5 minutes freeze
 				WindowSeconds: 600,            // 10 minutes window to count failures
+			},
+			RegistrationProtection: RegistrationProtectionConfig{
+				Enabled:          false,
+				MaxRegistrations: 3,           // 3 registrations allowed
+				WindowSeconds:    3600,        // 1 hour window
 			},
 		}
 

@@ -234,6 +234,17 @@
                 </div>
 
                 {{if not .user.EmailVerified}}
+                <!-- Warning for placeholder emails (from OAuth without email) -->
+                {{if hasSuffix .user.Email "@example.invalid"}}
+                <div class="alert alert-warning mb-3">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>{{if eq .lang "zh"}}请设置您的邮箱地址{{else}}Please set your email address{{end}}</strong>
+                    <p class="mb-0 mt-2 small">
+                        {{if eq .lang "zh"}}您的账户是通过第三方登录（如Steam、Discord）创建的，但该平台未提供您的邮箱地址。请在下方输入您的真实邮箱地址以完成验证。{{else}}Your account was created via third-party login (e.g., Steam, Discord), but that platform did not provide your email address. Please enter your real email address below to complete verification.{{end}}
+                    </p>
+                </div>
+                {{end}}
+
                 <!-- Step Indicator -->
                 <div class="step-indicator">
                     <div class="step active" id="step1">
@@ -249,16 +260,29 @@
 
                 <!-- Step 1: Send Verification Code -->
                 <div id="step1-content">
+                    {{if hasSuffix .user.Email "@example.invalid"}}
                     <div class="alert alert-info">
                         <i class="bi bi-info-circle me-2"></i>
-                        点击下方按钮发送6位验证码到您的邮箱，验证码30分钟内有效。
+                        {{if eq .lang "zh"}}请输入您的真实邮箱地址，我们将发送6位验证码，验证码30分钟内有效。{{else}}Please enter your real email address. We will send a 6-digit verification code, valid for 30 minutes.{{end}}
                     </div>
+                    {{else}}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        {{if eq .lang "zh"}}点击下方按钮发送6位验证码到您的邮箱，验证码30分钟内有效。{{else}}Click the button below to send a 6-digit verification code to your email, valid for 30 minutes.{{end}}
+                    </div>
+                    {{end}}
 
                     <!-- Email Input for changing email -->
                     <div class="mb-3">
-                        <label for="email" class="form-label">邮箱地址</label>
-                        <input type="email" class="form-control" id="email" value="{{.user.Email}}" placeholder="输入新的邮箱地址">
-                        <small class="text-muted">如需更换邮箱，请输入新的邮箱地址</small>
+                        <label for="email" class="form-label">{{if eq .lang "zh"}}邮箱地址{{else}}Email Address{{end}} <span class="text-danger">*</span></label>
+                        {{if hasSuffix .user.Email "@example.invalid"}}
+                        <input type="email" class="form-control" id="email" value="" placeholder="{{if eq .lang "zh"}}请输入您的真实邮箱地址{{else}}Please enter your real email address{{end}}" required>
+                        <small class="text-danger"><i class="bi bi-exclamation-circle me-1"></i>{{if eq .lang "zh"}}必须输入有效的邮箱地址{{else}}A valid email address is required{{end}}</small>
+                        {{else}}
+                        <input type="email" class="form-control" id="email" value="{{.user.Email}}" placeholder="{{if eq .lang "zh"}}输入新的邮箱地址{{else}}Enter new email address{{end}}">
+                        <small class="text-muted">{{if eq .lang "zh"}}如需更换邮箱，请输入新的邮箱地址{{else}}To change email, enter a new email address{{end}}</small>
+                        {{end}}
+                        <div class="invalid-feedback" id="email-error">{{if eq .lang "zh"}}请输入有效的邮箱地址{{else}}Please enter a valid email address{{end}}</div>
                     </div>
 
                     <!-- Captcha -->
@@ -361,6 +385,38 @@
             success: lang === 'zh' ? '验证成功' : 'Verification successful',
             failed: lang === 'zh' ? '请重试' : 'Please try again'
         };
+
+        // Email validation messages (i18n)
+        const emailMessages = {
+            required: lang === 'zh' ? '请输入邮箱地址' : 'Please enter an email address',
+            invalid: lang === 'zh' ? '请输入有效的邮箱地址' : 'Please enter a valid email address',
+            placeholder: lang === 'zh' ? '请输入您的真实邮箱地址，不能使用临时邮箱' : 'Please enter your real email address, temporary emails are not allowed'
+        };
+
+        // Email validation function
+        function isValidEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
+        // Show email validation error
+        function showEmailError(message) {
+            const emailInput = document.getElementById('email');
+            const emailError = document.getElementById('email-error');
+            emailInput.classList.add('is-invalid');
+            if (emailError) emailError.textContent = message;
+        }
+
+        // Clear email validation error
+        function clearEmailError() {
+            const emailInput = document.getElementById('email');
+            emailInput.classList.remove('is-invalid');
+        }
+
+        // Add real-time email validation
+        document.getElementById('email')?.addEventListener('input', function() {
+            clearEmailError();
+        });
 
         {{if .captchaEnabled}}
         // Initialize slider captcha
@@ -547,20 +603,39 @@
         });
 
         async function sendVerificationEmail(btn) {
-            const email = document.getElementById('email').value;
+            const emailInput = document.getElementById('email');
+            const email = emailInput.value.trim();
 
+            // Check if email is empty
             if (!email) {
-                alert('请输入邮箱地址');
+                showEmailError(emailMessages.required);
+                emailInput.focus();
                 return;
             }
 
+            // Validate email format
+            if (!isValidEmail(email)) {
+                showEmailError(emailMessages.invalid);
+                emailInput.focus();
+                return;
+            }
+
+            // Check if trying to use placeholder email
+            if (email.endsWith('@example.invalid')) {
+                showEmailError(emailMessages.placeholder);
+                emailInput.focus();
+                return;
+            }
+
+            clearEmailError();
+
             if (captchaEnabled && !captchaVerified) {
-                alert('请先完成验证码验证');
+                alert(lang === 'zh' ? '请先完成验证码验证' : 'Please complete the captcha verification first');
                 return;
             }
 
             btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>发送中...';
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>' + (lang === 'zh' ? '发送中...' : 'Sending...');
 
             try {
                 const response = await fetch('/api/auth/send-verification-email', {
@@ -577,16 +652,16 @@
                     showStep2(email);
                     startCooldown(60, 'resend-cooldown', document.getElementById('resend-btn'));
                 } else {
-                    alert(data.message || '发送失败，请稍后重试');
+                    alert(data.message || (lang === 'zh' ? '发送失败，请稍后重试' : 'Failed to send, please try again later'));
                     if (data.remaining_seconds) {
                         startCooldown(data.remaining_seconds, 'send-cooldown', btn);
                     }
                 }
             } catch (error) {
-                alert('网络错误，请稍后重试');
+                alert(lang === 'zh' ? '网络错误，请稍后重试' : 'Network error, please try again later');
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-send me-2"></i>发送验证码';
+                btn.innerHTML = '<i class="bi bi-send me-2"></i>' + (lang === 'zh' ? '发送验证码' : 'Send Code');
                 {{if .captchaEnabled}}
                 initCaptcha();
                 {{end}}

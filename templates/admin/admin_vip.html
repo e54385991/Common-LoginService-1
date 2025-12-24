@@ -98,32 +98,6 @@
                     </div>
                 </div>
 
-                <!-- Site Settings -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="bi bi-globe me-2"></i>网站设置</h5>
-                    </div>
-                    <div class="card-body">
-                        <form id="site-form">
-                            <div class="mb-3">
-                                <label for="site-title" class="form-label">网站标题</label>
-                                <input type="text" class="form-control" id="site-title" value="{{.config.Site.Title}}" placeholder="输入网站标题">
-                            </div>
-                            <div class="mb-3">
-                                <label for="site-description" class="form-label">网站描述</label>
-                                <input type="text" class="form-control" id="site-description" value="{{.config.Site.Description}}" placeholder="输入网站描述">
-                            </div>
-                            <div class="mb-3">
-                                <label for="site-logo" class="form-label">Logo URL</label>
-                                <input type="text" class="form-control" id="site-logo" value="{{.config.Site.Logo}}" placeholder="输入 Logo 图片 URL（可选）">
-                            </div>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-save me-2"></i>保存网站设置
-                            </button>
-                        </form>
-                    </div>
-                </div>
-
                 <!-- Payment Settings -->
                 <div class="card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
@@ -385,6 +359,19 @@
                                     </div>
                                 </div>
                             </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="allow-renewal-${index}" 
+                                               ${level.allow_renewal ? 'checked' : ''} 
+                                               onchange="updateVIPLevel(${index}, 'allow_renewal', this.checked)">
+                                        <label class="form-check-label" for="allow-renewal-${index}">
+                                            <i class="bi bi-arrow-repeat me-1"></i>允许用户续期
+                                            <small class="text-muted d-block">开启后，已有此VIP等级的用户可以续期（在现有到期时间基础上累加）</small>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
                             
                             <!-- Specifications Section -->
                             <div class="row mt-3">
@@ -547,30 +534,6 @@
             renderVIPLevels();
             renderVIPPreview();
         }
-
-        // Site Settings Form
-        document.getElementById('site-form').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const data = {
-                title: document.getElementById('site-title').value,
-                description: document.getElementById('site-description').value,
-                logo: document.getElementById('site-logo').value
-            };
-            
-            try {
-                const response = await fetch('/api/admin/settings/site', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                
-                const result = await response.json();
-                showModal(result.success ? 'success' : 'danger', result.message);
-            } catch (error) {
-                showModal('danger', '网络错误，请稍后重试');
-            }
-        });
 
         // Payment Settings Form
         document.getElementById('payment-form').addEventListener('submit', async function(e) {

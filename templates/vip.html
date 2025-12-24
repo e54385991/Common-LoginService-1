@@ -514,6 +514,61 @@
         [data-theme="dark"] .duration-item:hover {
             border-color: var(--primary-color, #6366F1) !important;
         }
+        /* Mobile Bottom Toolbar */
+        .mobile-toolbar {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--card-bg, #ffffff);
+            border-top: 1px solid var(--border-color, #e0e0e0);
+            padding: 8px 0;
+            z-index: 1030;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+        }
+        @media (max-width: 768px) {
+            .mobile-toolbar.enabled {
+                display: block;
+            }
+            body.has-mobile-toolbar {
+                padding-bottom: 70px;
+            }
+        }
+        .mobile-toolbar-items {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+        .mobile-toolbar-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: var(--text-muted, #666);
+            font-size: 0.75rem;
+            padding: 4px 12px;
+            transition: color 0.2s;
+        }
+        .mobile-toolbar-item i {
+            font-size: 1.3rem;
+            margin-bottom: 2px;
+        }
+        .mobile-toolbar-item:hover,
+        .mobile-toolbar-item.active {
+            color: var(--primary-color, #667eea);
+        }
+        [data-theme="dark"] .mobile-toolbar {
+            background: var(--card-bg, #1e1e2f);
+            border-color: var(--border-color, rgba(255,255,255,0.1));
+        }
+        [data-theme="dark"] .mobile-toolbar-item {
+            color: var(--text-muted, #a0a0a0);
+        }
+        [data-theme="dark"] .mobile-toolbar-item:hover,
+        [data-theme="dark"] .mobile-toolbar-item.active {
+            color: var(--primary-color, #667eea);
+        }
     </style>
     {{if .custom.GlobalCSS}}<style>{{.custom.GlobalCSS}}</style>{{end}}
 </head>
@@ -865,6 +920,13 @@
     </section>
     {{end}}
 
+    <!-- Mobile Bottom Toolbar -->
+    <nav class="mobile-toolbar" id="mobile-toolbar">
+        <div class="mobile-toolbar-items" id="mobile-toolbar-items">
+            <!-- Items will be loaded dynamically -->
+        </div>
+    </nav>
+
     <!-- Footer -->
     <footer class="footer py-4 bg-dark text-white">
         <div class="container text-center">
@@ -875,6 +937,7 @@
     <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
     <script src="/static/js/app.js"></script>
     <script>
+        const currentLang = "{{.lang}}";
         let vipLevels = [];
         let selectedVIPLevel = null;
         let selectedDuration = null;
@@ -923,6 +986,10 @@
             modalAgreeTerms: "{{t .lang "vip.modal_agree_terms"}}",
             modalServiceAgreement: "{{t .lang "vip.modal_service_agreement"}}",
             modalSave: "{{t .lang "vip.modal_save"}}",
+            balanceRenew: "{{t .lang "vip.balance_renew"}}",
+            renewConfirm: "{{t .lang "vip.renew_confirm"}}",
+            renewSuccessTitle: "{{t .lang "vip.renew_success_title"}}",
+            renewSuccessMsg: "{{t .lang "vip.renew_success_msg"}}",
             paymentTitle: "{{t .lang "payment.title"}}",
             paymentProductName: "{{t .lang "payment.product_name"}}",
             paymentAmount: "{{t .lang "payment.amount"}}",
@@ -953,8 +1020,46 @@
         document.addEventListener('DOMContentLoaded', function() {
             loadSiteSettings();
             loadVIPLevels();
+            loadMobileToolbar();
             setupPaymentMethods();
         });
+
+        async function loadMobileToolbar() {
+            try {
+                const response = await fetch('/api/mobile-toolbar');
+                const result = await response.json();
+                if (result.success && result.enabled) {
+                    renderMobileToolbar(result.data);
+                }
+            } catch (error) {
+                console.error('Failed to load mobile toolbar:', error);
+            }
+        }
+
+        function renderMobileToolbar(items) {
+            const toolbar = document.getElementById('mobile-toolbar');
+            const container = document.getElementById('mobile-toolbar-items');
+            if (!toolbar || !container || !items || items.length === 0) return;
+
+            toolbar.classList.add('enabled');
+            document.body.classList.add('has-mobile-toolbar');
+
+            const sortedItems = [...items].sort((a, b) => a.order - b.order);
+            const currentPath = window.location.pathname;
+
+            container.innerHTML = sortedItems.map(item => {
+                const title = (item.title_i18n && item.title_i18n[currentLang]) || item.title;
+                const isActive = currentPath === item.url || (item.url !== '/' && currentPath.startsWith(item.url));
+                const activeClass = isActive ? 'active' : '';
+                const safeIcon = item.icon || 'bi-link';
+                const safeUrl = item.url || '#';
+                
+                return `<a href="${safeUrl}" class="mobile-toolbar-item ${activeClass}">
+                    <i class="${safeIcon}"></i>
+                    <span>${title}</span>
+                </a>`;
+            }).join('');
+        }
 
         async function loadSiteSettings() {
             try {
@@ -1092,10 +1197,33 @@
                 // Duration text
                 const durationText = displayDuration > 0 ? `${displayDuration} ${i18n.days}` : i18n.permanent;
                 
+                // Check if this is the same level as current user's VIP and renewal is allowed
+                const isSameLevel = level.level === currentUserVIPLevel;
+                const allowRenewal = level.allow_renewal === true;
+                
                 // Determine button states
                 let balanceButtonHtml, paymentButtonHtml;
                 
-                if (isDowngrade) {
+                if (isSameLevel && allowRenewal) {
+                    // Same level and renewal is allowed - show renewal button
+                    balanceButtonHtml = `
+                        <button class="btn ${canAfford ? 'btn-info' : 'btn-outline-secondary'} vip-select-btn" 
+                                onclick="event.stopPropagation(); ${hasSpecs ? `showSpecificationModal(${level.level}, 'renew')` : `renewVIPWithBalance(${level.level}, ${level.duration})`}"
+                                ${!canAfford ? 'disabled' : ''}>
+                            <i class="bi bi-arrow-repeat me-2"></i>${canAfford ? i18n.balanceRenew : i18n.insufficientBalance}
+                        </button>
+                    `;
+                    // When balance is insufficient, show online payment button for renewal instead of "Owned"
+                    paymentButtonHtml = canAfford ? `
+                        <button class="btn btn-outline-secondary vip-select-btn" disabled>
+                            <i class="bi bi-check-circle me-2"></i>${i18n.owned}
+                        </button>
+                    ` : `
+                        <button class="btn btn-outline-warning vip-select-btn" onclick="event.stopPropagation(); ${hasSpecs ? `showSpecificationModal(${level.level}, 'online')` : `openVIPPayment(${level.level}, ${level.duration})`}">
+                            <i class="bi bi-credit-card me-2"></i>${i18n.onlinePayment}
+                        </button>
+                    `;
+                } else if (isDowngrade) {
                     // Already have this level or higher - disable buttons
                     balanceButtonHtml = `
                         <button class="btn btn-outline-secondary vip-select-btn" disabled>
@@ -1518,10 +1646,12 @@
             const specModal = bootstrap.Modal.getInstance(document.getElementById('specificationModal'));
             if (specModal) specModal.hide();
             
-            // Process purchase
+            // Process purchase or renewal
             setTimeout(() => {
                 if (purchaseType === 'balance') {
                     purchaseVIPWithBalance(level, duration);
+                } else if (purchaseType === 'renew') {
+                    renewVIPWithBalance(level, duration);
                 } else {
                     openVIPPayment(level, duration);
                 }
@@ -1970,6 +2100,98 @@
             
             document.body.insertAdjacentHTML('beforeend', modalHtml);
             new bootstrap.Modal(document.getElementById('purchaseSuccessModal')).show();
+        }
+
+        async function renewVIPWithBalance(level, duration = 0) {
+            const vip = vipLevels.find(v => v.level === level);
+            if (!vip) return;
+
+            // Calculate actual price and duration
+            let actualPrice = vip.price;
+            let actualDuration = vip.duration;
+            
+            // If duration is specified and specifications exist, find matching spec
+            if (duration > 0 && vip.specifications && vip.specifications.length > 0) {
+                const spec = vip.specifications.find(s => s.duration === duration);
+                if (spec) {
+                    actualPrice = spec.price;
+                    actualDuration = spec.duration;
+                }
+            }
+
+            const durationText = actualDuration > 0 ? `${actualDuration}${i18n.days}` : i18n.permanent;
+            const confirmMsg = i18n.renewConfirm.replace('%s', `${vip.name} (${durationText})`);
+            const priceText = `${i18n.priceLabel}：¥${actualPrice.toFixed(2)}`;
+
+            if (!confirm(`${confirmMsg}\n\n${priceText}`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/renew-vip', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ level: level, duration: actualDuration })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    // Update balance display
+                    const balanceEl = document.getElementById('user-balance');
+                    if (balanceEl && result.data) {
+                        balanceEl.textContent = result.data.balance.toFixed(2);
+                    }
+                    
+                    showRenewalSuccessModal(vip.name, result.data?.balance || 0, result.data?.vip_expire_at);
+                    renderVIPCards(); // Re-render to update button states
+                } else {
+                    alert(result.message || i18n.paymentErrorMsg);
+                }
+            } catch (error) {
+                console.error('Renewal error:', error);
+                alert(i18n.paymentErrorMsg);
+            }
+        }
+
+        function showRenewalSuccessModal(vipName, newBalance, newExpireAt) {
+            let expireText = '';
+            if (newExpireAt) {
+                const expireDate = new Date(newExpireAt);
+                expireText = `<p class="text-muted">${i18n.validity}：${expireDate.toLocaleDateString()}</p>`;
+            } else {
+                expireText = `<p class="text-muted">${i18n.validity}：${i18n.permanent}</p>`;
+            }
+            
+            const modalHtml = `
+                <div class="modal fade" id="renewalSuccessModal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header bg-info text-white">
+                                <h5 class="modal-title"><i class="bi bi-check-circle me-2"></i>${i18n.renewSuccessTitle}</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body text-center py-4">
+                                <i class="bi bi-arrow-repeat display-1 text-info mb-3"></i>
+                                <h4>🎉</h4>
+                                <p class="mb-3">${i18n.renewSuccessMsg} <strong>${vipName}</strong></p>
+                                ${expireText}
+                                <p class="text-muted">${i18n.currentBalance}：¥${newBalance.toFixed(2)}</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-info" data-bs-dismiss="modal" onclick="location.reload()">
+                                    <i class="bi bi-check-lg me-2"></i>${i18n.confirmBtn}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const existing = document.getElementById('renewalSuccessModal');
+            if (existing) existing.remove();
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            new bootstrap.Modal(document.getElementById('renewalSuccessModal')).show();
         }
 
         async function logout() {

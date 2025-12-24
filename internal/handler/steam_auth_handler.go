@@ -11,6 +11,7 @@ import (
 
 	"github.com/e54385991/Common-LoginService/config"
 	"github.com/e54385991/Common-LoginService/internal/service"
+	"github.com/e54385991/Common-LoginService/pkg/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -66,12 +67,9 @@ func (h *SteamAuthHandler) SteamLogin(c *gin.Context) {
 
 	redirectURL := h.cfg.SteamOAuth.RedirectURL
 	if redirectURL == "" {
-		// Try to construct from request
-		scheme := "http"
-		if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
-			scheme = "https"
-		}
-		redirectURL = scheme + "://" + c.Request.Host + "/api/auth/steam/callback"
+		// Use configured base URL or construct from request
+		baseURL := utils.GetBaseURL(c, h.cfg.Site.BaseURL)
+		redirectURL = baseURL + "/api/auth/steam/callback"
 	}
 
 	// Extract realm (base URL) from redirect URL using url.Parse
@@ -291,11 +289,9 @@ func (h *SteamAuthHandler) SteamBindLogin(c *gin.Context) {
 		redirectURL = h.cfg.SteamOAuth.RedirectURL
 	}
 	if redirectURL == "" {
-		scheme := "http"
-		if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
-			scheme = "https"
-		}
-		redirectURL = scheme + "://" + c.Request.Host + "/api/auth/steam/bind/callback"
+		// Use configured base URL or construct from request
+		baseURL := utils.GetBaseURL(c, h.cfg.Site.BaseURL)
+		redirectURL = baseURL + "/api/auth/steam/bind/callback"
 	}
 
 	parsedURL, err := url.Parse(redirectURL)

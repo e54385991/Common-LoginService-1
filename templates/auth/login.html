@@ -285,9 +285,39 @@
             captchaFailed: lang === 'zh' ? '验证失败，请重试' : 'Verification failed, please try again'
         };
 
+        // OAuth error messages for displaying in the login page
+        const oauthErrors = {
+            'discord_auth_failed': lang === 'zh' ? 'Discord 登录失败' : 'Discord login failed',
+            'discord_state_invalid': lang === 'zh' ? 'Discord 登录失败：安全验证无效，请重试' : 'Discord login failed: Security validation invalid, please try again',
+            'discord_code_missing': lang === 'zh' ? 'Discord 登录失败：授权码缺失' : 'Discord login failed: Authorization code missing',
+            'discord_token_exchange_failed': lang === 'zh' ? 'Discord 登录失败：令牌交换失败' : 'Discord login failed: Token exchange failed',
+            'discord_userinfo_failed': lang === 'zh' ? 'Discord 登录失败：获取用户信息失败' : 'Discord login failed: Failed to get user info',
+            'google_auth_failed': lang === 'zh' ? 'Google 登录失败' : 'Google login failed',
+            'steam_auth_failed': lang === 'zh' ? 'Steam 登录失败' : 'Steam login failed'
+        };
+
         let captchaVerified = false;
         let captchaId = '';
         let pendingLoginData = null;
+
+        // Check for OAuth error messages in URL on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            checkOAuthErrors();
+        });
+
+        function checkOAuthErrors() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const error = urlParams.get('error');
+            
+            if (error) {
+                // Look up the error message, use the error code as fallback
+                const errorMessage = oauthErrors[error] || decodeURIComponent(error);
+                showAlert('danger', errorMessage);
+                
+                // Clear the URL parameter to prevent showing the error on refresh
+                window.history.replaceState({}, document.title, window.location.pathname + (redirectURL ? '?redirect=' + encodeURIComponent(redirectURL) : ''));
+            }
+        }
 
         {{if .captchaEnabled}}
         let captchaModal;
