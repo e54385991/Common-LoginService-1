@@ -845,6 +845,29 @@ func (h *AuthHandler) getVisibleProfileNavItems() []config.ProfileNavItem {
 	return visibleItems
 }
 
+// getVisibleMobileToolbarItems returns visible mobile toolbar items if enabled, sorted by order
+func (h *AuthHandler) getVisibleMobileToolbarItems() []config.MobileNavItem {
+	if !h.cfg.MobileToolbar.Enabled {
+		return nil
+	}
+	var visibleItems []config.MobileNavItem
+	for _, item := range h.cfg.MobileToolbar.Items {
+		if item.Visible {
+			visibleItems = append(visibleItems, item)
+		}
+	}
+	// Sort by order using Go's efficient sort
+	sort.Slice(visibleItems, func(i, j int) bool {
+		return visibleItems[i].Order < visibleItems[j].Order
+	})
+	return visibleItems
+}
+
+// isMobileToolbarEnabled returns whether mobile toolbar is enabled
+func (h *AuthHandler) isMobileToolbarEnabled() bool {
+	return h.cfg.MobileToolbar.Enabled
+}
+
 // HomePage renders the home page
 func (h *AuthHandler) HomePage(c *gin.Context) {
 	lang := c.GetString("lang")
@@ -860,13 +883,15 @@ func (h *AuthHandler) HomePage(c *gin.Context) {
 	}
 
 	c.HTML(http.StatusOK, "home.html", gin.H{
-		"lang":      lang,
-		"user":      user,
-		"logged":    user != nil,
-		"siteTitle": h.getSiteTitle(lang),
-		"custom":    h.cfg.Custom,
-		"darkMode":  h.cfg.Site.DarkMode,
-		"topNavItems": h.getVisibleTopNavItems(),
+		"lang":                   lang,
+		"user":                   user,
+		"logged":                 user != nil,
+		"siteTitle":              h.getSiteTitle(lang),
+		"custom":                 h.cfg.Custom,
+		"darkMode":               h.cfg.Site.DarkMode,
+		"topNavItems":            h.getVisibleTopNavItems(),
+		"mobileToolbarEnabled":   h.isMobileToolbarEnabled(),
+		"mobileToolbarItems":     h.getVisibleMobileToolbarItems(),
 	})
 }
 
@@ -879,13 +904,15 @@ func (h *AuthHandler) RechargePage(c *gin.Context) {
 	}
 
 	c.HTML(http.StatusOK, "recharge.html", gin.H{
-		"lang":      lang,
-		"user":      user,
-		"logged":    user != nil,
-		"siteTitle": h.getSiteTitle(lang),
-		"custom":    h.cfg.Custom,
-		"darkMode":  h.cfg.Site.DarkMode,
-		"topNavItems": h.getVisibleTopNavItems(),
+		"lang":                   lang,
+		"user":                   user,
+		"logged":                 user != nil,
+		"siteTitle":              h.getSiteTitle(lang),
+		"custom":                 h.cfg.Custom,
+		"darkMode":               h.cfg.Site.DarkMode,
+		"topNavItems":            h.getVisibleTopNavItems(),
+		"mobileToolbarEnabled":   h.isMobileToolbarEnabled(),
+		"mobileToolbarItems":     h.getVisibleMobileToolbarItems(),
 	})
 }
 
@@ -898,13 +925,15 @@ func (h *AuthHandler) VIPPage(c *gin.Context) {
 	}
 
 	c.HTML(http.StatusOK, "vip.html", gin.H{
-		"lang":      lang,
-		"user":      user,
-		"logged":    user != nil,
-		"siteTitle": h.getSiteTitle(lang),
-		"custom":    h.cfg.Custom,
-		"darkMode":  h.cfg.Site.DarkMode,
-		"topNavItems": h.getVisibleTopNavItems(),
+		"lang":                   lang,
+		"user":                   user,
+		"logged":                 user != nil,
+		"siteTitle":              h.getSiteTitle(lang),
+		"custom":                 h.cfg.Custom,
+		"darkMode":               h.cfg.Site.DarkMode,
+		"topNavItems":            h.getVisibleTopNavItems(),
+		"mobileToolbarEnabled":   h.isMobileToolbarEnabled(),
+		"mobileToolbarItems":     h.getVisibleMobileToolbarItems(),
 	})
 }
 
@@ -917,14 +946,16 @@ func (h *AuthHandler) ProfilePage(c *gin.Context) {
 	}
 
 	c.HTML(http.StatusOK, "profile.html", gin.H{
-		"lang":      lang,
-		"user":      user,
-		"logged":    user != nil,
-		"siteTitle": h.getSiteTitle(lang),
-		"custom":    h.cfg.Custom,
-		"darkMode":  h.cfg.Site.DarkMode,
-		"topNavItems": h.getVisibleTopNavItems(),
-		"profileNavItems": h.getVisibleProfileNavItems(),
+		"lang":                   lang,
+		"user":                   user,
+		"logged":                 user != nil,
+		"siteTitle":              h.getSiteTitle(lang),
+		"custom":                 h.cfg.Custom,
+		"darkMode":               h.cfg.Site.DarkMode,
+		"topNavItems":            h.getVisibleTopNavItems(),
+		"profileNavItems":        h.getVisibleProfileNavItems(),
+		"mobileToolbarEnabled":   h.isMobileToolbarEnabled(),
+		"mobileToolbarItems":     h.getVisibleMobileToolbarItems(),
 	})
 }
 

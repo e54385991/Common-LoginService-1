@@ -333,6 +333,77 @@ func (h *MessageHandler) DeleteMessage(c *gin.Context) {
 	})
 }
 
+// BatchDeleteRequest represents a batch delete request
+type BatchDeleteRequest struct {
+	IDs []uint `json:"ids" binding:"required" example:"[1,2,3]"`
+}
+
+// DeleteMessagesBatch deletes multiple messages
+// @Summary Batch delete messages
+// @Description Delete multiple messages by their IDs
+// @Tags messages
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body BatchDeleteRequest true "Message IDs to delete"
+// @Success 200 {object} Response "Messages deleted"
+// @Failure 400 {object} Response "Bad request"
+// @Failure 401 {object} Response "Unauthorized"
+// @Router /messages/batch-delete [post]
+func (h *MessageHandler) DeleteMessagesBatch(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"message": "请先登录",
+		})
+		return
+	}
+
+	var input BatchDeleteRequest
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	if len(input.IDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请选择要删除的消息",
+		})
+		return
+	}
+
+	// Limit batch size to prevent abuse
+	if len(input.IDs) > 100 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "一次最多删除100条消息",
+		})
+		return
+	}
+
+	deleted, err := h.messageRepo.DeleteBatch(input.IDs, userID.(uint))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "删除失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "消息已删除",
+		"data": gin.H{
+			"deleted_count": deleted,
+		},
+	})
+}
+
 // ==================== Admin API ====================
 
 // SendMessageRequest represents a single message send request

@@ -956,6 +956,9 @@
                     <!-- Messages Header -->
                     <div class="d-flex justify-content-between align-items-center p-3 border-bottom" style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);">
                         <div class="d-flex align-items-center">
+                            <div class="form-check me-2" id="select-all-wrapper" style="display: none;">
+                                <input class="form-check-input" type="checkbox" id="select-all-messages" onchange="toggleSelectAll(this.checked)">
+                            </div>
                             <i class="bi bi-envelope-open me-2 text-primary"></i>
                             <span class="fw-semibold">
                                 <span id="messages-count">0</span> {{t .lang "messages.inbox"}}
@@ -963,10 +966,18 @@
                             <span class="badge bg-primary ms-2" id="unread-count-header" style="display: none;">
                                 <span id="unread-count-number">0</span> {{t .lang "messages.unread"}}
                             </span>
+                            <span class="badge bg-secondary ms-2" id="selected-count-badge" style="display: none;">
+                                <span id="selected-count-number">0</span> {{t .lang "messages.selected"}}
+                            </span>
                         </div>
-                        <button class="btn btn-sm btn-outline-primary" onclick="markAllMessagesAsRead()" id="mark-all-read-btn">
-                            <i class="bi bi-check-all me-1"></i>{{t .lang "messages.mark_all_read"}}
-                        </button>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteSelectedMessages()" id="batch-delete-btn" style="display: none;">
+                                <i class="bi bi-trash me-1"></i>{{t .lang "messages.delete_selected"}}
+                            </button>
+                            <button class="btn btn-sm btn-outline-primary" onclick="markAllMessagesAsRead()" id="mark-all-read-btn">
+                                <i class="bi bi-check-all me-1"></i>{{t .lang "messages.mark_all_read"}}
+                            </button>
+                        </div>
                     </div>
                     <!-- Messages List -->
                     <div id="messages-list" style="max-height: 450px; overflow-y: auto;">
@@ -1033,12 +1044,8 @@
     </div>
     {{end}}
 
-    <!-- Mobile Bottom Toolbar -->
-    <nav class="mobile-toolbar" id="mobile-toolbar">
-        <div class="mobile-toolbar-items" id="mobile-toolbar-items">
-            <!-- Items will be loaded dynamically -->
-        </div>
-    </nav>
+    <!-- Mobile Bottom Toolbar (Server-side rendered) -->
+    {{template "mobile_toolbar" .}}
 
     {{template "footer" .}}
 
@@ -1064,7 +1071,6 @@
             loadVIPLevels();
             loadUserBalance();
             loadThirdPartyBindingStatus();
-            loadMobileToolbar();
             formatCreatedAt();
             initGiftCardInput();
             checkUrlMessages();
@@ -1246,44 +1252,6 @@
             } catch (error) {
                 showToast(bindingI18n.unbindError, true);
             }
-        }
-
-        async function loadMobileToolbar() {
-            try {
-                const response = await fetch('/api/mobile-toolbar');
-                const result = await response.json();
-                if (result.success && result.enabled) {
-                    renderMobileToolbar(result.data);
-                }
-            } catch (error) {
-                console.error('Failed to load mobile toolbar:', error);
-            }
-        }
-
-        function renderMobileToolbar(items) {
-            const toolbar = document.getElementById('mobile-toolbar');
-            const container = document.getElementById('mobile-toolbar-items');
-            if (!toolbar || !container || !items || items.length === 0) return;
-
-            toolbar.classList.add('enabled');
-            document.body.classList.add('has-mobile-toolbar');
-
-            // Sort by order
-            const sortedItems = [...items].sort((a, b) => a.order - b.order);
-            const currentPath = window.location.pathname;
-
-            container.innerHTML = sortedItems.map(item => {
-                const title = (item.title_i18n && item.title_i18n[currentLang]) || item.title;
-                const isActive = currentPath === item.url || (item.url !== '/' && currentPath.startsWith(item.url));
-                const activeClass = isActive ? 'active' : '';
-                const safeIcon = item.icon || 'bi-link';
-                const safeUrl = item.url || '#';
-                
-                return `<a href="${safeUrl}" class="mobile-toolbar-item ${activeClass}">
-                    <i class="${safeIcon}"></i>
-                    <span>${title}</span>
-                </a>`;
-            }).join('');
         }
 
         async function loadVIPLevels() {
@@ -2111,8 +2079,15 @@
             timeJustNow: "{{t .lang "messages.time_just_now"}}",
             timeMinutesAgo: "{{t .lang "messages.time_minutes_ago"}}",
             timeHoursAgo: "{{t .lang "messages.time_hours_ago"}}",
-            timeDaysAgo: "{{t .lang "messages.time_days_ago"}}"
+            timeDaysAgo: "{{t .lang "messages.time_days_ago"}}",
+            selected: "{{t .lang "messages.selected"}}",
+            deleteSelected: "{{t .lang "messages.delete_selected"}}",
+            batchDeleteConfirm: "{{t .lang "messages.batch_delete_confirm"}}",
+            batchDeleteSuccess: "{{t .lang "messages.batch_delete_success"}}"
         };
+
+        // Track selected messages for batch delete
+        let selectedMessageIds = new Set();
 
         // Load unread message count
         async function loadUnreadCount() {
@@ -2240,6 +2215,11 @@
         // Render messages list
         function renderMessages(messages) {
             const container = document.getElementById('messages-list');
+            const selectAllWrapper = document.getElementById('select-all-wrapper');
+            
+            // Reset selection state
+            selectedMessageIds.clear();
+            updateSelectionUI();
             
             if (!messages || messages.length === 0) {
                 container.innerHTML = `
@@ -2249,8 +2229,16 @@
                         <p class="small mb-0">${messagesI18n.emptyDesc}</p>
                     </div>
                 `;
+                if (selectAllWrapper) selectAllWrapper.style.display = 'none';
                 return;
             }
+
+            // Show select-all checkbox when there are messages
+            if (selectAllWrapper) selectAllWrapper.style.display = 'block';
+            
+            // Reset select-all checkbox
+            const selectAllCheckbox = document.getElementById('select-all-messages');
+            if (selectAllCheckbox) selectAllCheckbox.checked = false;
 
             container.innerHTML = messages.map(msg => {
                 const isUnread = !msg.is_read;
@@ -2263,19 +2251,108 @@
                 const previewContent = escapeHtml(msg.content.substring(0, 100)) + (msg.content.length > 100 ? '...' : '');
                 
                 return `
-                    <div class="message-item ${isUnread ? 'unread' : ''}" onclick="openMessage(${msg.id})">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div class="message-title">
-                                ${isUnread ? '<span class="badge bg-danger message-new-badge">NEW</span>' : ''}
-                                <span class="text-truncate" style="max-width: 300px;">${escapeHtml(msg.title)}</span>
-                                <span class="badge ${typeClass} message-type-badge">${typeText}</span>
+                    <div class="message-item ${isUnread ? 'unread' : ''}" data-message-id="${msg.id}">
+                        <div class="d-flex align-items-start">
+                            <div class="form-check me-2" onclick="event.stopPropagation();">
+                                <input class="form-check-input message-checkbox" type="checkbox" data-id="${msg.id}" onchange="toggleMessageSelection(${msg.id}, this.checked)">
                             </div>
-                            <span class="message-time">${timeStr}</span>
+                            <div class="flex-grow-1" onclick="openMessage(${msg.id})">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="message-title">
+                                        ${isUnread ? '<span class="badge bg-danger message-new-badge">NEW</span>' : ''}
+                                        <span class="text-truncate" style="max-width: 280px;">${escapeHtml(msg.title)}</span>
+                                        <span class="badge ${typeClass} message-type-badge">${typeText}</span>
+                                    </div>
+                                    <span class="message-time">${timeStr}</span>
+                                </div>
+                                <div class="message-preview mt-1">${previewContent}</div>
+                            </div>
                         </div>
-                        <div class="message-preview mt-1">${previewContent}</div>
                     </div>
                 `;
             }).join('');
+        }
+
+        // Toggle single message selection
+        function toggleMessageSelection(messageId, isSelected) {
+            if (isSelected) {
+                selectedMessageIds.add(messageId);
+            } else {
+                selectedMessageIds.delete(messageId);
+            }
+            updateSelectionUI();
+        }
+
+        // Toggle select all messages
+        function toggleSelectAll(isSelected) {
+            const checkboxes = document.querySelectorAll('.message-checkbox');
+            checkboxes.forEach(cb => {
+                const id = parseInt(cb.dataset.id);
+                cb.checked = isSelected;
+                if (isSelected) {
+                    selectedMessageIds.add(id);
+                } else {
+                    selectedMessageIds.delete(id);
+                }
+            });
+            updateSelectionUI();
+        }
+
+        // Update selection UI (badge and delete button)
+        function updateSelectionUI() {
+            const count = selectedMessageIds.size;
+            const badge = document.getElementById('selected-count-badge');
+            const countNumber = document.getElementById('selected-count-number');
+            const deleteBtn = document.getElementById('batch-delete-btn');
+            
+            if (count > 0) {
+                if (badge) {
+                    badge.style.display = 'inline-block';
+                    if (countNumber) countNumber.textContent = count;
+                }
+                if (deleteBtn) deleteBtn.style.display = 'inline-block';
+            } else {
+                if (badge) badge.style.display = 'none';
+                if (deleteBtn) deleteBtn.style.display = 'none';
+            }
+            
+            // Update select-all checkbox state
+            const checkboxes = document.querySelectorAll('.message-checkbox');
+            const selectAllCheckbox = document.getElementById('select-all-messages');
+            if (selectAllCheckbox && checkboxes.length > 0) {
+                const allSelected = count === checkboxes.length && count > 0;
+                const someSelected = count > 0 && count < checkboxes.length;
+                selectAllCheckbox.checked = allSelected;
+                selectAllCheckbox.indeterminate = someSelected;
+            }
+        }
+
+        // Delete selected messages (batch delete)
+        async function deleteSelectedMessages() {
+            if (selectedMessageIds.size === 0) return;
+            
+            const confirmMsg = messagesI18n.batchDeleteConfirm.replace('{n}', selectedMessageIds.size);
+            if (!confirm(confirmMsg)) return;
+            
+            try {
+                const response = await fetch('/api/messages/batch-delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids: Array.from(selectedMessageIds) })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showToast(messagesI18n.batchDeleteSuccess.replace('{n}', result.data?.deleted_count || selectedMessageIds.size), false);
+                    selectedMessageIds.clear();
+                    loadMessagesPage(currentMessagesPage);
+                    loadUnreadCount();
+                } else {
+                    showToast(result.message || 'Delete failed', true);
+                }
+            } catch (error) {
+                console.error('Batch delete error:', error);
+                showToast('Delete failed', true);
+            }
         }
 
         // Format message time

@@ -481,6 +481,10 @@ var translations = map[string]map[string]string{
 		"messages.time_minutes_ago":         "{n}m ago",
 		"messages.time_hours_ago":           "{n}h ago",
 		"messages.time_days_ago":            "{n}d ago",
+		"messages.selected":                 "selected",
+		"messages.delete_selected":          "Delete Selected",
+		"messages.batch_delete_confirm":     "Are you sure you want to delete {n} selected messages?",
+		"messages.batch_delete_success":     "{n} messages deleted",
 
 		// Admin Messages
 		"admin.messages":                    "Message Management",
@@ -983,6 +987,10 @@ var translations = map[string]map[string]string{
 		"messages.time_minutes_ago":         "{n}分钟前",
 		"messages.time_hours_ago":           "{n}小时前",
 		"messages.time_days_ago":            "{n}天前",
+		"messages.selected":                 "条已选",
+		"messages.delete_selected":          "删除选中",
+		"messages.batch_delete_confirm":     "确定要删除选中的 {n} 条消息吗？",
+		"messages.batch_delete_success":     "已删除 {n} 条消息",
 
 		// Admin Messages
 		"admin.messages":                    "消息管理",

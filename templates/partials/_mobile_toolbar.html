@@ -1,0 +1,36 @@
+{{define "mobile_toolbar"}}
+{{/* Server-side render mobile bottom toolbar if enabled and has items */}}
+{{if and .mobileToolbarEnabled .mobileToolbarItems}}
+<nav class="mobile-toolbar enabled" id="mobile-toolbar">
+    <div class="mobile-toolbar-items" id="mobile-toolbar-items">
+        {{range .mobileToolbarItems}}
+        <a href="{{safeURL .URL}}" class="mobile-toolbar-item"{{if .NewTab}} target="_blank" rel="noopener"{{end}}>
+            <i class="{{.Icon}}"></i>
+            <span>{{if and .TitleI18n (index .TitleI18n $.lang)}}{{index .TitleI18n $.lang}}{{else}}{{.Title}}{{end}}</span>
+        </a>
+        {{end}}
+    </div>
+</nav>
+<script>
+// Mark body to have mobile toolbar for proper padding
+document.body.classList.add('has-mobile-toolbar');
+// Set active state based on current path
+(function() {
+    const currentPath = window.location.pathname;
+    document.querySelectorAll('#mobile-toolbar-items .mobile-toolbar-item').forEach(function(item) {
+        const itemUrl = item.getAttribute('href');
+        if (itemUrl === currentPath || (itemUrl !== '/' && currentPath.startsWith(itemUrl))) {
+            item.classList.add('active');
+        }
+    });
+})();
+</script>
+{{else}}
+<!-- Mobile toolbar disabled or no items configured -->
+<nav class="mobile-toolbar" id="mobile-toolbar">
+    <div class="mobile-toolbar-items" id="mobile-toolbar-items">
+        <!-- Empty - will be populated by JavaScript if needed -->
+    </div>
+</nav>
+{{end}}
+{{end}}

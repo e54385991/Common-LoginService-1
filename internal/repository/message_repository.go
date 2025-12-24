@@ -86,6 +86,15 @@ func (r *MessageRepository) Delete(id, userID uint) error {
 	return r.db.Where("id = ? AND user_id = ?", id, userID).Delete(&model.Message{}).Error
 }
 
+// DeleteBatch deletes multiple messages by IDs for a specific user
+func (r *MessageRepository) DeleteBatch(ids []uint, userID uint) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	result := r.db.Where("id IN ? AND user_id = ?", ids, userID).Delete(&model.Message{})
+	return result.RowsAffected, result.Error
+}
+
 // List lists all messages with pagination (admin)
 func (r *MessageRepository) List(page, pageSize int, userID *uint) ([]model.Message, int64, error) {
 	var messages []model.Message
