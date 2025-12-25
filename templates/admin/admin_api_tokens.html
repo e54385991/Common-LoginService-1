@@ -43,8 +43,8 @@
                                 <div class="col-md-4 mb-3">
                                     <label for="token-permissions" class="form-label">权限</label>
                                     <select class="form-select" id="token-permissions" multiple>
-                                        <option value="balance" selected>余额管理</option>
-                                        <option value="vip" selected>VIP管理</option>
+                                        <option value="balance">余额管理</option>
+                                        <option value="vip">VIP管理</option>
                                         <option value="user">用户创建</option>
                                         <option value="password">密码管理</option>
                                         <option value="all">所有权限</option>
@@ -443,7 +443,7 @@ X-API-Key: your-token
                 <tr>
                     <td>${escapeHtml(token.name)}</td>
                     <td><code class="text-muted">${escapeHtml(token.token)}</code></td>
-                    <td><span class="badge bg-info">${escapeHtml(token.permissions || 'balance,vip')}</span></td>
+                    <td><span class="badge bg-info">${escapeHtml(token.permissions || '仅查询')}</span></td>
                     <td>
                         ${token.is_active 
                             ? '<span class="badge bg-success">启用</span>' 

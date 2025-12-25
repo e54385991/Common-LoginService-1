@@ -42,7 +42,19 @@
                 <span>VIP配置</span>
             </a>
         </li>
-        <li class="nav-item {{if eq .activeMenu "profile-navigation"}}active{{end}}">
+        <li class="nav-item {{if eq .activeMenu "payment"}}active{{end}}">
+            <a href="/admin/payment" class="nav-link">
+                <i class="bi bi-credit-card"></i>
+                <span>支付与充值</span>
+            </a>
+        </li>
+        <li class="nav-item {{if eq .activeMenu "payment-orders"}}active{{end}}">
+            <a href="/admin/payment-orders" class="nav-link">
+                <i class="bi bi-receipt"></i>
+                <span>支付订单</span>
+            </a>
+        </li>
+        <li class="nav-item {{if eq .activeMenu "profile-navigation"}}active{{end}}">>
             <a href="/admin/profile-navigation" class="nav-link">
                 <i class="bi bi-grid-3x3-gap"></i>
                 <span>个人中心导航</span>
@@ -72,6 +84,12 @@
                 <span>礼品卡</span>
             </a>
         </li>
+        <li class="nav-item {{if eq .activeMenu "gift-card-batch"}}active{{end}}">
+            <a href="/admin/gift-cards/batch" class="nav-link">
+                <i class="bi bi-gift-fill"></i>
+                <span>礼品卡批量发放</span>
+            </a>
+        </li>
         <li class="nav-item {{if eq .activeMenu "settings"}}active{{end}}">
             <a href="/admin/settings" class="nav-link">
                 <i class="bi bi-gear"></i>
@@ -82,6 +100,12 @@
             <a href="/admin/integration-guide" class="nav-link">
                 <i class="bi bi-code-square"></i>
                 <span>[开发] 接入指南</span>
+            </a>
+        </li>
+        <li class="nav-item {{if eq .activeMenu "integration-guide-oauth2"}}active{{end}}">
+            <a href="/admin/integration-guide-oauth2" class="nav-link">
+                <i class="bi bi-shield-lock"></i>
+                <span>[开发] OAuth2接入</span>
             </a>
         </li>
     </ul>

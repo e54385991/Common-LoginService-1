@@ -145,6 +145,16 @@
                         </div>
                     </div>
 
+                    <!-- Email Verification Section -->
+                    <div class="mb-3">
+                        <label class="form-label">邮箱验证状态</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="editEmailVerified">
+                            <label class="form-check-label" for="editEmailVerified">邮箱已验证</label>
+                        </div>
+                        <small class="text-muted mt-1 d-block">标记用户邮箱验证状态</small>
+                    </div>
+
                     <!-- Password Reset Section -->
                     <div class="mb-3">
                         <label class="form-label">密码管理</label>
@@ -322,7 +332,7 @@
                     </td>
                     <td>${formatDate(user.created_at)}</td>
                     <td>
-                        <button class="btn btn-sm btn-outline-primary me-1" onclick="openEditModal(${user.id}, ${user.balance.toFixed(2)}, ${user.vip_level}, ${user.is_active}, '${user.vip_expire_at || ''}')" title="编辑">
+                        <button class="btn btn-sm btn-outline-primary me-1" onclick="openEditModal(${user.id}, ${user.balance.toFixed(2)}, ${user.vip_level}, ${user.is_active}, '${user.vip_expire_at || ''}', ${user.email_verified || false})" title="编辑">
                             <i class="bi bi-pencil"></i>
                         </button>
                         <button class="btn btn-sm btn-outline-danger" onclick="logoutUser(${user.id})" title="注销登录">
@@ -381,11 +391,12 @@
             pagination.innerHTML = html;
         }
 
-        function openEditModal(userId, balance, vipLevel, isActive, vipExpireAt) {
+        function openEditModal(userId, balance, vipLevel, isActive, vipExpireAt, emailVerified) {
             document.getElementById('editUserId').value = userId;
             document.getElementById('editBalance').value = balance;
             document.getElementById('editVIPLevel').value = vipLevel;
             document.getElementById('editIsActive').checked = isActive;
+            document.getElementById('editEmailVerified').checked = emailVerified;
             
             // Set VIP expire at
             const expireInput = document.getElementById('editVIPExpireAt');
@@ -434,6 +445,7 @@
             const balance = parseFloat(document.getElementById('editBalance').value);
             const vipLevel = parseInt(document.getElementById('editVIPLevel').value);
             const isActive = document.getElementById('editIsActive').checked;
+            const emailVerified = document.getElementById('editEmailVerified').checked;
             const vipExpireAtInput = document.getElementById('editVIPExpireAt').value;
 
             // Client-side validation
@@ -504,6 +516,18 @@
                 const statusData = await statusRes.json();
                 if (!statusData.success) {
                     showToast('状态更新失败: ' + statusData.message, true);
+                    return;
+                }
+
+                // Update email verified status
+                const emailVerifiedRes = await fetch(`/api/admin/users/${userId}/email-verified`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email_verified: emailVerified })
+                });
+                const emailVerifiedData = await emailVerifiedRes.json();
+                if (!emailVerifiedData.success) {
+                    showToast('邮箱验证状态更新失败: ' + emailVerifiedData.message, true);
                     return;
                 }
 

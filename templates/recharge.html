@@ -647,7 +647,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             loadSiteSettings();
             loadMobileToolbar();
-            renderRechargeAmounts();
+            loadRechargeSettings();
             setupPaymentMethods();
             setupGiftCardInput();
         });
@@ -704,18 +704,73 @@
             }
         }
 
+        // Recharge settings loaded from API
+        let rechargeSettings = {
+            min_amount: 1,
+            max_amount: 0,
+            custom_amount_enable: true,
+            options: []
+        };
+
+        async function loadRechargeSettings() {
+            try {
+                const response = await fetch('/api/recharge-settings');
+                const result = await response.json();
+                if (result.success && result.data) {
+                    rechargeSettings = result.data;
+                    renderRechargeAmounts();
+                    updateCustomAmountUI();
+                }
+            } catch (error) {
+                console.error('Failed to load recharge settings:', error);
+                // Use default hardcoded values as fallback
+                renderRechargeAmounts();
+            }
+        }
+
+        function updateCustomAmountUI() {
+            const customAmountSection = document.querySelector('.mt-4 .input-group');
+            if (!customAmountSection) return;
+            
+            const customInput = document.getElementById('custom-amount');
+            if (customInput) {
+                if (rechargeSettings.min_amount > 0) {
+                    customInput.min = rechargeSettings.min_amount;
+                }
+                if (rechargeSettings.max_amount > 0) {
+                    customInput.max = rechargeSettings.max_amount;
+                }
+            }
+            
+            // Hide custom amount section if disabled
+            const customSection = document.querySelector('.mt-4');
+            if (customSection && !rechargeSettings.custom_amount_enable) {
+                customSection.style.display = 'none';
+            }
+        }
+
         function renderRechargeAmounts() {
             const container = document.getElementById('recharge-amounts-container');
             if (!container) return;
             
-            const amounts = [
-                { value: 10, bonus: '' },
-                { value: 30, bonus: '' },
-                { value: 50, bonus: i18n.rechargeBonus + ' ¥2' },
-                { value: 100, bonus: i18n.rechargeBonus + ' ¥5' },
-                { value: 200, bonus: i18n.rechargeBonus + ' ¥15' },
-                { value: 500, bonus: i18n.rechargeBonus + ' ¥50' }
-            ];
+            // Use settings from API if available, otherwise use hardcoded defaults
+            let amounts = [];
+            if (rechargeSettings.options && rechargeSettings.options.length > 0) {
+                amounts = rechargeSettings.options.map(opt => ({
+                    value: opt.amount,
+                    bonus: opt.bonus > 0 ? i18n.rechargeBonus + ' ¥' + opt.bonus : ''
+                }));
+            } else {
+                // Fallback to default hardcoded values
+                amounts = [
+                    { value: 10, bonus: '' },
+                    { value: 30, bonus: '' },
+                    { value: 50, bonus: i18n.rechargeBonus + ' ¥2' },
+                    { value: 100, bonus: i18n.rechargeBonus + ' ¥5' },
+                    { value: 200, bonus: i18n.rechargeBonus + ' ¥15' },
+                    { value: 500, bonus: i18n.rechargeBonus + ' ¥50' }
+                ];
+            }
             
             const fragment = document.createDocumentFragment();
             amounts.forEach(item => {
@@ -755,13 +810,28 @@
         function selectCustomAmount() {
             const input = document.getElementById('custom-amount');
             const amount = parseFloat(input.value);
-            if (amount > 0) {
-                selectedRechargeAmount = amount;
-                document.querySelectorAll('.recharge-amount-card').forEach(card => {
-                    card.classList.remove('selected');
-                });
-                document.getElementById('recharge-btn').disabled = false;
+            
+            if (isNaN(amount) || amount <= 0) {
+                return;
             }
+            
+            // Validate min amount
+            if (rechargeSettings.min_amount > 0 && amount < rechargeSettings.min_amount) {
+                showPaymentErrorModal('充值金额不能小于 ¥' + rechargeSettings.min_amount);
+                return;
+            }
+            
+            // Validate max amount
+            if (rechargeSettings.max_amount > 0 && amount > rechargeSettings.max_amount) {
+                showPaymentErrorModal('充值金额不能大于 ¥' + rechargeSettings.max_amount);
+                return;
+            }
+            
+            selectedRechargeAmount = amount;
+            document.querySelectorAll('.recharge-amount-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            document.getElementById('recharge-btn').disabled = false;
         }
 
         function setupPaymentMethods() {
@@ -961,7 +1031,10 @@
             }
             
             let cardVipDurationText = i18n.vipWarningPermanent;
-            if (data.card_vip_days > 0) {
+            // Check vip_hours first (takes precedence), then vip_days
+            if (data.card_vip_hours > 0) {
+                cardVipDurationText = data.card_vip_hours + ' ' + (i18n.vipWarningHours || '小时');
+            } else if (data.card_vip_days > 0) {
                 cardVipDurationText = data.card_vip_days + ' ' + i18n.vipWarningDays;
             }
             
@@ -995,6 +1068,7 @@
             const newBalance = data && data.balance ? data.balance : 0;
             const grantedVipLevel = data && data.granted_vip_level ? data.granted_vip_level : 0;
             const grantedVipDays = data && data.granted_vip_days ? data.granted_vip_days : 0;
+            const grantedVipHours = data && data.granted_vip_hours ? data.granted_vip_hours : 0;
             const vipSkipped = data && data.vip_skipped ? data.vip_skipped : false;
             
             let rewardContent = '';
@@ -1003,7 +1077,10 @@
             }
             if (grantedVipLevel > 0 && !vipSkipped) {
                 rewardContent += '<p class="mb-2">' + i18n.vipGranted + '<strong class="text-warning fs-4"><i class="bi bi-gem me-1"></i>VIP' + grantedVipLevel + '</strong>';
-                if (grantedVipDays > 0) {
+                // Display hours if set, otherwise days
+                if (grantedVipHours > 0) {
+                    rewardContent += ' <span class="text-muted">(' + grantedVipHours + (i18n.vipWarningHours || '小时') + ')</span>';
+                } else if (grantedVipDays > 0) {
                     rewardContent += ' <span class="text-muted">(' + grantedVipDays + i18n.vipWarningDays + ')</span>';
                 } else {
                     rewardContent += ' <span class="text-muted">(' + i18n.vipWarningPermanent + ')</span>';

@@ -12,6 +12,7 @@ import (
 	"github.com/e54385991/Common-LoginService/config"
 	"github.com/e54385991/Common-LoginService/internal/model"
 	"github.com/e54385991/Common-LoginService/internal/repository"
+	"github.com/e54385991/Common-LoginService/internal/service"
 	"github.com/e54385991/Common-LoginService/pkg/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -25,14 +26,16 @@ const (
 
 // AdminHandler handles admin requests
 type AdminHandler struct {
-	cfg            *config.Config
-	configRepo     *repository.ConfigRepository
-	userRepo       *repository.UserRepository
-	apiTokenRepo   *repository.APITokenRepository
-	giftCardRepo   *repository.GiftCardRepository
-	balanceLogRepo *repository.BalanceLogRepository
-	sessionStore   repository.SessionStore
-	loginLogRepo   *repository.LoginLogRepository
+	cfg              *config.Config
+	configRepo       *repository.ConfigRepository
+	userRepo         *repository.UserRepository
+	apiTokenRepo     *repository.APITokenRepository
+	giftCardRepo     *repository.GiftCardRepository
+	balanceLogRepo   *repository.BalanceLogRepository
+	sessionStore     repository.SessionStore
+	loginLogRepo     *repository.LoginLogRepository
+	paymentOrderRepo *repository.PaymentOrderRepository
+	emailService     *service.EmailService
 }
 
 // AdminLoginRequest represents admin login request
@@ -99,6 +102,24 @@ type GmailAPISettings struct {
 	RefreshToken string `json:"refresh_token" example:"****"`
 }
 
+// SMTPSettings represents SMTP settings
+type SMTPSettings struct {
+	Enabled     bool   `json:"enabled" example:"true"`
+	Host        string `json:"host" example:"smtp.gmail.com"`
+	Port        int    `json:"port" example:"587"`
+	Username    string `json:"username" example:"your-email@gmail.com"`
+	Password    string `json:"password" example:"****"`
+	SenderEmail string `json:"sender_email" example:"noreply@example.com"`
+	SenderName  string `json:"sender_name" example:"Common Login Service"`
+	UseTLS      bool   `json:"use_tls" example:"true"`
+	UseSSL      bool   `json:"use_ssl" example:"false"`
+}
+
+// EmailSettings represents email provider settings
+type EmailSettings struct {
+	Provider string `json:"provider" example:"gmail_api"`
+}
+
 // JWTSettings represents JWT settings
 type JWTSettings struct {
 	ExpireHour int `json:"expire_hour" example:"24"`
@@ -115,6 +136,8 @@ type AdminSettingsResponse struct {
 	SteamOAuth   SteamOAuthSettings   `json:"steam_oauth"`
 	DiscordOAuth DiscordOAuthSettings `json:"discord_oauth"`
 	GmailAPI     GmailAPISettings     `json:"gmail_api"`
+	SMTP         SMTPSettings         `json:"smtp"`
+	Email        EmailSettings        `json:"email"`
 	JWT          JWTSettings          `json:"jwt"`
 	Captcha      CaptchaSettings      `json:"captcha"`
 }
@@ -151,6 +174,24 @@ type UpdateGmailAPIRequest struct {
 	RefreshToken string `json:"refresh_token" example:"your-refresh-token"`
 }
 
+// UpdateSMTPRequest represents SMTP update request
+type UpdateSMTPRequest struct {
+	Enabled     bool   `json:"enabled" example:"true"`
+	Host        string `json:"host" example:"smtp.gmail.com"`
+	Port        int    `json:"port" example:"587"`
+	Username    string `json:"username" example:"your-email@gmail.com"`
+	Password    string `json:"password" example:"your-app-password"`
+	SenderEmail string `json:"sender_email" example:"noreply@example.com"`
+	SenderName  string `json:"sender_name" example:"Common Login Service"`
+	UseTLS      bool   `json:"use_tls" example:"true"`
+	UseSSL      bool   `json:"use_ssl" example:"false"`
+}
+
+// UpdateEmailProviderRequest represents email provider selection request
+type UpdateEmailProviderRequest struct {
+	Provider string `json:"provider" example:"gmail_api"`
+}
+
 // UpdateJWTRequest represents JWT update request
 type UpdateJWTRequest struct {
 	ExpireHour int    `json:"expire_hour" example:"24"`
@@ -178,6 +219,16 @@ func NewAdminHandler(cfg *config.Config, configRepo *repository.ConfigRepository
 // SetLoginLogRepo sets the login log repository for AdminHandler
 func (h *AdminHandler) SetLoginLogRepo(loginLogRepo *repository.LoginLogRepository) {
 	h.loginLogRepo = loginLogRepo
+}
+
+// SetPaymentOrderRepo sets the payment order repository for AdminHandler
+func (h *AdminHandler) SetPaymentOrderRepo(paymentOrderRepo *repository.PaymentOrderRepository) {
+	h.paymentOrderRepo = paymentOrderRepo
+}
+
+// SetEmailService sets the email service for AdminHandler
+func (h *AdminHandler) SetEmailService(emailService *service.EmailService) {
+	h.emailService = emailService
 }
 
 // AdminLoginPage renders the admin login page
@@ -287,6 +338,21 @@ func (h *AdminHandler) AdminIntegrationGuide(c *gin.Context) {
 	})
 }
 
+// AdminIntegrationGuideOAuth2 renders the OAuth2 integration guide page for external systems
+func (h *AdminHandler) AdminIntegrationGuideOAuth2(c *gin.Context) {
+	lang := c.GetString("lang")
+	
+	// Get base URL from config or request
+	baseURL := utils.GetBaseURL(c, h.cfg.Site.BaseURL)
+	
+	c.HTML(http.StatusOK, "admin_integration_guide_oauth2.html", gin.H{
+		"lang":       lang,
+		"config":     h.cfg,
+		"baseURL":    baseURL,
+		"activeMenu": "integration-guide-oauth2",
+	})
+}
+
 // GetSettings returns the current settings
 // @Summary Get admin settings
 // @Description Get current system settings
@@ -329,6 +395,20 @@ func (h *AdminHandler) GetSettings(c *gin.Context) {
 				"client_id":     h.cfg.GmailAPI.ClientID,
 				"client_secret": maskSecret(h.cfg.GmailAPI.ClientSecret),
 				"refresh_token": maskSecret(h.cfg.GmailAPI.RefreshToken),
+			},
+			"smtp": gin.H{
+				"enabled":      h.cfg.SMTP.Enabled,
+				"host":         h.cfg.SMTP.Host,
+				"port":         h.cfg.SMTP.Port,
+				"username":     h.cfg.SMTP.Username,
+				"password":     maskSecret(h.cfg.SMTP.Password),
+				"sender_email": h.cfg.SMTP.SenderEmail,
+				"sender_name":  h.cfg.SMTP.SenderName,
+				"use_tls":      h.cfg.SMTP.UseTLS,
+				"use_ssl":      h.cfg.SMTP.UseSSL,
+			},
+			"email": gin.H{
+				"provider": h.cfg.Email.Provider,
 			},
 			"jwt": gin.H{
 				"expire_hour": h.cfg.JWT.ExpireHour,
@@ -555,6 +635,176 @@ func (h *AdminHandler) UpdateGmailAPI(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Gmail API 设置已更新",
+	})
+}
+
+// TestGmailAPIRequest represents test Gmail API request
+type TestGmailAPIRequest struct {
+	ToEmail string `json:"to_email" binding:"required" example:"test@example.com"`
+}
+
+// TestGmailAPI sends a test email and returns the full Google API response
+// @Summary Test Gmail API configuration
+// @Description Send a test email and return the full Google API response for debugging
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body TestGmailAPIRequest true "Test email request"
+// @Success 200 {object} Response "Test email result with API response"
+// @Failure 400 {object} Response "Bad request"
+// @Failure 401 {object} Response "Unauthorized"
+// @Router /admin/settings/gmail-api/test [post]
+func (h *AdminHandler) TestGmailAPI(c *gin.Context) {
+	var input TestGmailAPIRequest
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请提供有效的邮箱地址",
+		})
+		return
+	}
+
+	// Validate email format
+	if !utils.IsValidEmail(input.ToEmail) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "邮箱地址格式不正确",
+		})
+		return
+	}
+
+	// Check if email service is initialized
+	if h.emailService == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "邮件服务未初始化",
+		})
+		return
+	}
+
+	// Send test email and get result
+	result := h.emailService.SendTestEmail(input.ToEmail)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":      result.Success,
+		"message":      result.Message,
+		"provider":     result.Provider,
+		"api_response": result.APIResponse,
+		"error":        result.Error,
+	})
+}
+
+// UpdateSMTP updates SMTP settings
+// @Summary Update SMTP settings
+// @Description Update SMTP configuration for sending emails
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body UpdateSMTPRequest true "SMTP settings"
+// @Success 200 {object} Response "Settings updated"
+// @Failure 400 {object} Response "Bad request"
+// @Failure 401 {object} Response "Unauthorized"
+// @Failure 500 {object} Response "Failed to save settings"
+// @Router /admin/settings/smtp [put]
+func (h *AdminHandler) UpdateSMTP(c *gin.Context) {
+	var input struct {
+		Enabled     bool   `json:"enabled"`
+		Host        string `json:"host"`
+		Port        int    `json:"port"`
+		Username    string `json:"username"`
+		Password    string `json:"password"`
+		SenderEmail string `json:"sender_email"`
+		SenderName  string `json:"sender_name"`
+		UseTLS      bool   `json:"use_tls"`
+		UseSSL      bool   `json:"use_ssl"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	h.cfg.SMTP.Enabled = input.Enabled
+	h.cfg.SMTP.Host = input.Host
+	if input.Port > 0 {
+		h.cfg.SMTP.Port = input.Port
+	}
+	h.cfg.SMTP.Username = input.Username
+	if input.Password != "" && !isMasked(input.Password) {
+		h.cfg.SMTP.Password = input.Password
+	}
+	h.cfg.SMTP.SenderEmail = input.SenderEmail
+	h.cfg.SMTP.SenderName = input.SenderName
+	h.cfg.SMTP.UseTLS = input.UseTLS
+	h.cfg.SMTP.UseSSL = input.UseSSL
+
+	// Save to file
+	if err := config.Save("config.json"); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "保存配置失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "SMTP 设置已更新",
+	})
+}
+
+// UpdateEmailProvider updates email provider selection
+// @Summary Update email provider
+// @Description Update email provider selection (gmail_api or smtp)
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body UpdateEmailProviderRequest true "Email provider settings"
+// @Success 200 {object} Response "Settings updated"
+// @Failure 400 {object} Response "Bad request"
+// @Failure 401 {object} Response "Unauthorized"
+// @Failure 500 {object} Response "Failed to save settings"
+// @Router /admin/settings/email-provider [put]
+func (h *AdminHandler) UpdateEmailProvider(c *gin.Context) {
+	var input struct {
+		Provider string `json:"provider"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	// Validate provider
+	if input.Provider != service.EmailProviderGmailAPI && input.Provider != service.EmailProviderSMTP {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "无效的邮件服务提供商，请选择 gmail_api 或 smtp",
+		})
+		return
+	}
+
+	h.cfg.Email.Provider = input.Provider
+
+	// Save to file
+	if err := config.Save("config.json"); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "保存配置失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "邮件服务提供商已更新",
 	})
 }
 
@@ -1502,6 +1752,63 @@ func (h *AdminHandler) LogoutUser(c *gin.Context) {
 	})
 }
 
+// SetUserEmailVerifiedRequest represents user email verified set request
+type SetUserEmailVerifiedRequest struct {
+	EmailVerified bool `json:"email_verified" example:"true"`
+}
+
+// SetUserEmailVerified sets a user's email verification status
+// @Summary Set user email verified status
+// @Description Enable or disable user's email verification status
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "User ID"
+// @Param request body SetUserEmailVerifiedRequest true "Email verified set request"
+// @Success 200 {object} handler.Response "Email verified status set"
+// @Failure 400 {object} handler.Response "Bad request"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Failure 404 {object} handler.Response "User not found"
+// @Router /admin/users/{id}/email-verified [put]
+func (h *AdminHandler) SetUserEmailVerified(c *gin.Context) {
+	idStr := c.Param("id")
+	var id uint
+	if _, err := parseUint(idStr, &id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "无效的用户ID",
+		})
+		return
+	}
+
+	var input struct {
+		EmailVerified bool `json:"email_verified"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	user, err := h.userRepo.SetEmailVerified(id, input.EmailVerified)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"success": false,
+			"message": "用户不存在或更新失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "邮箱验证状态设置成功",
+		"data":    user,
+	})
+}
+
 // Helper function to parse uint from string
 func parseUint(s string, result *uint) (bool, error) {
 	val, err := strconv.ParseUint(s, 10, 64)
@@ -1549,6 +1856,11 @@ type UpdateVIPLevelsRequest struct {
 	VIPLevels []VIPLevelRequest `json:"vip_levels"`
 }
 
+// UpdateComparisonBenefitsRequest represents comparison benefits update request
+type UpdateComparisonBenefitsRequest struct {
+	ComparisonBenefits []config.ComparisonBenefit `json:"comparison_benefits"`
+}
+
 // AdminVIPSettings renders the admin VIP settings page
 func (h *AdminHandler) AdminVIPSettings(c *gin.Context) {
 	lang := c.GetString("lang")
@@ -1556,6 +1868,16 @@ func (h *AdminHandler) AdminVIPSettings(c *gin.Context) {
 		"lang":       lang,
 		"config":     h.cfg,
 		"activeMenu": "vip",
+	})
+}
+
+// AdminPaymentSettings renders the admin payment and recharge settings page
+func (h *AdminHandler) AdminPaymentSettings(c *gin.Context) {
+	lang := c.GetString("lang")
+	c.HTML(http.StatusOK, "admin_payment.html", gin.H{
+		"lang":       lang,
+		"config":     h.cfg,
+		"activeMenu": "payment",
 	})
 }
 
@@ -1832,6 +2154,77 @@ func (h *AdminHandler) GetPublicVIPLevels(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data":    h.cfg.VIPLevels,
+	})
+}
+
+// GetComparisonBenefits returns comparison benefits configurations
+// @Summary Get comparison benefits
+// @Description Get all comparison benefits configurations for admin
+// @Tags admin
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} handler.Response "Comparison benefits retrieved"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Router /admin/settings/comparison-benefits [get]
+func (h *AdminHandler) GetComparisonBenefits(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    h.cfg.ComparisonBenefits,
+	})
+}
+
+// UpdateComparisonBenefits updates comparison benefits configurations
+// @Summary Update comparison benefits
+// @Description Update all comparison benefits configurations
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body UpdateComparisonBenefitsRequest true "Comparison benefits"
+// @Success 200 {object} handler.Response "Comparison benefits updated"
+// @Failure 400 {object} handler.Response "Bad request"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Failure 500 {object} handler.Response "Failed to save settings"
+// @Router /admin/settings/comparison-benefits [put]
+func (h *AdminHandler) UpdateComparisonBenefits(c *gin.Context) {
+	var input struct {
+		ComparisonBenefits []config.ComparisonBenefit `json:"comparison_benefits"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	h.cfg.ComparisonBenefits = input.ComparisonBenefits
+
+	if err := config.Save("config.json"); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "保存配置失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "会员权益对比配置已更新",
+	})
+}
+
+// GetPublicComparisonBenefits returns comparison benefits for public access (frontend)
+// @Summary Get public comparison benefits
+// @Description Get comparison benefits configurations for frontend display
+// @Tags public
+// @Produce json
+// @Success 200 {object} handler.Response "Comparison benefits retrieved"
+// @Router /comparison-benefits [get]
+func (h *AdminHandler) GetPublicComparisonBenefits(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    h.cfg.ComparisonBenefits,
 	})
 }
 
@@ -2309,7 +2702,8 @@ type CreateGiftCardRequest struct {
 	ExpiresIn   int     `json:"expires_in" example:"30"` // Days, 0 = never expires
 	Description string  `json:"description" example:"充值礼品卡"`
 	VIPLevel    int     `json:"vip_level" example:"1"`   // VIP level to grant (0 = no VIP, balance only)
-	VIPDays     int     `json:"vip_days" example:"30"`   // VIP duration in days (0 = permanent)
+	VIPDays     int     `json:"vip_days" example:"30"`   // VIP duration in days (0 = permanent, ignored if VIPHours is set)
+	VIPHours    int     `json:"vip_hours" example:"0"`   // VIP duration in hours (0 = use VIPDays, takes precedence if set)
 }
 
 // AdminGiftCards renders the admin gift cards page
@@ -2420,6 +2814,15 @@ func (h *AdminHandler) CreateGiftCards(c *gin.Context) {
 		return
 	}
 
+	// Validate VIP hours if set
+	if input.VIPHours < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "VIP小时数不能为负数",
+		})
+		return
+	}
+
 	count := input.Count
 	if count <= 0 {
 		count = 1
@@ -2434,7 +2837,7 @@ func (h *AdminHandler) CreateGiftCards(c *gin.Context) {
 		expiresAt = &t
 	}
 
-	cards, err := h.giftCardRepo.BatchCreate(input.Amount, count, expiresAt, input.Description, input.VIPLevel, input.VIPDays)
+	cards, err := h.giftCardRepo.BatchCreate(input.Amount, count, expiresAt, input.Description, input.VIPLevel, input.VIPDays, input.VIPHours)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
@@ -3501,6 +3904,65 @@ func (h *AdminHandler) UpdateRegistrationProtectionSettings(c *gin.Context) {
 	})
 }
 
+// UpdatePasswordResetProtectionSettings updates password reset rate limiting settings
+// @Summary Update password reset rate limiting settings
+// @Description Update password reset protection configuration (IP-based rate limiting)
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} handler.Response "Settings updated"
+// @Failure 400 {object} handler.Response "Bad request"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Failure 500 {object} handler.Response "Failed to save settings"
+// @Router /admin/settings/password-reset-protection [put]
+func (h *AdminHandler) UpdatePasswordResetProtectionSettings(c *gin.Context) {
+	var input struct {
+		Enabled       bool `json:"enabled"`
+		MaxRequests   int  `json:"max_requests"`
+		WindowSeconds int  `json:"window_seconds"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	// Validate input with bounds
+	if input.MaxRequests < 1 {
+		input.MaxRequests = 1
+	}
+	if input.MaxRequests > 100 {
+		input.MaxRequests = 100
+	}
+	if input.WindowSeconds < 1 {
+		input.WindowSeconds = 1
+	}
+	if input.WindowSeconds > 86400 {
+		input.WindowSeconds = 86400 // Max 1 day
+	}
+
+	h.cfg.PasswordResetProtection.Enabled = input.Enabled
+	h.cfg.PasswordResetProtection.MaxRequests = input.MaxRequests
+	h.cfg.PasswordResetProtection.WindowSeconds = input.WindowSeconds
+
+	// Save to file
+	if err := config.Save("config.json"); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "保存配置失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "密码重置限制设置已更新",
+	})
+}
+
 // ==================== Login Logs ====================
 
 // AdminLoginLogs renders the admin login logs page
@@ -3678,5 +4140,200 @@ func (h *AdminHandler) GetPublicTopNavigation(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data":    visibleItems,
+	})
+}
+
+// ==================== Recharge Settings ====================
+
+// GetRechargeSettings returns recharge settings
+// @Summary Get recharge settings
+// @Description Get recharge configuration including options, min/max amounts
+// @Tags admin
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} handler.Response "Recharge settings retrieved"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Router /admin/settings/recharge [get]
+func (h *AdminHandler) GetRechargeSettings(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    h.cfg.Recharge,
+	})
+}
+
+// UpdateRechargeSettings updates recharge settings
+// @Summary Update recharge settings
+// @Description Update recharge configuration including options, min/max amounts
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body config.RechargeConfig true "Recharge settings"
+// @Success 200 {object} handler.Response "Recharge settings updated"
+// @Failure 400 {object} handler.Response "Bad request"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Failure 500 {object} handler.Response "Failed to save settings"
+// @Router /admin/settings/recharge [put]
+func (h *AdminHandler) UpdateRechargeSettings(c *gin.Context) {
+	var input config.RechargeConfig
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	// Validate min/max amounts
+	if input.MinAmount < 0 {
+		input.MinAmount = 0
+	}
+	if input.MaxAmount < 0 {
+		input.MaxAmount = 0
+	}
+	if input.MaxAmount > 0 && input.MinAmount > input.MaxAmount {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "最小金额不能大于最大金额",
+		})
+		return
+	}
+
+	h.cfg.Recharge = input
+
+	if err := config.Save("config.json"); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "保存配置失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "充值设置已更新",
+	})
+}
+
+// GetPublicRechargeSettings returns recharge settings for public access (frontend)
+// @Summary Get public recharge settings
+// @Description Get recharge configuration for frontend display
+// @Tags public
+// @Produce json
+// @Success 200 {object} handler.Response "Recharge settings retrieved"
+// @Router /recharge-settings [get]
+func (h *AdminHandler) GetPublicRechargeSettings(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    h.cfg.Recharge,
+	})
+}
+
+// AdminPaymentOrders renders the admin payment orders page
+func (h *AdminHandler) AdminPaymentOrders(c *gin.Context) {
+	lang := c.GetString("lang")
+	c.HTML(http.StatusOK, "admin_payment_orders.html", gin.H{
+		"lang":       lang,
+		"config":     h.cfg,
+		"activeMenu": "payment-orders",
+	})
+}
+
+// ListPaymentOrders lists payment orders with pagination and search
+// @Summary List payment orders
+// @Description List payment orders with pagination and optional search
+// @Tags admin
+// @Produce json
+// @Security BearerAuth
+// @Param page query int false "Page number (default: 1)"
+// @Param per_page query int false "Items per page (default: 20)"
+// @Param keyword query string false "Search keyword (order ID or user ID)"
+// @Param status query string false "Filter by status (pending, success, fail)"
+// @Param product_type query string false "Filter by product type (vip, recharge)"
+// @Success 200 {object} handler.Response "Payment orders list"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Router /admin/payment-orders [get]
+func (h *AdminHandler) ListPaymentOrders(c *gin.Context) {
+	if h.paymentOrderRepo == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "支付订单服务未初始化",
+		})
+		return
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	perPage, _ := strconv.Atoi(c.DefaultQuery("per_page", "20"))
+	keyword := c.Query("keyword")
+	status := c.Query("status")
+	productType := c.Query("product_type")
+
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 || perPage > 100 {
+		perPage = 20
+	}
+
+	var orders []model.PaymentOrder
+	var total int64
+	var err error
+
+	if keyword != "" || status != "" || productType != "" {
+		orders, total, err = h.paymentOrderRepo.Search(keyword, status, productType, page, perPage)
+	} else {
+		orders, total, err = h.paymentOrderRepo.List(page, perPage)
+	}
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "查询支付订单失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"orders":      orders,
+			"total":       total,
+			"page":        page,
+			"per_page":    perPage,
+			"total_pages": (total + int64(perPage) - 1) / int64(perPage),
+		},
+	})
+}
+
+// GetPaymentOrderStatistics returns payment order statistics
+// @Summary Get payment order statistics
+// @Description Get statistics for payment orders
+// @Tags admin
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} handler.Response "Payment order statistics"
+// @Failure 401 {object} handler.Response "Unauthorized"
+// @Router /admin/payment-orders/statistics [get]
+func (h *AdminHandler) GetPaymentOrderStatistics(c *gin.Context) {
+	if h.paymentOrderRepo == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "支付订单服务未初始化",
+		})
+		return
+	}
+
+	stats, err := h.paymentOrderRepo.GetStatistics()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "获取统计数据失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    stats,
 	})
 }

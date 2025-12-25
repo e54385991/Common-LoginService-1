@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>礼品卡批量发放 - {{.config.Site.Title}} 管理后台</title>
+    <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="/static/css/admin.css" rel="stylesheet">
+    <style>
+        .progress-container {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .progress-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        .filter-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .batch-task-item {
+            border-left: 3px solid #667eea;
+            padding-left: 15px;
+            margin-bottom: 15px;
+        }
+        .batch-task-item.completed {
+            border-left-color: #28a745;
+        }
+        .batch-task-item.running {
+            border-left-color: #ffc107;
+        }
+        .batch-task-item.failed {
+            border-left-color: #dc3545;
+        }
+        .filter-summary {
+            background: #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-wrapper">
+        {{template "admin_sidebar" .}}
+
+        <!-- Main Content -->
+        <main class="admin-main">
+            <header class="admin-header">
+                <h1 class="page-title"><i class="bi bi-gift-fill me-2"></i>礼品卡批量发放</h1>
+            </header>
+
+            <div class="admin-content">
+                <div class="row g-4">
+                    <!-- Filter & Gift Card Config Form -->
+                    <div class="col-lg-7">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="bi bi-funnel me-2"></i>筛选用户并发放礼品卡</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="batch-distribute-form">
+                                    <!-- User Filter Section -->
+                                    <h6 class="mb-3"><i class="bi bi-people me-2"></i>用户筛选条件</h6>
+                                    <div class="row mb-4">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">注册时间 - 起始</label>
+                                            <input type="date" class="form-control" id="filter-registered-after">
+                                            <small class="text-muted">筛选在此日期之后注册的用户</small>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">注册时间 - 结束</label>
+                                            <input type="date" class="form-control" id="filter-registered-before">
+                                            <small class="text-muted">筛选在此日期之前注册的用户</small>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">用户ID - 最小值</label>
+                                            <input type="number" class="form-control" id="filter-user-id-min" min="1" placeholder="如：1">
+                                            <small class="text-muted">用户ID大于等于此值</small>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">用户ID - 最大值</label>
+                                            <input type="number" class="form-control" id="filter-user-id-max" min="1" placeholder="如：1000">
+                                            <small class="text-muted">用户ID小于等于此值</small>
+                                        </div>
+                                        <div class="col-md-4 mb-3">
+                                            <label class="form-label">VIP等级条件</label>
+                                            <select class="form-select" id="filter-vip-level-op">
+                                                <option value="">不限</option>
+                                                <option value="=">等于 (=)</option>
+                                                <option value=">">大于 (&gt;)</option>
+                                                <option value="<">小于 (&lt;)</option>
+                                                <option value=">=">大于等于 (&gt;=)</option>
+                                                <option value="<=">小于等于 (&lt;=)</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4 mb-3">
+                                            <label class="form-label">VIP等级值</label>
+                                            <input type="number" class="form-control" id="filter-vip-level-value" min="0" placeholder="如：0">
+                                            <small class="text-muted">0=普通用户</small>
+                                        </div>
+                                        <div class="col-md-4 mb-3">
+                                            <label class="form-label">账号状态</label>
+                                            <select class="form-select" id="filter-is-active">
+                                                <option value="">不限</option>
+                                                <option value="true">仅活跃账号</option>
+                                                <option value="false">仅禁用账号</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <!-- Preview Button -->
+                                    <div class="mb-4">
+                                        <button type="button" class="btn btn-outline-primary" onclick="previewFilteredUsers()">
+                                            <i class="bi bi-eye me-2"></i>预览符合条件的用户数量
+                                        </button>
+                                        <span class="ms-3" id="preview-result"></span>
+                                    </div>
+
+                                    <hr>
+
+                                    <!-- Gift Card Config Section -->
+                                    <h6 class="mb-3"><i class="bi bi-gift me-2"></i>礼品卡配置</h6>
+                                    <div class="row">
+                                        <div class="col-md-3 mb-3">
+                                            <label class="form-label">面值 (¥)</label>
+                                            <input type="number" class="form-control" id="card-amount" value="" min="0" step="0.01" placeholder="如100">
+                                            <small class="text-muted">0或空 = 不充值</small>
+                                        </div>
+                                        <div class="col-md-3 mb-3">
+                                            <label class="form-label">VIP等级</label>
+                                            <input type="number" class="form-control" id="card-vip-level" value="" min="0" max="10" placeholder="如1">
+                                            <small class="text-muted">0或空 = 不赠送VIP</small>
+                                        </div>
+                                        <div class="col-md-3 mb-3">
+                                            <label class="form-label">VIP天数</label>
+                                            <input type="number" class="form-control" id="card-vip-days" value="" min="0" placeholder="如30">
+                                            <small class="text-muted">0或空 = 永久/用小时</small>
+                                        </div>
+                                        <div class="col-md-3 mb-3">
+                                            <label class="form-label">VIP小时数</label>
+                                            <input type="number" class="form-control" id="card-vip-hours" value="" min="0" placeholder="如24">
+                                            <small class="text-muted">优先于天数</small>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-4 mb-3">
+                                            <label class="form-label">礼品卡有效期（天）</label>
+                                            <input type="number" class="form-control" id="card-expires" value="" min="0" placeholder="0或空 = 永不过期">
+                                        </div>
+                                        <div class="col-md-8 mb-3">
+                                            <label class="form-label">描述</label>
+                                            <input type="text" class="form-control" id="card-description" placeholder="如：新用户福利">
+                                        </div>
+                                    </div>
+
+                                    <div class="alert alert-info mb-3">
+                                        <i class="bi bi-envelope me-2"></i>
+                                        <strong>发放方式：</strong>系统将为每个符合条件的用户生成独立的礼品卡，并通过<strong>站内信</strong>发送到用户的消息中心。用户收到消息后可前往充值页面兑换礼品卡。面值和VIP至少需要设置一项。
+                                    </div>
+
+                                    <button type="submit" class="btn btn-success btn-lg" id="submit-btn">
+                                        <i class="bi bi-send me-2"></i>开始批量发放
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Progress & Tasks -->
+                    <div class="col-lg-5">
+                        <!-- Active Task Progress -->
+                        <div class="card mb-4" id="progressCard" style="display: none;">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0"><i class="bi bi-hourglass-split me-2"></i>发放进度</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="progress-container">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span id="progressTitle">正在发放...</span>
+                                        <span class="badge bg-warning" id="progressStatus">进行中</span>
+                                    </div>
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar progress-bar-striped progress-bar-animated" id="progressBar" role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                    <div class="progress-stats">
+                                        <span>已发放: <strong id="sentCount">0</strong></span>
+                                        <span>失败: <strong id="failedCount" class="text-danger">0</strong></span>
+                                        <span>总计: <strong id="totalCount">0</strong></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Batch Task History -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>批量发放历史</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="batchTaskList">
+                                    <div class="text-center text-muted py-4">
+                                        <i class="bi bi-inbox display-4 d-block mb-2"></i>
+                                        暂无批量任务
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Usage Instructions -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>使用说明</h5>
+                    </div>
+                    <div class="card-body">
+                        <h6>筛选条件说明</h6>
+                        <ul>
+                            <li><strong>注册时间：</strong>筛选在指定时间范围内注册的用户</li>
+                            <li><strong>用户ID：</strong>筛选ID在指定范围内的用户</li>
+                            <li><strong>VIP等级：</strong>筛选VIP等级符合条件的用户（0表示普通用户）</li>
+                            <li><strong>账号状态：</strong>筛选活跃或禁用的账号</li>
+                        </ul>
+                        
+                        <h6 class="mt-4">发放流程</h6>
+                        <ol>
+                            <li>设置用户筛选条件（可留空表示不限）</li>
+                            <li>点击"预览"查看符合条件的用户数量</li>
+                            <li>配置礼品卡参数（面值和/或VIP）</li>
+                            <li>点击"开始批量发放"</li>
+                            <li>系统会异步处理，可在右侧查看进度</li>
+                            <li>用户会在消息中心收到礼品卡兑换码</li>
+                        </ol>
+                        
+                        <div class="alert alert-success mt-3">
+                            <i class="bi bi-envelope-check me-2"></i>
+                            <strong>发放说明：</strong>礼品卡将通过站内信发送给用户，用户需要在充值页面手动兑换才能获得福利。这样可以让用户明确知道收到了礼品卡，并保留兑换的主动权。
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast for notifications -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="notificationToast" class="toast" role="alert">
+            <div class="toast-header">
+                <i class="bi bi-bell me-2"></i>
+                <strong class="me-auto">通知</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="toastMessage"></div>
+        </div>
+    </div>
+
+    <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+    <script>
+        let activeTaskId = null;
+        let progressInterval = null;
+        let notificationToast;
+
+        // Configuration constants
+        const PROGRESS_POLL_INTERVAL_MS = 1500; // Poll every 1.5 seconds for progress updates
+
+        document.addEventListener('DOMContentLoaded', function() {
+            notificationToast = new bootstrap.Toast(document.getElementById('notificationToast'));
+            loadBatchTasks();
+            setupFormListeners();
+        });
+
+        function setupFormListeners() {
+            document.getElementById('batch-distribute-form').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                await startBatchDistribute();
+            });
+        }
+
+        function getFilterParams() {
+            const params = {};
+            
+            const regAfter = document.getElementById('filter-registered-after').value;
+            if (regAfter) params.registered_after = regAfter;
+            
+            const regBefore = document.getElementById('filter-registered-before').value;
+            if (regBefore) params.registered_before = regBefore;
+            
+            const userIdMin = document.getElementById('filter-user-id-min').value;
+            if (userIdMin) params.user_id_min = parseInt(userIdMin);
+            
+            const userIdMax = document.getElementById('filter-user-id-max').value;
+            if (userIdMax) params.user_id_max = parseInt(userIdMax);
+            
+            const vipLevelOp = document.getElementById('filter-vip-level-op').value;
+            const vipLevelValue = document.getElementById('filter-vip-level-value').value;
+            if (vipLevelOp && vipLevelValue !== '') {
+                params.vip_level_op = vipLevelOp;
+                params.vip_level_value = parseInt(vipLevelValue);
+            }
+            
+            const isActive = document.getElementById('filter-is-active').value;
+            if (isActive === 'true') params.is_active = true;
+            else if (isActive === 'false') params.is_active = false;
+            
+            return params;
+        }
+
+        function getGiftCardParams() {
+            return {
+                amount: parseFloat(document.getElementById('card-amount').value) || 0,
+                vip_level: parseInt(document.getElementById('card-vip-level').value) || 0,
+                vip_days: parseInt(document.getElementById('card-vip-days').value) || 0,
+                vip_hours: parseInt(document.getElementById('card-vip-hours').value) || 0,
+                expires_in: parseInt(document.getElementById('card-expires').value) || 0,
+                description: document.getElementById('card-description').value
+            };
+        }
+
+        async function previewFilteredUsers() {
+            const resultEl = document.getElementById('preview-result');
+            resultEl.innerHTML = '<span class="text-muted"><i class="bi bi-hourglass-split me-1"></i>查询中...</span>';
+
+            try {
+                const params = { ...getFilterParams(), ...getGiftCardParams() };
+                const response = await fetch('/api/admin/gift-cards/batch/preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(params)
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    const count = result.data.count;
+                    resultEl.innerHTML = `<span class="badge bg-info fs-6"><i class="bi bi-people me-1"></i>符合条件的用户: ${count} 人</span>`;
+                } else {
+                    resultEl.innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-circle me-1"></i>${escapeHtml(result.message)}</span>`;
+                }
+            } catch (error) {
+                console.error('Preview error:', error);
+                resultEl.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-circle me-1"></i>查询失败</span>';
+            }
+        }
+
+        async function startBatchDistribute() {
+            const cardParams = getGiftCardParams();
+            
+            // Validate
+            if (cardParams.amount <= 0 && cardParams.vip_level <= 0) {
+                showToast('请设置面值或VIP等级（至少需要设置一项）', true);
+                return;
+            }
+
+            const submitBtn = document.getElementById('submit-btn');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>启动中...';
+
+            try {
+                const params = { ...getFilterParams(), ...cardParams };
+                const response = await fetch('/api/admin/gift-cards/batch/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(params)
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    showToast('批量发放任务已启动', false);
+                    activeTaskId = result.data.task_id;
+                    startProgressTracking(activeTaskId);
+                } else {
+                    showToast(result.message || '启动失败', true);
+                }
+            } catch (error) {
+                console.error('Start error:', error);
+                showToast('启动失败: ' + error.message, true);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        }
+
+        function startProgressTracking(taskId) {
+            const progressCard = document.getElementById('progressCard');
+            progressCard.style.display = 'block';
+            
+            document.getElementById('progressBar').style.width = '0%';
+            document.getElementById('progressStatus').textContent = '进行中';
+            document.getElementById('progressStatus').className = 'badge bg-warning';
+            document.getElementById('sentCount').textContent = '0';
+            document.getElementById('failedCount').textContent = '0';
+            document.getElementById('totalCount').textContent = '0';
+
+            if (progressInterval) {
+                clearInterval(progressInterval);
+            }
+
+            progressInterval = setInterval(() => updateProgress(taskId), PROGRESS_POLL_INTERVAL_MS);
+        }
+
+        async function updateProgress(taskId) {
+            try {
+                const response = await fetch(`/api/admin/gift-cards/batch/progress/${taskId}`);
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    const data = result.data;
+                    const total = data.total_users || 0;
+                    const sent = data.sent_count || 0;
+                    const failed = data.failed_count || 0;
+                    const progress = total > 0 ? Math.round(((sent + failed) / total) * 100) : 0;
+
+                    document.getElementById('progressBar').style.width = progress + '%';
+                    document.getElementById('sentCount').textContent = sent;
+                    document.getElementById('failedCount').textContent = failed;
+                    document.getElementById('totalCount').textContent = total;
+
+                    if (data.status === 'completed') {
+                        document.getElementById('progressStatus').textContent = '已完成';
+                        document.getElementById('progressStatus').className = 'badge bg-success';
+                        document.getElementById('progressBar').className = 'progress-bar bg-success';
+                        clearInterval(progressInterval);
+                        loadBatchTasks();
+                    } else if (data.status === 'failed') {
+                        document.getElementById('progressStatus').textContent = '失败';
+                        document.getElementById('progressStatus').className = 'badge bg-danger';
+                        document.getElementById('progressBar').className = 'progress-bar bg-danger';
+                        clearInterval(progressInterval);
+                        loadBatchTasks();
+                    }
+                }
+            } catch (error) {
+                console.error('Progress update error:', error);
+            }
+        }
+
+        async function loadBatchTasks() {
+            try {
+                const response = await fetch('/api/admin/gift-cards/batch/tasks?page_size=10');
+                const result = await response.json();
+                
+                const container = document.getElementById('batchTaskList');
+                if (result.success && result.data.tasks && result.data.tasks.length > 0) {
+                    container.innerHTML = result.data.tasks.map(task => {
+                        const statusClass = task.status === 'completed' ? 'completed' : 
+                                           task.status === 'running' ? 'running' : 
+                                           task.status === 'failed' ? 'failed' : '';
+                        const statusBadge = task.status === 'completed' ? '<span class="badge bg-success">已完成</span>' :
+                                           task.status === 'running' ? '<span class="badge bg-warning">进行中</span>' :
+                                           task.status === 'failed' ? '<span class="badge bg-danger">失败</span>' :
+                                           '<span class="badge bg-secondary">待处理</span>';
+                        const date = new Date(task.created_at).toLocaleString('zh-CN');
+                        const progress = task.total_users > 0 ? 
+                            Math.round(((task.sent_count + task.failed_count) / task.total_users) * 100) : 0;
+                        
+                        // Build description
+                        let desc = [];
+                        if (task.amount > 0) desc.push(`¥${task.amount}`);
+                        if (task.vip_level > 0) {
+                            let vipText = `VIP${task.vip_level}`;
+                            if (task.vip_hours > 0) vipText += `/${task.vip_hours}小时`;
+                            else if (task.vip_days > 0) vipText += `/${task.vip_days}天`;
+                            else vipText += '/永久';
+                            desc.push(vipText);
+                        }
+                        const descText = desc.join(' + ') || '无';
+                        
+                        return `
+                            <div class="batch-task-item ${statusClass}">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <strong>${descText}</strong>
+                                        ${statusBadge}
+                                        <br>
+                                        <small class="text-muted">${date}</small>
+                                    </div>
+                                </div>
+                                <div class="mt-2">
+                                    <small>
+                                        发放: ${task.sent_count}/${task.total_users} 
+                                        ${task.failed_count > 0 ? `<span class="text-danger">(失败: ${task.failed_count})</span>` : ''}
+                                    </small>
+                                    <div class="progress mt-1" style="height: 5px;">
+                                        <div class="progress-bar ${task.status === 'completed' ? 'bg-success' : task.status === 'failed' ? 'bg-danger' : ''}" 
+                                             style="width: ${progress}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    container.innerHTML = `
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-inbox display-4 d-block mb-2"></i>
+                            暂无批量任务
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Load batch tasks error:', error);
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showToast(message, isError = false) {
+            const toastEl = document.getElementById('notificationToast');
+            const toastBody = document.getElementById('toastMessage');
+            toastBody.textContent = message;
+            toastEl.classList.remove('bg-success', 'bg-danger');
+            toastEl.classList.add(isError ? 'bg-danger' : 'bg-success');
+            toastEl.classList.add('text-white');
+            notificationToast.show();
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+name: Update Go Dependencies
+
+on:
+  schedule:
+    # Run weekly on Monday at 00:00 UTC
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+    # Allow manual trigger
+
+jobs:
+  update-deps:
+    name: Update Dependencies
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25'
+
+    - name: Update Go dependencies
+      run: |
+        go get -u ./...
+        go mod tidy
+
+    - name: Check for changes
+      id: changes
+      run: |
+        if [ -n "$(git status --porcelain go.mod go.sum)" ]; then
+          echo "changes=true" >> $GITHUB_OUTPUT
+        else
+          echo "changes=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Create Pull Request
+      if: steps.changes.outputs.changes == 'true'
+      uses: peter-evans/create-pull-request@v7
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: 'chore(deps): update Go dependencies'
+        title: 'chore(deps): Update Go dependencies'
+        body: |
+          This PR updates Go dependencies to their latest versions.
+          
+          **Changes:**
+          - Updated dependencies in `go.mod`
+          - Updated checksums in `go.sum`
+          
+          Please review the changes before merging.
+        branch: chore/update-go-dependencies
+        delete-branch: true
+        labels: dependencies

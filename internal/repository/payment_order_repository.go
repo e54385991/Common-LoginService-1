@@ -39,6 +39,95 @@ func (r *PaymentOrderRepository) FindByOrderID(orderID string) (*model.PaymentOr
 	return &order, nil
 }
 
+// List lists all payment orders with pagination
+func (r *PaymentOrderRepository) List(page, pageSize int) ([]model.PaymentOrder, int64, error) {
+	var orders []model.PaymentOrder
+	var total int64
+
+	r.db.Model(&model.PaymentOrder{}).Count(&total)
+
+	offset := (page - 1) * pageSize
+	err := r.db.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&orders).Error
+
+	return orders, total, err
+}
+
+// Search searches payment orders by order ID, user ID, or status with pagination
+func (r *PaymentOrderRepository) Search(keyword string, status string, productType string, page, pageSize int) ([]model.PaymentOrder, int64, error) {
+	var orders []model.PaymentOrder
+	var total int64
+
+	query := r.db.Model(&model.PaymentOrder{})
+
+	if keyword != "" {
+		// Check if keyword is numeric (potential user ID)
+		query = query.Where("order_id LIKE ? OR CAST(user_id AS CHAR) LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
+	}
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	if productType != "" {
+		query = query.Where("product_type = ?", productType)
+	}
+
+	query.Count(&total)
+
+	offset := (page - 1) * pageSize
+	err := query.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&orders).Error
+
+	return orders, total, err
+}
+
+// GetStatistics returns payment order statistics
+func (r *PaymentOrderRepository) GetStatistics() (map[string]interface{}, error) {
+	stats := make(map[string]interface{})
+
+	// Total orders
+	var totalOrders int64
+	r.db.Model(&model.PaymentOrder{}).Count(&totalOrders)
+	stats["total_orders"] = totalOrders
+
+	// Orders by status
+	var pendingOrders int64
+	r.db.Model(&model.PaymentOrder{}).Where("status = ?", PaymentStatusPending).Count(&pendingOrders)
+	stats["pending_orders"] = pendingOrders
+
+	var successOrders int64
+	r.db.Model(&model.PaymentOrder{}).Where("status = ?", PaymentStatusSuccess).Count(&successOrders)
+	stats["success_orders"] = successOrders
+
+	var failedOrders int64
+	r.db.Model(&model.PaymentOrder{}).Where("status = ?", PaymentStatusFail).Count(&failedOrders)
+	stats["failed_orders"] = failedOrders
+
+	// Total amount (successful orders only)
+	var totalAmount float64
+	r.db.Model(&model.PaymentOrder{}).Where("status = ?", PaymentStatusSuccess).Select("COALESCE(SUM(amount), 0)").Scan(&totalAmount)
+	stats["total_amount"] = totalAmount
+
+	// VIP orders total
+	var vipTotal float64
+	r.db.Model(&model.PaymentOrder{}).Where("status = ? AND product_type = ?", PaymentStatusSuccess, "vip").Select("COALESCE(SUM(amount), 0)").Scan(&vipTotal)
+	stats["vip_total"] = vipTotal
+
+	// Recharge orders total
+	var rechargeTotal float64
+	r.db.Model(&model.PaymentOrder{}).Where("status = ? AND product_type = ?", PaymentStatusSuccess, "recharge").Select("COALESCE(SUM(amount), 0)").Scan(&rechargeTotal)
+	stats["recharge_total"] = rechargeTotal
+
+	// Today's successful orders count and amount
+	today := time.Now().Truncate(24 * time.Hour)
+	var todayOrders int64
+	r.db.Model(&model.PaymentOrder{}).Where("status = ? AND created_at >= ?", PaymentStatusSuccess, today).Count(&todayOrders)
+	stats["today_orders"] = todayOrders
+
+	var todayAmount float64
+	r.db.Model(&model.PaymentOrder{}).Where("status = ? AND created_at >= ?", PaymentStatusSuccess, today).Select("COALESCE(SUM(amount), 0)").Scan(&todayAmount)
+	stats["today_amount"] = todayAmount
+
+	return stats, nil
+}
+
 // MarkAsSuccess marks a payment order as successful
 // Returns true if the order was updated, false if it was already processed
 // Uses atomic update to prevent race conditions and duplicate processing

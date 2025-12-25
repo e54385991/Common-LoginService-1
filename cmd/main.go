@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/e54385991/Common-LoginService/config"
 	_ "github.com/e54385991/Common-LoginService/docs"
@@ -105,6 +106,11 @@ func loadTemplates(templatesDir string) (*template.Template, error) {
 			}
 			return ""
 		},
+		// safeHTML marks a string as safe HTML to avoid auto-escaping
+		// Use with caution - only for trusted content like admin-configured descriptions
+		"safeHTML": func(s string) template.HTML {
+			return template.HTML(s)
+		},
 	})
 
 	err := filepath.Walk(templatesDir, func(path string, info os.FileInfo, err error) error {
@@ -140,6 +146,17 @@ func loadTemplates(templatesDir string) (*template.Template, error) {
 }
 
 func main() {
+	// Load timezone from TZ environment variable (e.g., TZ=Asia/Shanghai)
+	if tz := os.Getenv("TZ"); tz != "" {
+		loc, err := time.LoadLocation(tz)
+		if err != nil {
+			log.Printf("Warning: Invalid timezone %s: %v, using UTC", tz, err)
+		} else {
+			time.Local = loc
+			log.Printf("Timezone set to: %s", tz)
+		}
+	}
+
 	// Load configuration
 	cfg, err := config.Load("config.json")
 	if err != nil {
@@ -151,13 +168,17 @@ func main() {
 
 	// Initialize database (MySQL)
 	dsn := cfg.Database.GetDSN()
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
+		NowFunc: func() time.Time {
+			return time.Now()
+		},
+	})
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
 	// Auto migrate
-	if err := db.AutoMigrate(&model.User{}, &model.Session{}, &model.SystemConfig{}, &model.PasswordResetRequest{}, &model.APIToken{}, &model.GiftCard{}, &model.PaymentOrder{}, &model.BalanceLog{}, &model.LoginLog{}, &model.EmailVerificationToken{}, &model.RegistrationLog{}, &model.Message{}, &model.MessageBatchTask{}); err != nil {
+	if err := db.AutoMigrate(&model.User{}, &model.Session{}, &model.SystemConfig{}, &model.PasswordResetRequest{}, &model.APIToken{}, &model.GiftCard{}, &model.GiftCardBatchTask{}, &model.PaymentOrder{}, &model.BalanceLog{}, &model.LoginLog{}, &model.EmailVerificationToken{}, &model.RegistrationLog{}, &model.PasswordResetLog{}, &model.Message{}, &model.MessageBatchTask{}); err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
 
@@ -166,11 +187,13 @@ func main() {
 	configRepo := repository.NewConfigRepository(db)
 	apiTokenRepo := repository.NewAPITokenRepository(db)
 	giftCardRepo := repository.NewGiftCardRepository(db)
+	giftCardBatchTaskRepo := repository.NewGiftCardBatchTaskRepository(db)
 	paymentOrderRepo := repository.NewPaymentOrderRepository(db)
 	balanceLogRepo := repository.NewBalanceLogRepository(db)
 	loginLogRepo := repository.NewLoginLogRepository(db)
 	emailVerificationRepo := repository.NewEmailVerificationRepository(db)
 	registrationLogRepo := repository.NewRegistrationLogRepository(db)
+	passwordResetLogRepo := repository.NewPasswordResetLogRepository(db)
 	messageRepo := repository.NewMessageRepository(db)
 	messageBatchTaskRepo := repository.NewMessageBatchTaskRepository(db)
 
@@ -201,14 +224,20 @@ func main() {
 	authHandler.SetBalanceLogRepo(balanceLogRepo)
 	authHandler.SetEmailVerificationRepo(emailVerificationRepo)
 	authHandler.SetRegistrationLogRepo(registrationLogRepo)
+	authHandler.SetPasswordResetLogRepo(passwordResetLogRepo)
 	googleHandler := handler.NewGoogleAuthHandler(authService, cfg)
 	steamHandler := handler.NewSteamAuthHandler(authService, cfg)
 	discordHandler := handler.NewDiscordAuthHandler(authService, cfg)
 	adminHandler := handler.NewAdminHandler(cfg, configRepo, userRepo, apiTokenRepo, giftCardRepo, balanceLogRepo, sessionStore)
 	adminHandler.SetLoginLogRepo(loginLogRepo)
+	adminHandler.SetPaymentOrderRepo(paymentOrderRepo)
+	adminHandler.SetEmailService(emailService)
 	captchaHandler := handler.NewCaptchaHandler(captchaService, cfg)
 	paymentHandler := handler.NewPaymentHandler(cfg, paymentOrderRepo, userRepo, balanceLogRepo)
 	messageHandler := handler.NewMessageHandler(messageRepo, messageBatchTaskRepo, userRepo)
+	giftCardBatchHandler := handler.NewGiftCardBatchHandler(cfg, giftCardRepo, giftCardBatchTaskRepo, userRepo, messageRepo)
+	oauth2Handler := handler.NewOAuth2Handler(authService, cfg)
+	oauth2Handler.SetAPITokenRepo(apiTokenRepo)
 
 	// Initialize Gin
 	gin.SetMode(gin.ReleaseMode)
@@ -356,15 +385,19 @@ func main() {
 			adminProtected.GET("/settings", adminHandler.AdminSettings)
 			adminProtected.GET("/users", adminHandler.AdminUsers)
 			adminProtected.GET("/vip", adminHandler.AdminVIPSettings)
+			adminProtected.GET("/payment", adminHandler.AdminPaymentSettings)
 			adminProtected.GET("/api-tokens", adminHandler.AdminAPITokens)
 			adminProtected.GET("/gift-cards", adminHandler.AdminGiftCards)
+			adminProtected.GET("/gift-cards/batch", giftCardBatchHandler.AdminGiftCardBatchPage)
 			adminProtected.GET("/profile-navigation", adminHandler.AdminProfileNavigation)
 			adminProtected.GET("/top-navigation", adminHandler.AdminTopNavigation)
 			adminProtected.GET("/mobile-toolbar", adminHandler.AdminMobileToolbar)
 			adminProtected.GET("/balance-logs", adminHandler.AdminBalanceLogs)
 			adminProtected.GET("/login-logs", adminHandler.AdminLoginLogs)
 			adminProtected.GET("/integration-guide", adminHandler.AdminIntegrationGuide)
+			adminProtected.GET("/integration-guide-oauth2", adminHandler.AdminIntegrationGuideOAuth2)
 			adminProtected.GET("/messages", messageHandler.AdminMessagesPage)
+			adminProtected.GET("/payment-orders", adminHandler.AdminPaymentOrders)
 		}
 	}
 
@@ -381,14 +414,21 @@ func main() {
 			adminAPIProtected.PUT("/settings/steam-oauth", adminHandler.UpdateSteamOAuth)
 			adminAPIProtected.PUT("/settings/discord-oauth", adminHandler.UpdateDiscordOAuth)
 			adminAPIProtected.PUT("/settings/gmail-api", adminHandler.UpdateGmailAPI)
+			adminAPIProtected.POST("/settings/gmail-api/test", adminHandler.TestGmailAPI)
+			adminAPIProtected.PUT("/settings/smtp", adminHandler.UpdateSMTP)
+			adminAPIProtected.PUT("/settings/email-provider", adminHandler.UpdateEmailProvider)
 			adminAPIProtected.PUT("/settings/jwt", adminHandler.UpdateJWT)
 			adminAPIProtected.PUT("/settings/captcha", adminHandler.UpdateCaptcha)
 			adminAPIProtected.GET("/settings/site", adminHandler.GetSiteSettings)
 			adminAPIProtected.PUT("/settings/site", adminHandler.UpdateSiteSettings)
 			adminAPIProtected.GET("/settings/payment", adminHandler.GetPaymentSettings)
 			adminAPIProtected.PUT("/settings/payment", adminHandler.UpdatePaymentSettings)
+			adminAPIProtected.GET("/settings/recharge", adminHandler.GetRechargeSettings)
+			adminAPIProtected.PUT("/settings/recharge", adminHandler.UpdateRechargeSettings)
 			adminAPIProtected.GET("/settings/vip-levels", adminHandler.GetVIPLevels)
 			adminAPIProtected.PUT("/settings/vip-levels", adminHandler.UpdateVIPLevels)
+			adminAPIProtected.GET("/settings/comparison-benefits", adminHandler.GetComparisonBenefits)
+			adminAPIProtected.PUT("/settings/comparison-benefits", adminHandler.UpdateComparisonBenefits)
 			adminAPIProtected.GET("/settings/profile-navigation", adminHandler.GetProfileNavigation)
 			adminAPIProtected.PUT("/settings/profile-navigation", adminHandler.UpdateProfileNavigation)
 			adminAPIProtected.GET("/settings/top-navigation", adminHandler.GetTopNavigation)
@@ -402,6 +442,7 @@ func main() {
 			adminAPIProtected.GET("/settings/login-protection", adminHandler.GetLoginProtectionSettings)
 			adminAPIProtected.PUT("/settings/login-protection", adminHandler.UpdateLoginProtectionSettings)
 			adminAPIProtected.PUT("/settings/registration-protection", adminHandler.UpdateRegistrationProtectionSettings)
+			adminAPIProtected.PUT("/settings/password-reset-protection", adminHandler.UpdatePasswordResetProtectionSettings)
 
 			// User management routes
 			adminAPIProtected.GET("/users", adminHandler.ListUsers)
@@ -413,6 +454,7 @@ func main() {
 			adminAPIProtected.PUT("/users/:id/vip-expire", adminHandler.SetUserVIPExpireAt)
 			adminAPIProtected.POST("/users/:id/vip-renew", adminHandler.RenewUserVIP)
 			adminAPIProtected.PUT("/users/:id/status", adminHandler.SetUserStatus)
+			adminAPIProtected.PUT("/users/:id/email-verified", adminHandler.SetUserEmailVerified)
 			adminAPIProtected.POST("/users/:id/reset-password", adminHandler.ResetUserPassword)
 			adminAPIProtected.POST("/users/:id/logout", adminHandler.LogoutUser)
 
@@ -428,6 +470,11 @@ func main() {
 			adminAPIProtected.DELETE("/gift-cards/:id", adminHandler.DeleteGiftCard)
 			adminAPIProtected.GET("/gift-cards/export-unused", adminHandler.ExportUnusedGiftCards)
 			adminAPIProtected.POST("/gift-cards/batch-delete", adminHandler.BatchDeleteGiftCards)
+			// Gift Card batch distribution routes
+			adminAPIProtected.POST("/gift-cards/batch/preview", giftCardBatchHandler.PreviewFilteredUsers)
+			adminAPIProtected.POST("/gift-cards/batch/start", giftCardBatchHandler.StartBatchDistribute)
+			adminAPIProtected.GET("/gift-cards/batch/progress/:id", giftCardBatchHandler.GetBatchProgress)
+			adminAPIProtected.GET("/gift-cards/batch/tasks", giftCardBatchHandler.ListBatchTasks)
 
 			// Balance log management routes
 			adminAPIProtected.GET("/balance-logs", adminHandler.ListBalanceLogs)
@@ -441,6 +488,10 @@ func main() {
 			adminAPIProtected.POST("/messages/batch-send", messageHandler.AdminBatchSendMessage)
 			adminAPIProtected.GET("/messages/batch-progress/:id", messageHandler.AdminGetBatchProgress)
 			adminAPIProtected.GET("/messages/batch-tasks", messageHandler.AdminListBatchTasks)
+
+			// Payment order management routes
+			adminAPIProtected.GET("/payment-orders", adminHandler.ListPaymentOrders)
+			adminAPIProtected.GET("/payment-orders/statistics", adminHandler.GetPaymentOrderStatistics)
 		}
 	}
 
@@ -458,11 +509,22 @@ func main() {
 
 	// Public API for frontend
 	api.GET("/vip-levels", adminHandler.GetPublicVIPLevels)
+	api.GET("/comparison-benefits", adminHandler.GetPublicComparisonBenefits)
 	api.GET("/site-settings", adminHandler.GetPublicSiteSettings)
 	api.GET("/profile-navigation", adminHandler.GetPublicProfileNavigation)
 	api.GET("/top-navigation", adminHandler.GetPublicTopNavigation)
 	api.GET("/mobile-toolbar", adminHandler.GetPublicMobileToolbar)
 	api.GET("/custom-settings", adminHandler.GetPublicCustomSettings)
+	api.GET("/recharge-settings", adminHandler.GetPublicRechargeSettings)
+
+	// OAuth2 authorization server routes
+	oauth2 := r.Group("/oauth2")
+	{
+		oauth2.GET("/status", oauth2Handler.GetOAuth2Status)
+		oauth2.GET("/authorize", oauth2Handler.Authorize)
+		oauth2.POST("/token", oauth2Handler.Token)
+		oauth2.GET("/userinfo", oauth2Handler.UserInfo)
+	}
 
 	// Swagger documentation route
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))

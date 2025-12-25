@@ -51,7 +51,8 @@ type UpdateProfileRequest struct {
 
 // ForgotPasswordRequest represents forgot password request body
 type ForgotPasswordRequest struct {
-	Email string `json:"email" binding:"required,email" example:"user@example.com"`
+	Email     string `json:"email" binding:"required,email" example:"user@example.com"`
+	CaptchaID string `json:"captcha_id" example:"abc123"`
 }
 
 // ResetPasswordRequest represents reset password request body
@@ -88,6 +89,7 @@ type AuthHandler struct {
 		UpdateBalance(id uint, amount float64) (*model.User, error)
 		SetVIPLevel(id uint, level int) (*model.User, error)
 		SetVIPLevelWithDuration(id uint, level int, durationDays int) (*model.User, error)
+		SetVIPLevelWithDurationOrHours(id uint, level int, durationDays int, durationHours int) (*model.User, error)
 		SetVIPLevelWithUpgrade(id uint, level int, durationDays int, oldPrice float64, newPrice float64) (*model.User, int, error)
 		RenewVIPLevel(id uint, level int, durationDays int) (*model.User, error)
 		SetEmailVerified(id uint, verified bool) (*model.User, error)
@@ -112,6 +114,10 @@ type AuthHandler struct {
 		Create(log *model.RegistrationLog) error
 		CanRegister(ip string, maxRegistrations int, windowSeconds int) (bool, int64, error)
 	}
+	passwordResetLogRepo interface {
+		Create(log *model.PasswordResetLog) error
+		CanRequestPasswordReset(ip string, maxRequests int, windowSeconds int) (bool, int64, error)
+	}
 }
 
 // NewAuthHandler creates a new AuthHandler
@@ -130,6 +136,7 @@ func (h *AuthHandler) SetUserRepo(userRepo interface {
 	UpdateBalance(id uint, amount float64) (*model.User, error)
 	SetVIPLevel(id uint, level int) (*model.User, error)
 	SetVIPLevelWithDuration(id uint, level int, durationDays int) (*model.User, error)
+	SetVIPLevelWithDurationOrHours(id uint, level int, durationDays int, durationHours int) (*model.User, error)
 	SetVIPLevelWithUpgrade(id uint, level int, durationDays int, oldPrice float64, newPrice float64) (*model.User, int, error)
 	RenewVIPLevel(id uint, level int, durationDays int) (*model.User, error)
 	SetEmailVerified(id uint, verified bool) (*model.User, error)
@@ -171,6 +178,14 @@ func (h *AuthHandler) SetRegistrationLogRepo(registrationLogRepo interface {
 	CanRegister(ip string, maxRegistrations int, windowSeconds int) (bool, int64, error)
 }) {
 	h.registrationLogRepo = registrationLogRepo
+}
+
+// SetPasswordResetLogRepo sets the password reset log repository for AuthHandler
+func (h *AuthHandler) SetPasswordResetLogRepo(passwordResetLogRepo interface {
+	Create(log *model.PasswordResetLog) error
+	CanRequestPasswordReset(ip string, maxRequests int, windowSeconds int) (bool, int64, error)
+}) {
+	h.passwordResetLogRepo = passwordResetLogRepo
 }
 
 // isSecureRequest checks if the request is over HTTPS
@@ -561,10 +576,12 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 // @Param request body handler.ForgotPasswordRequest true "Forgot password request"
 // @Success 200 {object} handler.Response "Reset email sent"
 // @Failure 400 {object} handler.Response "Bad request"
+// @Failure 429 {object} handler.Response "Too many requests"
 // @Router /auth/forgot-password [post]
 func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 	var input struct {
-		Email string `json:"email" binding:"required,email"`
+		Email     string `json:"email" binding:"required,email"`
+		CaptchaID string `json:"captcha_id"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -574,6 +591,46 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 		return
 	}
 
+	// Verify captcha if enabled
+	if h.cfg.Captcha.Enabled {
+		if input.CaptchaID == "" || !h.captchaService.IsVerified(input.CaptchaID) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "请先完成验证码验证",
+			})
+			return
+		}
+	}
+
+	// Get client IP for rate limiting
+	clientIP := c.ClientIP()
+
+	// Check password reset rate limit if enabled
+	if h.cfg.PasswordResetProtection.Enabled && h.passwordResetLogRepo != nil && clientIP != "" {
+		canRequest, remaining, err := h.passwordResetLogRepo.CanRequestPasswordReset(
+			clientIP,
+			h.cfg.PasswordResetProtection.MaxRequests,
+			h.cfg.PasswordResetProtection.WindowSeconds,
+		)
+		if err == nil && !canRequest {
+			windowSeconds := h.cfg.PasswordResetProtection.WindowSeconds
+			var waitMessage string
+			if windowSeconds >= 60 && windowSeconds%60 == 0 {
+				waitMessage = fmt.Sprintf("请求过于频繁，请在 %d 分钟后重试", windowSeconds/60)
+			} else if windowSeconds >= 60 {
+				waitMessage = fmt.Sprintf("请求过于频繁，请在 %d 秒后重试", windowSeconds)
+			} else {
+				waitMessage = fmt.Sprintf("请求过于频繁，请在 %d 秒后重试", windowSeconds)
+			}
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"success":   false,
+				"message":   waitMessage,
+				"remaining": remaining,
+			})
+			return
+		}
+	}
+
 	token, err := h.authService.RequestPasswordReset(input.Email)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -581,6 +638,16 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 			"message": err.Error(),
 		})
 		return
+	}
+
+	// Log password reset request for rate limiting (log after successful validation)
+	if h.passwordResetLogRepo != nil && clientIP != "" {
+		resetLog := &model.PasswordResetLog{
+			IP:    clientIP,
+			Email: input.Email,
+		}
+		// Ignore error, don't fail the request because of logging
+		_ = h.passwordResetLogRepo.Create(resetLog)
 	}
 
 	// Get base URL from config or request
@@ -702,8 +769,12 @@ func (h *AuthHandler) GetGoogleOAuthStatus(c *gin.Context) {
 
 // LoginPage renders the login page
 func (h *AuthHandler) LoginPage(c *gin.Context) {
-	// Check for redirect parameter and validate it
+	// Check for redirect/callback parameter and validate it
+	// Support both "redirect" and "callback" parameter names for compatibility
 	redirectURL := c.Query("redirect")
+	if redirectURL == "" {
+		redirectURL = c.Query("callback")
+	}
 	validRedirect := isValidCallbackURL(redirectURL)
 	if !validRedirect {
 		redirectURL = ""
@@ -766,7 +837,11 @@ func (h *AuthHandler) LoginPage(c *gin.Context) {
 func (h *AuthHandler) RegisterPage(c *gin.Context) {
 	lang := c.GetString("lang")
 	// Validate the redirect URL
+	// Support both "redirect" and "callback" parameter names for compatibility
 	redirectURL := c.Query("redirect")
+	if redirectURL == "" {
+		redirectURL = c.Query("callback")
+	}
 	if !isValidCallbackURL(redirectURL) {
 		redirectURL = ""
 	}
@@ -796,9 +871,10 @@ func (h *AuthHandler) RegisterPage(c *gin.Context) {
 func (h *AuthHandler) ForgotPasswordPage(c *gin.Context) {
 	lang := c.GetString("lang")
 	c.HTML(http.StatusOK, "forgot_password.html", gin.H{
-		"lang":     lang,
-		"custom":   h.cfg.Custom,
-		"darkMode": h.cfg.Site.DarkMode,
+		"lang":           lang,
+		"captchaEnabled": h.cfg.Captcha.Enabled,
+		"custom":         h.cfg.Custom,
+		"darkMode":       h.cfg.Site.DarkMode,
 	})
 }
 
@@ -1029,11 +1105,16 @@ func (h *AuthHandler) PurchaseVIP(c *gin.Context) {
 				break
 			}
 		}
-		// If duration specified but no matching specification found, use default
+		// If duration specified but no matching specification found, reject the request
 		if selectedSpec == nil {
-			// Use default price/duration
-			actualPrice = vipConfig.Price
-			actualDuration = vipConfig.Duration
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "指定的时长规格不存在",
+				"data": gin.H{
+					"requested_duration": input.Duration,
+				},
+			})
+			return
 		}
 	} else if input.Duration == 0 && len(vipConfig.Specifications) > 0 {
 		// No duration specified but specifications exist - try to find matching default duration
@@ -1120,16 +1201,10 @@ func (h *AuthHandler) PurchaseVIP(c *gin.Context) {
 		return
 	}
 
-	// Set VIP level
-	// For upgrades, just change VIP level without modifying expiration time
-	// For new purchases, set VIP level with duration
-	if isUpgrade {
-		// Upgrade: only change VIP level, keep existing expiration time
-		updatedUser, err = h.userRepo.SetVIPLevel(currentUser.ID, vipConfig.Level)
-	} else {
-		// New purchase: set VIP level with duration
-		updatedUser, err = h.userRepo.SetVIPLevelWithDuration(currentUser.ID, vipConfig.Level, actualDuration)
-	}
+	// Set VIP level with duration
+	// For both upgrades and new purchases, set VIP expiration to current time + duration
+	// This ensures upgrade users get a fresh expiration based on current time, not extending from old expiration
+	updatedUser, err = h.userRepo.SetVIPLevelWithDuration(currentUser.ID, vipConfig.Level, actualDuration)
 	if err != nil {
 		// Refund balance if VIP upgrade fails - log if refund fails
 		if _, refundErr := h.userRepo.UpdateBalance(currentUser.ID, actualPrice); refundErr != nil {
@@ -1274,10 +1349,16 @@ func (h *AuthHandler) RenewVIP(c *gin.Context) {
 				break
 			}
 		}
-		// If duration specified but no matching specification found, use default
+		// If duration specified but no matching specification found, reject the request
 		if selectedSpec == nil {
-			actualPrice = vipConfig.Price
-			actualDuration = vipConfig.Duration
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "指定的续期时长规格不存在",
+				"data": gin.H{
+					"requested_duration": input.Duration,
+				},
+			})
+			return
 		}
 	} else if input.Duration == 0 && len(vipConfig.Specifications) > 0 {
 		// No duration specified but specifications exist - try to find matching default duration
@@ -1291,14 +1372,24 @@ func (h *AuthHandler) RenewVIP(c *gin.Context) {
 		}
 	}
 
+	// Apply renewal discount if configured (discount is a percentage, e.g., 0.2 means 20% off)
+	originalPrice := actualPrice
+	if vipConfig.RenewalDiscount > 0 && vipConfig.RenewalDiscount < 1 {
+		actualPrice = actualPrice * (1 - vipConfig.RenewalDiscount)
+		// Round to 2 decimal places
+		actualPrice = float64(int(actualPrice*100)) / 100
+	}
+
 	// Check if user has enough balance
 	if currentUser.Balance < actualPrice {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
 			"message": "余额不足，请先充值",
 			"data": gin.H{
-				"balance":  currentUser.Balance,
-				"required": actualPrice,
+				"balance":        currentUser.Balance,
+				"required":       actualPrice,
+				"original_price": originalPrice,
+				"discount":       vipConfig.RenewalDiscount,
 			},
 		})
 		return
@@ -1361,12 +1452,14 @@ func (h *AuthHandler) RenewVIP(c *gin.Context) {
 		"success": true,
 		"message": "VIP续期成功",
 		"data": gin.H{
-			"vip_level":     updatedUser.VIPLevel,
-			"vip_name":      vipConfig.Name,
-			"vip_expire_at": updatedUser.VIPExpireAt,
-			"balance":       updatedUser.Balance,
-			"price_paid":    actualPrice,
-			"duration_days": actualDuration,
+			"vip_level":       updatedUser.VIPLevel,
+			"vip_name":        vipConfig.Name,
+			"vip_expire_at":   updatedUser.VIPExpireAt,
+			"balance":         updatedUser.Balance,
+			"price_paid":      actualPrice,
+			"original_price":  originalPrice,
+			"renewal_discount": vipConfig.RenewalDiscount,
+			"duration_days":   actualDuration,
 		},
 	})
 }
@@ -1460,6 +1553,7 @@ func (h *AuthHandler) RedeemGiftCard(c *gin.Context) {
 				"card_amount":           previewCard.Amount,
 				"card_vip_level":        previewCard.VIPLevel,
 				"card_vip_days":         previewCard.VIPDays,
+				"card_vip_hours":        previewCard.VIPHours,
 				"current_vip_level":     currentUser.VIPLevel,
 				"current_vip_expire_at": currentUser.VIPExpireAt,
 			},
@@ -1516,7 +1610,8 @@ func (h *AuthHandler) RedeemGiftCard(c *gin.Context) {
 			// VIP conflict - skip VIP grant
 			vipSkipped = true
 		} else {
-			updatedUser, err = h.userRepo.SetVIPLevelWithDuration(currentUser.ID, giftCard.VIPLevel, giftCard.VIPDays)
+			// Use VIPHours if set (takes precedence), otherwise use VIPDays
+			updatedUser, err = h.userRepo.SetVIPLevelWithDurationOrHours(currentUser.ID, giftCard.VIPLevel, giftCard.VIPDays, giftCard.VIPHours)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{
 					"success": false,
@@ -1552,6 +1647,7 @@ func (h *AuthHandler) RedeemGiftCard(c *gin.Context) {
 	if giftCard.VIPLevel > 0 && !vipSkipped {
 		responseData["granted_vip_level"] = giftCard.VIPLevel
 		responseData["granted_vip_days"] = giftCard.VIPDays
+		responseData["granted_vip_hours"] = giftCard.VIPHours
 	}
 
 	// Build response message
@@ -1651,6 +1747,7 @@ func (h *AuthHandler) PreviewGiftCard(c *gin.Context) {
 			"amount":                giftCard.Amount,
 			"vip_level":             giftCard.VIPLevel,
 			"vip_days":              giftCard.VIPDays,
+			"vip_hours":             giftCard.VIPHours,
 			"expires_at":            giftCard.ExpiresAt,
 			"description":           giftCard.Description,
 			"has_vip_conflict":      hasVIPConflict,

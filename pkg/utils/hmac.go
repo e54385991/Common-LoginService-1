@@ -33,6 +33,13 @@ type SimplifiedSignedData struct {
 	Timestamp int64   `json:"ts"`
 }
 
+// ComputeHMAC computes an HMAC-SHA256 signature for a single string
+func ComputeHMAC(data, secret string) string {
+	h := hmac.New(sha256.New, []byte(secret))
+	h.Write([]byte(data))
+	return hex.EncodeToString(h.Sum(nil))
+}
+
 // GenerateHMACSignature generates an HMAC-SHA256 signature for the given data
 func GenerateHMACSignature(data map[string]string, secret string) string {
 	// Sort keys for consistent ordering

@@ -16,19 +16,24 @@ type Config struct {
 	SteamOAuth             SteamOAuthConfig             `json:"steam_oauth"`
 	DiscordOAuth           DiscordOAuthConfig           `json:"discord_oauth"`
 	GmailAPI               GmailAPIConfig               `json:"gmail_api"`
+	SMTP                   SMTPConfig                   `json:"smtp"`
+	Email                  EmailConfig                  `json:"email"`
 	Admin                  AdminConfig                  `json:"admin"`
 	Captcha                CaptchaConfig                `json:"captcha"`
 	Site                   SiteConfig                   `json:"site"`
 	Custom                 CustomConfig                 `json:"custom"`
 	Access                 AccessConfig                 `json:"access"`
 	Payment                PaymentConfig                `json:"payment"`
+	Recharge               RechargeConfig               `json:"recharge"`
 	VIPLevels              []VIPLevelConfig             `json:"vip_levels"`
+	ComparisonBenefits     []ComparisonBenefit          `json:"comparison_benefits"`
 	SignedURL              SignedURLConfig              `json:"signed_url"`
 	ProfileNavigation      ProfileNavigationConfig      `json:"profile_navigation"`
 	TopNavigation          TopNavigationConfig          `json:"top_navigation"`
 	MobileToolbar          MobileToolbarConfig          `json:"mobile_toolbar"`
-	LoginProtection        LoginProtectionConfig        `json:"login_protection"`
-	RegistrationProtection RegistrationProtectionConfig `json:"registration_protection"`
+	LoginProtection         LoginProtectionConfig         `json:"login_protection"`
+	RegistrationProtection  RegistrationProtectionConfig  `json:"registration_protection"`
+	PasswordResetProtection PasswordResetProtectionConfig `json:"password_reset_protection"`
 }
 
 // LoginProtectionConfig holds configuration for login protection (IP-based rate limiting)
@@ -44,6 +49,13 @@ type RegistrationProtectionConfig struct {
 	Enabled          bool `json:"enabled"`           // Whether registration rate limiting is enabled
 	MaxRegistrations int  `json:"max_registrations"` // Maximum registrations allowed from same IP within the time window
 	WindowSeconds    int  `json:"window_seconds"`    // Time window in seconds to count registrations
+}
+
+// PasswordResetProtectionConfig holds configuration for password reset rate limiting (IP-based)
+type PasswordResetProtectionConfig struct {
+	Enabled     bool `json:"enabled"`      // Whether password reset rate limiting is enabled
+	MaxRequests int  `json:"max_requests"` // Maximum password reset requests allowed from same IP within the time window
+	WindowSeconds int `json:"window_seconds"` // Time window in seconds to count requests
 }
 
 // ProfileNavigationConfig holds configuration for profile page navigation items
@@ -154,6 +166,20 @@ type PaymentConfig struct {
 	ReturnURL  string `json:"return_url"`
 }
 
+// RechargeOption represents a single recharge amount option with optional bonus
+type RechargeOption struct {
+	Amount float64 `json:"amount"` // Recharge amount
+	Bonus  float64 `json:"bonus"`  // Bonus amount (0 = no bonus)
+}
+
+// RechargeConfig holds recharge configuration
+type RechargeConfig struct {
+	MinAmount          float64          `json:"min_amount"`           // Minimum allowed recharge amount (0 = no limit)
+	MaxAmount          float64          `json:"max_amount"`           // Maximum allowed recharge amount (0 = no limit)
+	CustomAmountEnable bool             `json:"custom_amount_enable"` // Whether custom amount input is enabled
+	Options            []RechargeOption `json:"options"`              // Predefined recharge options
+}
+
 // VIPSpecification holds a specific duration/price option for a VIP level
 type VIPSpecification struct {
 	Duration      int                `json:"duration"`                 // Duration in days, 0 = permanent
@@ -167,20 +193,33 @@ type VIPFeature struct {
 	Enabled bool   `json:"enabled"` // Whether this feature is enabled for this VIP level
 }
 
+// ComparisonBenefit represents a single benefit row in the comparison table
+type ComparisonBenefit struct {
+	ID          string            `json:"id"`                    // Unique identifier for the benefit
+	Name        string            `json:"name"`                  // Benefit name (default language)
+	NameI18n    map[string]string `json:"name_i18n,omitempty"`   // I18n benefit names (e.g., {"en": "Premium Content", "zh": "高级内容"})
+	RegularUser string            `json:"regular_user"`          // Value for regular users (e.g., "✓", "✗", "1x", "-")
+	VIPLevels   map[string]string `json:"vip_levels"`            // Values for each VIP level (key: level as string, value: benefit value)
+	Order       int               `json:"order"`                 // Display order
+}
+
 // VIPLevelConfig holds VIP level configuration
 type VIPLevelConfig struct {
-	Level             int                `json:"level"`
-	Name              string             `json:"name"`
-	Description       string             `json:"description"`
-	Price             float64            `json:"price"`                        // Default price (kept for backward compatibility)
-	Duration          int                `json:"duration"`                     // Default duration in days, 0 = permanent (kept for backward compatibility)
-	Icon              string             `json:"icon"`
-	Color             string             `json:"color"`
-	Features          []VIPFeature       `json:"features,omitempty"`           // List of features for this VIP level
-	UpgradePrices     map[string]float64 `json:"upgrade_prices,omitempty"`     // Upgrade prices from other VIP levels (key: from level as string, value: upgrade price) (kept for backward compatibility)
-	Specifications    []VIPSpecification `json:"specifications,omitempty"`     // Multiple duration/price options for this VIP level
-	AllowRenewal      bool               `json:"allow_renewal,omitempty"`      // Allow users to renew this VIP level (add time to existing expiration)
-	UpgradeCoefficient float64           `json:"upgrade_coefficient,omitempty"` // Coefficient for calculating upgrade price based on remaining days (e.g., 0.7 means 70% value for remaining time). 0 or empty means no prorated upgrade pricing.
+	Level              int                `json:"level"`
+	Name               string             `json:"name"`
+	NameI18n           map[string]string  `json:"name_i18n,omitempty"`           // I18n names (e.g., {"en": "VIP 1", "zh": "VIP 1"})
+	Description        string             `json:"description"`
+	DescriptionI18n    map[string]string  `json:"description_i18n,omitempty"`    // I18n descriptions (e.g., {"en": "Basic privileges", "zh": "基础特权"})
+	Price              float64            `json:"price"`                         // Default price (kept for backward compatibility)
+	Duration           int                `json:"duration"`                      // Default duration in days, 0 = permanent (kept for backward compatibility)
+	Icon               string             `json:"icon"`
+	Color              string             `json:"color"`
+	Features           []VIPFeature       `json:"features,omitempty"`            // List of features for this VIP level
+	UpgradePrices      map[string]float64 `json:"upgrade_prices,omitempty"`      // Upgrade prices from other VIP levels (key: from level as string, value: upgrade price) (kept for backward compatibility)
+	Specifications     []VIPSpecification `json:"specifications,omitempty"`      // Multiple duration/price options for this VIP level
+	AllowRenewal       bool               `json:"allow_renewal,omitempty"`       // Allow users to renew this VIP level (add time to existing expiration)
+	RenewalDiscount    float64            `json:"renewal_discount,omitempty"`    // Discount percentage for VIP renewal (e.g., 0.2 means 20% off, so user pays 80%). 0 or empty means no discount.
+	UpgradeCoefficient float64            `json:"upgrade_coefficient,omitempty"` // Coefficient for calculating upgrade price based on remaining days (e.g., 0.7 means 70% value for remaining time). 0 or empty means no prorated upgrade pricing.
 }
 
 // CaptchaConfig holds captcha configuration
@@ -272,6 +311,24 @@ type GmailAPIConfig struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+// SMTPConfig holds SMTP configuration for sending emails
+type SMTPConfig struct {
+	Enabled     bool   `json:"enabled"`
+	Host        string `json:"host"`         // SMTP server host (e.g., smtp.gmail.com)
+	Port        int    `json:"port"`         // SMTP server port (e.g., 587 for TLS, 465 for SSL)
+	Username    string `json:"username"`     // SMTP username
+	Password    string `json:"password"`     // SMTP password
+	SenderEmail string `json:"sender_email"` // Email address used as sender
+	SenderName  string `json:"sender_name"`  // Display name for sender
+	UseTLS      bool   `json:"use_tls"`      // Use TLS encryption (STARTTLS on port 587)
+	UseSSL      bool   `json:"use_ssl"`      // Use SSL encryption (implicit SSL on port 465)
+}
+
+// EmailConfig holds email sending configuration (Gmail API or SMTP)
+type EmailConfig struct {
+	Provider string `json:"provider"` // "gmail_api" or "smtp"
+}
+
 // AdminConfig holds admin configuration
 type AdminConfig struct {
 	Username string `json:"username"`
@@ -337,6 +394,16 @@ func Load(configPath string) (*Config, error) {
 			GmailAPI: GmailAPIConfig{
 				Enabled: false,
 			},
+			SMTP: SMTPConfig{
+				Enabled: false,
+				Host:    "",
+				Port:    587,
+				UseTLS:  true,
+				UseSSL:  false,
+			},
+			Email: EmailConfig{
+				Provider: "gmail_api", // Default to Gmail API for backward compatibility
+			},
 			Admin: AdminConfig{
 				Username: "admin",
 				Password: "admin123",
@@ -378,10 +445,65 @@ func Load(configPath string) (*Config, error) {
 				NotifyURL:  "",
 				ReturnURL:  "",
 			},
+			Recharge: RechargeConfig{
+				MinAmount:          1,    // Minimum recharge amount 1 yuan
+				MaxAmount:          0,    // 0 = no maximum limit
+				CustomAmountEnable: true, // Allow custom amount input
+				Options: []RechargeOption{
+					{Amount: 10, Bonus: 0},
+					{Amount: 30, Bonus: 0},
+					{Amount: 50, Bonus: 2},
+					{Amount: 100, Bonus: 5},
+					{Amount: 200, Bonus: 15},
+					{Amount: 500, Bonus: 50},
+				},
+			},
 			VIPLevels: []VIPLevelConfig{
 				{Level: 1, Name: "VIP 1", Description: "享受基础特权：去除广告、专属标识", Price: 9.9, Duration: 30, Icon: "bi-star", Color: "#cd7f32"},
 				{Level: 2, Name: "VIP 2", Description: "享受进阶特权：优先客服、专属折扣", Price: 29.9, Duration: 30, Icon: "bi-star-fill", Color: "#c0c0c0"},
 				{Level: 3, Name: "VIP 3", Description: "享受尊贵特权：全部功能、专属活动", Price: 99.9, Duration: 30, Icon: "bi-gem", Color: "#ffd700"},
+			},
+			ComparisonBenefits: []ComparisonBenefit{
+				{
+					ID:          "preview_video",
+					Name:        "观看预览视频",
+					NameI18n:    map[string]string{"en": "Preview Videos", "zh": "观看预览视频"},
+					RegularUser: "✓",
+					VIPLevels:   map[string]string{"1": "✓", "2": "✓", "3": "✓"},
+					Order:       1,
+				},
+				{
+					ID:          "premium_content",
+					Name:        "高级内容访问",
+					NameI18n:    map[string]string{"en": "Premium Content Access", "zh": "高级内容访问"},
+					RegularUser: "✗",
+					VIPLevels:   map[string]string{"1": "✓", "2": "✓", "3": "✓"},
+					Order:       2,
+				},
+				{
+					ID:          "priority_support",
+					Name:        "优先客服支持",
+					NameI18n:    map[string]string{"en": "Priority Support", "zh": "优先客服支持"},
+					RegularUser: "✗",
+					VIPLevels:   map[string]string{"1": "✗", "2": "✓", "3": "✓"},
+					Order:       3,
+				},
+				{
+					ID:          "points_rate",
+					Name:        "积分倍率",
+					NameI18n:    map[string]string{"en": "Points Multiplier", "zh": "积分倍率"},
+					RegularUser: "1x",
+					VIPLevels:   map[string]string{"1": "1.2x", "2": "1.5x", "3": "2x"},
+					Order:       4,
+				},
+				{
+					ID:          "discount",
+					Name:        "专属折扣",
+					NameI18n:    map[string]string{"en": "Exclusive Discount", "zh": "专属折扣"},
+					RegularUser: "-",
+					VIPLevels:   map[string]string{"1": "5%", "2": "10%", "3": "15%"},
+					Order:       5,
+				},
 			},
 			SignedURL: SignedURLConfig{
 				Enabled:       false,
@@ -415,6 +537,11 @@ func Load(configPath string) (*Config, error) {
 				Enabled:          false,
 				MaxRegistrations: 3,           // 3 registrations allowed
 				WindowSeconds:    3600,        // 1 hour window
+			},
+			PasswordResetProtection: PasswordResetProtectionConfig{
+				Enabled:       false,
+				MaxRequests:   2,              // 2 password reset requests allowed
+				WindowSeconds: 300,            // 5 minutes window
 			},
 		}
 

@@ -278,6 +278,42 @@ func (r *UserRepository) SetVIPLevelWithDuration(id uint, level int, durationDay
 	return &user, nil
 }
 
+// SetVIPLevelWithHours sets the user's VIP level and calculates expiration based on hours
+// If hours is 0, the VIP is permanent (no expiration)
+// If hours > 0, expiration is set to now + hours
+// This allows finer control than SetVIPLevelWithDuration which only supports days
+func (r *UserRepository) SetVIPLevelWithHours(id uint, level int, durationHours int) (*model.User, error) {
+	var user model.User
+	if err := r.db.First(&user, id).Error; err != nil {
+		return nil, err
+	}
+	
+	user.VIPLevel = level
+	if durationHours > 0 {
+		expireAt := time.Now().Add(time.Duration(durationHours) * time.Hour)
+		user.VIPExpireAt = &expireAt
+	} else {
+		// Permanent VIP - no expiration
+		user.VIPExpireAt = nil
+	}
+	
+	if err := r.db.Save(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// SetVIPLevelWithDurationOrHours sets the user's VIP level based on hours if specified, otherwise days
+// If both hours and days are 0, the VIP is permanent (no expiration)
+// If hours > 0, uses hours for duration (takes precedence)
+// If hours == 0 and days > 0, uses days for duration
+func (r *UserRepository) SetVIPLevelWithDurationOrHours(id uint, level int, durationDays int, durationHours int) (*model.User, error) {
+	if durationHours > 0 {
+		return r.SetVIPLevelWithHours(id, level, durationHours)
+	}
+	return r.SetVIPLevelWithDuration(id, level, durationDays)
+}
+
 // SetVIPLevelWithUpgrade sets the user's VIP level with time compensation for upgrades.
 // When upgrading from an existing VIP with remaining time, the remaining time is converted
 // and added to the new VIP duration based on the price ratio.
@@ -508,4 +544,111 @@ func (r *UserRepository) UpdateEmail(id uint, email string) (*model.User, error)
 		return nil, err
 	}
 	return &user, nil
+}
+
+// UserFilter represents filters for querying users
+type UserFilter struct {
+	// Registration time filters
+	RegisteredAfter  *time.Time // Users registered after this time
+	RegisteredBefore *time.Time // Users registered before this time
+	// User ID range filters
+	UserIDMin *uint // Minimum user ID (>=)
+	UserIDMax *uint // Maximum user ID (<=)
+	// VIP level filters
+	VIPLevelOp    string // Comparison operator: "=", ">", "<", ">=", "<="
+	VIPLevelValue *int   // VIP level value to compare
+	// IsActive filter
+	IsActive *bool // Filter by active status
+}
+
+// FilterUsers returns user IDs matching the given filters
+func (r *UserRepository) FilterUsers(filter UserFilter) ([]uint, error) {
+	query := r.db.Model(&model.User{})
+
+	// Apply registration time filters
+	if filter.RegisteredAfter != nil {
+		query = query.Where("created_at >= ?", *filter.RegisteredAfter)
+	}
+	if filter.RegisteredBefore != nil {
+		query = query.Where("created_at <= ?", *filter.RegisteredBefore)
+	}
+
+	// Apply user ID range filters
+	if filter.UserIDMin != nil {
+		query = query.Where("id >= ?", *filter.UserIDMin)
+	}
+	if filter.UserIDMax != nil {
+		query = query.Where("id <= ?", *filter.UserIDMax)
+	}
+
+	// Apply VIP level filter
+	if filter.VIPLevelValue != nil && filter.VIPLevelOp != "" {
+		switch filter.VIPLevelOp {
+		case "=":
+			query = query.Where("vip_level = ?", *filter.VIPLevelValue)
+		case ">":
+			query = query.Where("vip_level > ?", *filter.VIPLevelValue)
+		case "<":
+			query = query.Where("vip_level < ?", *filter.VIPLevelValue)
+		case ">=":
+			query = query.Where("vip_level >= ?", *filter.VIPLevelValue)
+		case "<=":
+			query = query.Where("vip_level <= ?", *filter.VIPLevelValue)
+		}
+	}
+
+	// Apply active status filter
+	if filter.IsActive != nil {
+		query = query.Where("is_active = ?", *filter.IsActive)
+	}
+
+	var userIDs []uint
+	err := query.Pluck("id", &userIDs).Error
+	return userIDs, err
+}
+
+// CountFilteredUsers returns count of users matching the given filters
+func (r *UserRepository) CountFilteredUsers(filter UserFilter) (int64, error) {
+	query := r.db.Model(&model.User{})
+
+	// Apply registration time filters
+	if filter.RegisteredAfter != nil {
+		query = query.Where("created_at >= ?", *filter.RegisteredAfter)
+	}
+	if filter.RegisteredBefore != nil {
+		query = query.Where("created_at <= ?", *filter.RegisteredBefore)
+	}
+
+	// Apply user ID range filters
+	if filter.UserIDMin != nil {
+		query = query.Where("id >= ?", *filter.UserIDMin)
+	}
+	if filter.UserIDMax != nil {
+		query = query.Where("id <= ?", *filter.UserIDMax)
+	}
+
+	// Apply VIP level filter
+	if filter.VIPLevelValue != nil && filter.VIPLevelOp != "" {
+		switch filter.VIPLevelOp {
+		case "=":
+			query = query.Where("vip_level = ?", *filter.VIPLevelValue)
+		case ">":
+			query = query.Where("vip_level > ?", *filter.VIPLevelValue)
+		case "<":
+			query = query.Where("vip_level < ?", *filter.VIPLevelValue)
+		case ">=":
+			query = query.Where("vip_level >= ?", *filter.VIPLevelValue)
+		case "<=":
+			query = query.Where("vip_level <= ?", *filter.VIPLevelValue)
+		}
+	}
+
+	// Apply active status filter
+	if filter.IsActive != nil {
+		query = query.Where("is_active = ?", *filter.IsActive)
+	}
+
+	var count int64
+	err := query.Count(&count).Error
+	return count, err
 }

@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>[开发] OAuth2接入指南 - {{.config.Site.Title}} 管理后台</title>
+    <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="/static/css/admin.css" rel="stylesheet">
+    <style>
+        pre {
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+        pre code {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        .code-comment { color: #6a9955; }
+        .code-string { color: #ce9178; }
+        .code-keyword { color: #569cd6; }
+        .code-function { color: #dcdcaa; }
+        .step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            background-color: #0d6efd;
+            color: white;
+            border-radius: 50%;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-wrapper">
+        {{template "admin_sidebar" .}}
+
+        <!-- Main Content -->
+        <main class="admin-main">
+            <header class="admin-header">
+                <h1 class="page-title"><i class="bi bi-shield-lock me-2"></i>[开发] OAuth2 标准接入指南</h1>
+            </header>
+
+            <div class="admin-content">
+                <!-- Introduction -->
+                <div class="alert alert-info mb-4">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>简介：</strong> 本系统支持标准 OAuth2 授权码流程（Authorization Code Flow），让您的应用可以像使用 Google、GitHub 登录一样接入本系统。
+                    这是最安全、最标准的 OAuth2 接入方式，适合需要获取用户授权的第三方应用。
+                </div>
+
+                <!-- Overview Card -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>OAuth2 授权码流程概述</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-md-2 mb-3">
+                                <div class="p-3 border rounded">
+                                    <i class="bi bi-1-circle-fill text-primary fs-2"></i>
+                                    <p class="mt-2 mb-0">用户点击<br/>"使用 {{.config.Site.Title}} 登录"</p>
+                                </div>
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <div class="p-3 border rounded">
+                                    <i class="bi bi-2-circle-fill text-primary fs-2"></i>
+                                    <p class="mt-2 mb-0">重定向到<br/>授权端点</p>
+                                </div>
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <div class="p-3 border rounded">
+                                    <i class="bi bi-3-circle-fill text-primary fs-2"></i>
+                                    <p class="mt-2 mb-0">用户登录<br/>并授权</p>
+                                </div>
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <div class="p-3 border rounded">
+                                    <i class="bi bi-4-circle-fill text-primary fs-2"></i>
+                                    <p class="mt-2 mb-0">返回授权码<br/>到回调地址</p>
+                                </div>
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <div class="p-3 border rounded">
+                                    <i class="bi bi-5-circle-fill text-primary fs-2"></i>
+                                    <p class="mt-2 mb-0">用授权码<br/>换取令牌</p>
+                                </div>
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <div class="p-3 border rounded">
+                                    <i class="bi bi-6-circle-fill text-primary fs-2"></i>
+                                    <p class="mt-2 mb-0">用令牌<br/>获取用户信息</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Prerequisites -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-check2-square me-2"></i>准备工作</h5>
+                    </div>
+                    <div class="card-body">
+                        <ol>
+                            <li class="mb-2">在 <a href="/admin/api-tokens">API令牌管理</a> 页面创建一个API令牌</li>
+                            <li class="mb-2">该令牌将作为您的 <code>client_id</code>（客户端ID）</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <!-- API Endpoints -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-plug me-2"></i>OAuth2 端点</h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>端点</th>
+                                    <th>URL</th>
+                                    <th>说明</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>授权端点</strong></td>
+                                    <td><code>{{.baseURL}}/oauth2/authorize</code></td>
+                                    <td>用户授权入口，GET 请求</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>令牌端点</strong></td>
+                                    <td><code>{{.baseURL}}/oauth2/token</code></td>
+                                    <td>用授权码换取访问令牌，POST 请求</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>用户信息端点</strong></td>
+                                    <td><code>{{.baseURL}}/oauth2/userinfo</code></td>
+                                    <td>获取用户信息，GET 请求，需要 Bearer Token</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Go Example -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-filetype-go me-2"></i>Go 示例代码</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted mb-3">以下是使用 Go 语言接入本系统 OAuth2 登录的完整示例（参见 demo_oauth2 目录）：</p>
+
+                        <h6><span class="step-number">1</span>安装依赖</h6>
+<pre><code><span class="code-comment"># 无需额外依赖，使用标准库即可</span>
+go mod init your-app</code></pre>
+
+                        <h6 class="mt-4"><span class="step-number">2</span>配置参数</h6>
+<pre><code><span class="code-keyword">const</span> (
+    <span class="code-comment">// OAuth2 服务端点</span>
+    AuthURL     = <span class="code-string">"{{.baseURL}}/oauth2/authorize"</span>
+    TokenURL    = <span class="code-string">"{{.baseURL}}/oauth2/token"</span>
+    UserInfoURL = <span class="code-string">"{{.baseURL}}/oauth2/userinfo"</span>
+    
+    <span class="code-comment">// 您的应用配置（从 API令牌管理 获取）</span>
+    ClientID    = <span class="code-string">"your-api-token"</span>
+    RedirectURI = <span class="code-string">"http://localhost:8082/callback"</span>
+)</code></pre>
+
+                        <h6 class="mt-4"><span class="step-number">3</span>发起授权请求</h6>
+<pre><code><span class="code-comment">// 构建授权URL并重定向用户</span>
+<span class="code-keyword">func</span> <span class="code-function">handleLogin</span>(w http.ResponseWriter, r *http.Request) {
+    state := generateState() <span class="code-comment">// 生成随机 state 防止 CSRF</span>
+    
+    authURL := fmt.Sprintf(<span class="code-string">"%s?response_type=code&client_id=%s&redirect_uri=%s&state=%s"</span>,
+        AuthURL,
+        url.QueryEscape(ClientID),
+        url.QueryEscape(RedirectURI),
+        url.QueryEscape(state),
+    )
+    
+    http.Redirect(w, r, authURL, http.StatusFound)
+}</code></pre>
+
+                        <h6 class="mt-4"><span class="step-number">4</span>处理回调并换取令牌</h6>
+<pre><code><span class="code-comment">// 处理 OAuth2 回调</span>
+<span class="code-keyword">func</span> <span class="code-function">handleCallback</span>(w http.ResponseWriter, r *http.Request) {
+    code := r.URL.Query().Get(<span class="code-string">"code"</span>)
+    state := r.URL.Query().Get(<span class="code-string">"state"</span>)
+    
+    <span class="code-comment">// 验证 state（防止 CSRF 攻击）</span>
+    <span class="code-keyword">if</span> !validateState(state) {
+        http.Error(w, <span class="code-string">"Invalid state"</span>, http.StatusBadRequest)
+        <span class="code-keyword">return</span>
+    }
+    
+    <span class="code-comment">// 用授权码换取访问令牌</span>
+    tokenResp, err := exchangeCodeForToken(code)
+    <span class="code-keyword">if</span> err != nil {
+        http.Error(w, <span class="code-string">"Token exchange failed"</span>, http.StatusInternalServerError)
+        <span class="code-keyword">return</span>
+    }
+    
+    <span class="code-comment">// 用访问令牌获取用户信息</span>
+    userInfo, err := getUserInfo(tokenResp.AccessToken)
+    <span class="code-keyword">if</span> err != nil {
+        http.Error(w, <span class="code-string">"Get user info failed"</span>, http.StatusInternalServerError)
+        <span class="code-keyword">return</span>
+    }
+    
+    <span class="code-comment">// 登录成功，保存用户信息到 session</span>
+    fmt.Fprintf(w, <span class="code-string">"欢迎, %s! 您的VIP等级: %d"</span>, userInfo.Username, userInfo.VIPLevel)
+}</code></pre>
+
+                        <h6 class="mt-4"><span class="step-number">5</span>换取令牌的函数</h6>
+<pre><code><span class="code-keyword">func</span> <span class="code-function">exchangeCodeForToken</span>(code <span class="code-keyword">string</span>) (*TokenResponse, error) {
+    data := url.Values{}
+    data.Set(<span class="code-string">"grant_type"</span>, <span class="code-string">"authorization_code"</span>)
+    data.Set(<span class="code-string">"code"</span>, code)
+    data.Set(<span class="code-string">"client_id"</span>, ClientID)
+    data.Set(<span class="code-string">"redirect_uri"</span>, RedirectURI)
+    
+    resp, err := http.Post(TokenURL, <span class="code-string">"application/x-www-form-urlencoded"</span>, strings.NewReader(data.Encode()))
+    <span class="code-keyword">if</span> err != nil {
+        <span class="code-keyword">return</span> nil, err
+    }
+    <span class="code-keyword">defer</span> resp.Body.Close()
+    
+    <span class="code-keyword">var</span> tokenResp TokenResponse
+    <span class="code-keyword">if</span> err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+        <span class="code-keyword">return</span> nil, err
+    }
+    
+    <span class="code-keyword">return</span> &tokenResp, nil
+}</code></pre>
+
+                        <h6 class="mt-4"><span class="step-number">6</span>获取用户信息</h6>
+<pre><code><span class="code-keyword">func</span> <span class="code-function">getUserInfo</span>(accessToken <span class="code-keyword">string</span>) (*UserInfo, error) {
+    req, _ := http.NewRequest(<span class="code-string">"GET"</span>, UserInfoURL, nil)
+    req.Header.Set(<span class="code-string">"Authorization"</span>, <span class="code-string">"Bearer "</span>+accessToken)
+    
+    resp, err := http.DefaultClient.Do(req)
+    <span class="code-keyword">if</span> err != nil {
+        <span class="code-keyword">return</span> nil, err
+    }
+    <span class="code-keyword">defer</span> resp.Body.Close()
+    
+    <span class="code-keyword">var</span> userInfo UserInfo
+    <span class="code-keyword">if</span> err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
+        <span class="code-keyword">return</span> nil, err
+    }
+    
+    <span class="code-keyword">return</span> &userInfo, nil
+}</code></pre>
+                    </div>
+                </div>
+
+                <!-- API Reference -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-book me-2"></i>API 参考</h5>
+                    </div>
+                    <div class="card-body">
+                        <h6>1. 授权端点 (Authorization Endpoint)</h6>
+                        <p class="text-muted">将用户重定向到此URL进行授权：</p>
+<pre><code>GET {{.baseURL}}/oauth2/authorize?response_type=code&client_id=YOUR_CLIENT_ID&redirect_uri=YOUR_CALLBACK_URL&state=RANDOM_STATE&scope=OPTIONAL_SCOPE</code></pre>
+                        <ul class="text-muted mt-2">
+                            <li><code>response_type</code> - 必须为 <code>code</code></li>
+                            <li><code>client_id</code> - 您的 API 令牌</li>
+                            <li><code>redirect_uri</code> - 授权成功后的回调地址（需要URL编码）</li>
+                            <li><code>state</code> - 随机字符串，用于防止 CSRF 攻击</li>
+                            <li><code>scope</code> - 可选，请求的权限范围</li>
+                        </ul>
+
+                        <h6 class="mt-4">2. 授权回调</h6>
+                        <p class="text-muted">授权成功后，用户将被重定向到您的回调地址，并携带以下参数：</p>
+<pre><code>GET YOUR_CALLBACK_URL?code=AUTHORIZATION_CODE&state=YOUR_STATE</code></pre>
+
+                        <h6 class="mt-4">3. 令牌端点 (Token Endpoint)</h6>
+                        <p class="text-muted">用授权码换取访问令牌：</p>
+<pre><code>POST {{.baseURL}}/oauth2/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=authorization_code&code=AUTHORIZATION_CODE&client_id=YOUR_CLIENT_ID&redirect_uri=YOUR_CALLBACK_URL</code></pre>
+                        <p class="text-muted mt-2">成功响应：</p>
+<pre><code>{
+  "access_token": "eyJ...",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "scope": ""
+}</code></pre>
+
+                        <h6 class="mt-4">4. 用户信息端点 (UserInfo Endpoint)</h6>
+                        <p class="text-muted">使用访问令牌获取用户信息：</p>
+<pre><code>GET {{.baseURL}}/oauth2/userinfo
+Authorization: Bearer YOUR_ACCESS_TOKEN</code></pre>
+                        <p class="text-muted mt-2">成功响应：</p>
+<pre><code>{
+  "sub": "123",
+  "user_id": 123,
+  "username": "testuser",
+  "vip_level": 1
+}</code></pre>
+                    </div>
+                </div>
+
+                <!-- Comparison -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-arrow-left-right me-2"></i>OAuth2 vs 签名回调 对比</h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>特性</th>
+                                    <th>OAuth2 标准</th>
+                                    <th>签名回调</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>标准化程度</td>
+                                    <td><span class="badge bg-success">RFC 6749 标准</span></td>
+                                    <td><span class="badge bg-secondary">自定义协议</span></td>
+                                </tr>
+                                <tr>
+                                    <td>第三方库支持</td>
+                                    <td><span class="badge bg-success">广泛支持</span></td>
+                                    <td><span class="badge bg-warning">需自行实现</span></td>
+                                </tr>
+                                <tr>
+                                    <td>安全性</td>
+                                    <td><span class="badge bg-success">高</span> (多重验证)</td>
+                                    <td><span class="badge bg-success">高</span> (HMAC签名)</td>
+                                </tr>
+                                <tr>
+                                    <td>实现复杂度</td>
+                                    <td><span class="badge bg-warning">中等</span></td>
+                                    <td><span class="badge bg-success">简单</span></td>
+                                </tr>
+                                <tr>
+                                    <td>适用场景</td>
+                                    <td>需要标准OAuth2的应用</td>
+                                    <td>简单集成、内部系统</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <p class="text-muted mt-3">
+                            <i class="bi bi-lightbulb me-1"></i>
+                            <strong>建议：</strong>如果您的应用需要与其他 OAuth2 客户端库兼容，或需要标准化的接入方式，推荐使用 OAuth2。
+                            如果是简单的内部系统集成，签名回调方式更加轻量。
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Security Notes -->
+                <div class="card mb-4">
+                    <div class="card-header bg-warning">
+                        <h5 class="mb-0"><i class="bi bi-shield-exclamation me-2"></i>安全注意事项</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="mb-0">
+                            <li class="mb-2"><strong>使用 state 参数：</strong>每次授权请求都应生成随机的 state 参数，并在回调时验证，防止 CSRF 攻击</li>
+                            <li class="mb-2"><strong>验证 redirect_uri：</strong>确保回调地址与注册时一致，防止授权码泄露</li>
+                            <li class="mb-2"><strong>保护 client_id：</strong>虽然 client_id 不像 client_secret 那样敏感，但仍建议不要公开</li>
+                            <li class="mb-2"><strong>使用 HTTPS：</strong>生产环境请确保所有通信使用 HTTPS 加密</li>
+                            <li class="mb-2"><strong>令牌有效期：</strong>访问令牌默认1小时有效，过期后需重新授权</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Help -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-question-circle me-2"></i>需要帮助？</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-2">如需更多帮助，请参考：</p>
+                        <ul class="mb-0">
+                            <li><a href="/admin/integration-guide">签名回调接入指南</a> - 另一种更简单的接入方式</li>
+                            <li><a href="/admin/api-tokens">API令牌管理</a> - 创建和管理API令牌（client_id）</li>
+                            <li><a href="/swagger/index.html" target="_blank">API文档 (Swagger)</a> - 完整的API参考文档</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+</body>
+</html>

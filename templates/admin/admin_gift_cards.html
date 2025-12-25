@@ -69,27 +69,32 @@
                                 <div class="col-md-3 mb-3">
                                     <label for="card-vip-days" class="form-label">VIP天数</label>
                                     <input type="number" class="form-control" id="card-vip-days" value="" min="0" placeholder="如30">
-                                    <small class="text-muted">0或空 = 永久VIP</small>
+                                    <small class="text-muted">0或空 = 使用小时数或永久</small>
                                 </div>
+                                <div class="col-md-3 mb-3">
+                                    <label for="card-vip-hours" class="form-label">VIP小时数</label>
+                                    <input type="number" class="form-control" id="card-vip-hours" value="" min="0" placeholder="如24">
+                                    <small class="text-muted">优先于天数（0=用天数）</small>
+                                </div>
+                            </div>
+                            <div class="row">
                                 <div class="col-md-3 mb-3">
                                     <label for="card-count" class="form-label">数量</label>
                                     <input type="number" class="form-control" id="card-count" value="1" min="1" max="100" required>
                                 </div>
-                            </div>
-                            <div class="row">
                                 <div class="col-md-3 mb-3">
                                     <label for="card-expires" class="form-label">有效期（天）</label>
                                     <input type="number" class="form-control" id="card-expires" value="" min="0" placeholder="0或空 = 永不过期">
                                     <small class="text-muted">礼品卡有效期</small>
                                 </div>
-                                <div class="col-md-9 mb-3">
+                                <div class="col-md-6 mb-3">
                                     <label for="card-description" class="form-label">描述</label>
                                     <input type="text" class="form-control" id="card-description" placeholder="可选">
                                 </div>
                             </div>
                             <div class="alert alert-info mb-3">
                                 <i class="bi bi-info-circle me-2"></i>
-                                <strong>提示：</strong>礼品卡可以同时赠送余额和VIP。如只需赠送余额，VIP等级设为0；如只需赠送VIP，面值设为0。
+                                <strong>提示：</strong>礼品卡可以同时赠送余额和VIP。如只需赠送余额，VIP等级设为0；如只需赠送VIP，面值设为0。VIP时长支持小时级设置，小时数优先于天数。
                             </div>
                             <button type="submit" class="btn btn-success">
                                 <i class="bi bi-plus-lg me-2"></i>生成礼品卡
@@ -271,7 +276,19 @@ Authorization: Bearer user-jwt-token
                 return;
             }
 
-            tbody.innerHTML = cards.map(card => `
+            tbody.innerHTML = cards.map(card => {
+                // Display VIP duration: prefer hours if set, otherwise days
+                let vipDurationText = '';
+                if (card.vip_level > 0) {
+                    if (card.vip_hours > 0) {
+                        vipDurationText = ` / ${card.vip_hours}小时`;
+                    } else if (card.vip_days > 0) {
+                        vipDurationText = ` / ${card.vip_days}天`;
+                    } else {
+                        vipDurationText = ' / 永久';
+                    }
+                }
+                return `
                 <tr>
                     <td>
                         ${!card.is_used ? `<input type="checkbox" class="form-check-input card-checkbox" data-id="${Number(card.id)}" onchange="updateSelectedCount()">` : ''}
@@ -285,7 +302,7 @@ Authorization: Bearer user-jwt-token
                     <td>${card.amount > 0 ? `<strong class="text-success">¥${card.amount.toFixed(2)}</strong>` : '-'}</td>
                     <td>
                         ${card.vip_level > 0 
-                            ? `<span class="badge bg-warning text-dark"><i class="bi bi-gem me-1"></i>VIP${card.vip_level}${card.vip_days > 0 ? ` / ${card.vip_days}天` : ' / 永久'}</span>`
+                            ? `<span class="badge bg-warning text-dark"><i class="bi bi-gem me-1"></i>VIP${card.vip_level}${vipDurationText}</span>`
                             : '-'}
                     </td>
                     <td>
@@ -305,7 +322,7 @@ Authorization: Bearer user-jwt-token
                         ` : ''}
                     </td>
                 </tr>
-            `).join('');
+            `}).join('');
             
             document.getElementById('select-all').checked = false;
             updateSelectedCount();
@@ -350,6 +367,7 @@ Authorization: Bearer user-jwt-token
             const amount = parseFloat(document.getElementById('card-amount').value) || 0;
             const vipLevel = parseInt(document.getElementById('card-vip-level').value) || 0;
             const vipDays = parseInt(document.getElementById('card-vip-days').value) || 0;
+            const vipHours = parseInt(document.getElementById('card-vip-hours').value) || 0;
             const count = parseInt(document.getElementById('card-count').value);
             const expiresIn = parseInt(document.getElementById('card-expires').value) || 0;
             const description = document.getElementById('card-description').value;
@@ -368,6 +386,7 @@ Authorization: Bearer user-jwt-token
                         amount: amount,
                         vip_level: vipLevel,
                         vip_days: vipDays,
+                        vip_hours: vipHours,
                         count: count,
                         expires_in: expiresIn,
                         description: description
@@ -381,14 +400,26 @@ Authorization: Bearer user-jwt-token
                     newCardCodes = cards.map(c => c.code);
                     
                     const container = document.getElementById('new-cards-list');
-                    container.innerHTML = cards.map(card => `
+                    container.innerHTML = cards.map(card => {
+                        // Display VIP duration: prefer hours if set, otherwise days
+                        let vipDurationText = '';
+                        if (card.vip_level > 0) {
+                            if (card.vip_hours > 0) {
+                                vipDurationText = ` / ${card.vip_hours}小时`;
+                            } else if (card.vip_days > 0) {
+                                vipDurationText = ` / ${card.vip_days}天`;
+                            } else {
+                                vipDurationText = ' / 永久';
+                            }
+                        }
+                        return `
                         <div class="col-md-6 col-lg-4">
                             <div class="gift-card-preview">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
                                     <span><i class="bi bi-gift me-2"></i>礼品卡</span>
                                     <div class="text-end">
                                         ${card.amount > 0 ? `<div><strong>¥${card.amount.toFixed(2)}</strong></div>` : ''}
-                                        ${card.vip_level > 0 ? `<div><small><i class="bi bi-gem me-1"></i>VIP${card.vip_level}${card.vip_days > 0 ? ` / ${card.vip_days}天` : ' / 永久'}</small></div>` : ''}
+                                        ${card.vip_level > 0 ? `<div><small><i class="bi bi-gem me-1"></i>VIP${card.vip_level}${vipDurationText}</small></div>` : ''}
                                     </div>
                                 </div>
                                 <div class="gift-code mb-2">${card.code}</div>
@@ -397,7 +428,7 @@ Authorization: Bearer user-jwt-token
                                 </button>
                             </div>
                         </div>
-                    `).join('');
+                    `}).join('');
                     
                     document.getElementById('new-cards-card').style.display = 'block';
                     loadCards();
@@ -464,13 +495,14 @@ Authorization: Bearer user-jwt-token
                     }
                     
                     // Generate CSV content with proper escaping
-                    let csvContent = '卡码,面值,VIP等级,VIP天数,有效期,描述,创建时间\n';
+                    let csvContent = '卡码,面值,VIP等级,VIP天数,VIP小时数,有效期,描述,创建时间\n';
                     cards.forEach(card => {
                         const row = [
                             escapeCsvCell(card.code),
                             escapeCsvCell(card.amount),
                             escapeCsvCell(card.vip_level),
                             escapeCsvCell(card.vip_days),
+                            escapeCsvCell(card.vip_hours),
                             escapeCsvCell(card.expires_at || '永久'),
                             escapeCsvCell(card.description || ''),
                             escapeCsvCell(card.created_at)

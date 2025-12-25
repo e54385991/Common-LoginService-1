@@ -1,45 +1,57 @@
 package main
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
+	"bytes"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
-	"time"
 )
 
+const configFileName = "config.json"
+
+// Default configuration values
+var defaultConfig = Config{
+	Port:     "8081",
+	LoginURL: "",
+	APIToken: "",
+}
+
 // Config holds the application configuration
+// 只需要配置2个参数：远程服务地址和API令牌
 type Config struct {
-	Port          string // Server port
-	LoginURL      string // Login service URL (e.g., https://user.yuelk.com)
-	CallbackURL   string // This demo's callback URL
-	SignedSecret  string // Secret key for HMAC signature verification
-	ExpireSeconds int64  // Maximum age for signed callbacks
+	Port     string `json:"port"`      // Server port (optional, default 8081)
+	LoginURL string `json:"login_url"` // Login service URL
+	APIToken string `json:"api_token"` // API token from the login service admin panel
 }
 
 // UserInfo represents the user information from signed callback
 type UserInfo struct {
-	UID      uint
-	VIPLevel int
-	Balance  float64
+	UserID   uint    `json:"user_id"`
+	VIPLevel int     `json:"vip_level"`
+	Balance  float64 `json:"balance"`
 }
 
 var config Config
 
 func main() {
-	// Load configuration from environment or use defaults
-	config = Config{
-		Port:          getEnv("PORT", "8081"),
-		LoginURL:      getEnv("LOGIN_URL", "https://user.yuelk.com"),
-		CallbackURL:   getEnv("CALLBACK_URL", "http://localhost:8081/callback"),
-		SignedSecret:  getEnv("SIGNED_SECRET", "your-secret-key"), // Must match login service
-		ExpireSeconds: getEnvInt("EXPIRE_SECONDS", 300),           // 5 minutes
+	// 加载配置：优先使用环境变量，其次使用配置文件
+	config = loadConfig()
+
+	// 检查必要配置
+	if config.LoginURL == "" {
+		log.Println("警告: login_url 未设置")
+		log.Printf("请编辑 %s 文件，配置 login_url 参数", configFileName)
+	}
+
+	if config.APIToken == "" {
+		log.Println("警告: api_token 未设置，签名验证将失败")
+		log.Printf("请编辑 %s 文件，配置 api_token 参数（从管理后台 /admin/api-tokens 页面获取）", configFileName)
 	}
 
 	// Set up routes
@@ -48,26 +60,69 @@ func main() {
 	http.HandleFunc("/login", handleLogin)
 	http.HandleFunc("/logout", handleLogout)
 
-	log.Printf("Demo third-party application starting on port %s", config.Port)
-	log.Printf("Login URL: %s", config.LoginURL)
-	log.Printf("Callback URL: %s", config.CallbackURL)
+	log.Printf("Demo 演示应用启动，端口: %s", config.Port)
+	log.Printf("登录服务地址: %s", config.LoginURL)
+	log.Printf("回调地址: http://localhost:%s/callback", config.Port)
 	log.Fatal(http.ListenAndServe(":"+config.Port, nil))
 }
 
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}
+// loadConfig loads configuration from JSON file and environment variables
+// Environment variables take precedence over JSON file settings
+func loadConfig() Config {
+	cfg := defaultConfig // Start with defaults
 
-func getEnvInt(key string, defaultValue int64) int64 {
-	if value := os.Getenv(key); value != "" {
-		if intVal, err := strconv.ParseInt(value, 10, 64); err == nil {
-			return intVal
+	// Try to load from JSON file
+	if data, err := os.ReadFile(configFileName); err == nil {
+		if err := json.Unmarshal(data, &cfg); err != nil {
+			log.Printf("警告: 解析配置文件 %s 失败: %v", configFileName, err)
+		} else {
+			log.Printf("已从 %s 加载配置", configFileName)
+		}
+	} else if os.IsNotExist(err) {
+		// Generate default config file if it doesn't exist
+		if err := generateDefaultConfig(); err != nil {
+			log.Printf("警告: 生成默认配置文件失败: %v", err)
+		} else {
+			log.Printf("已生成默认配置文件 %s，请编辑该文件配置必要参数", configFileName)
 		}
 	}
-	return defaultValue
+
+	// Override with environment variables (env vars take precedence)
+	if port := os.Getenv("PORT"); port != "" {
+		cfg.Port = port
+	}
+	if loginURL := os.Getenv("LOGIN_URL"); loginURL != "" {
+		cfg.LoginURL = loginURL
+	}
+	if apiToken := os.Getenv("API_TOKEN"); apiToken != "" {
+		cfg.APIToken = apiToken
+	}
+
+	return cfg
+}
+
+// generateDefaultConfig generates a default config.json file
+func generateDefaultConfig() error {
+	data, err := json.MarshalIndent(defaultConfig, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(configFileName, data, 0600)
+}
+
+// getCallbackURL returns the callback URL for this demo
+func getCallbackURL(r *http.Request) string {
+	// Try to auto-detect callback URL from request
+	scheme := "http"
+	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	host := r.Host
+	if host == "" {
+		host = "localhost:" + config.Port
+	}
+	return fmt.Sprintf("%s://%s/callback", scheme, host)
 }
 
 // isSecureRequest checks if the request is over HTTPS
@@ -96,66 +151,45 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleLogin initiates the OAuth-like flow
+// handleLogin initiates the login flow - 跳转到登录系统
 func handleLogin(w http.ResponseWriter, r *http.Request) {
-	// Redirect to the login service with redirect URL
-	loginURL := fmt.Sprintf("%s/auth/login?redirect=%s", config.LoginURL, url.QueryEscape(config.CallbackURL))
+	// 获取回调地址
+	callbackURL := getCallbackURL(r)
+	
+	// 构建登录URL：/auth/login?callback=YOUR_CALLBACK_URL
+	loginURL := fmt.Sprintf("%s/auth/login?callback=%s", config.LoginURL, url.QueryEscape(callbackURL))
 	http.Redirect(w, r, loginURL, http.StatusFound)
 }
 
 // handleCallback handles the signed callback from login service
+// 回调参数：uid, vip_level, balance, ts, signature
 func handleCallback(w http.ResponseWriter, r *http.Request) {
-	// Get parameters from query string
+	// 从URL参数获取签名信息 (简化格式: uid, vip_level, balance, ts, signature)
 	uid := r.URL.Query().Get("uid")
 	vipLevel := r.URL.Query().Get("vip_level")
 	balance := r.URL.Query().Get("balance")
 	ts := r.URL.Query().Get("ts")
 	signature := r.URL.Query().Get("signature")
 
-	// Validate required parameters
+	// 验证必要参数
 	if uid == "" || vipLevel == "" || balance == "" || ts == "" || signature == "" {
-		renderError(w, "Missing required parameters")
+		renderError(w, "缺少必要参数")
 		return
 	}
 
-	// Verify timestamp
-	timestamp, err := strconv.ParseInt(ts, 10, 64)
+	// 调用远程API验证签名
+	verified, verifiedVIPLevel, verifiedBalance, err := verifySignature(uid, vipLevel, balance, ts, signature)
 	if err != nil {
-		renderError(w, "Invalid timestamp")
+		renderError(w, fmt.Sprintf("验证失败: %v", err))
+		return
+	}
+	if !verified {
+		renderError(w, "签名验证失败")
 		return
 	}
 
-	if time.Now().Unix()-timestamp > config.ExpireSeconds {
-		renderError(w, "Callback has expired")
-		return
-	}
-
-	// Verify signature
-	expectedSignature := generateSignature(uid, vipLevel, balance, ts)
-	if !hmac.Equal([]byte(signature), []byte(expectedSignature)) {
-		renderError(w, "Invalid signature")
-		return
-	}
-
-	// Parse user data with proper error handling
-	uidInt, err := strconv.ParseUint(uid, 10, 64)
-	if err != nil {
-		renderError(w, "Invalid user ID")
-		return
-	}
-	vipLevelInt, err := strconv.Atoi(vipLevel)
-	if err != nil {
-		renderError(w, "Invalid VIP level")
-		return
-	}
-	balanceFloat, err := strconv.ParseFloat(balance, 64)
-	if err != nil {
-		renderError(w, "Invalid balance")
-		return
-	}
-
-	// Store user info in cookie (in production, use secure session)
-	userCookie := fmt.Sprintf("%d:%d:%.2f", uidInt, vipLevelInt, balanceFloat)
+	// Store user info in cookie (base64 encoded JSON)
+	userCookie := encodeUserCookie(uid, verifiedVIPLevel, verifiedBalance)
 	http.SetCookie(w, &http.Cookie{
 		Name:     "demo_user",
 		Value:    userCookie,
@@ -166,6 +200,76 @@ func handleCallback(w http.ResponseWriter, r *http.Request) {
 	})
 
 	http.Redirect(w, r, "/", http.StatusFound)
+}
+
+// verifySignature 调用远程API验证签名
+func verifySignature(uid, vipLevel, balance, ts, signature string) (bool, int, float64, error) {
+	// 构建验证请求 (简化格式: uid, vip_level, balance, ts, signature)
+	verifyURL := fmt.Sprintf("%s/api/auth/verify-signature", config.LoginURL)
+	
+	reqBody := map[string]string{
+		"uid":       uid,
+		"vip_level": vipLevel,
+		"balance":   balance,
+		"ts":        ts,
+		"signature": signature,
+	}
+	
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return false, 0, 0, err
+	}
+
+	// 发送POST请求
+	req, err := http.NewRequest("POST", verifyURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return false, 0, 0, err
+	}
+	
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-Key", config.APIToken)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return false, 0, 0, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false, 0, 0, err
+	}
+
+	// 解析响应
+	var result struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Valid    bool    `json:"valid"`
+			UID      uint    `json:"uid"`
+			VIPLevel int     `json:"vip_level"`
+			Balance  float64 `json:"balance"`
+			Message  string  `json:"message"`
+		} `json:"data"`
+		Message string `json:"message"`
+	}
+
+	if err := json.Unmarshal(body, &result); err != nil {
+		return false, 0, 0, fmt.Errorf("解析响应失败: %v", err)
+	}
+
+	if !result.Success {
+		return false, 0, 0, fmt.Errorf("%s", result.Message)
+	}
+
+	if !result.Data.Valid {
+		if result.Data.Message != "" {
+			return false, 0, 0, fmt.Errorf("%s", result.Data.Message)
+		}
+		return false, 0, 0, nil
+	}
+
+	return true, result.Data.VIPLevel, result.Data.Balance, nil
 }
 
 // handleLogout clears the user session
@@ -181,29 +285,40 @@ func handleLogout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
-// generateSignature generates HMAC signature for verification
-func generateSignature(uid, vipLevel, balance, ts string) string {
-	// Build the data string in the same format as the login service
-	data := fmt.Sprintf("balance=%s&ts=%s&uid=%s&vip_level=%s", balance, ts, uid, vipLevel)
-	h := hmac.New(sha256.New, []byte(config.SignedSecret))
-	h.Write([]byte(data))
-	return hex.EncodeToString(h.Sum(nil))
-}
-
-// parseUserCookie parses user info from cookie
+// parseUserCookie parses user info from cookie (base64 encoded JSON)
 func parseUserCookie(value string) *UserInfo {
-	var uid uint64
-	var vipLevel int
-	var balance float64
-	_, err := fmt.Sscanf(value, "%d:%d:%f", &uid, &vipLevel, &balance)
+	// Decode base64
+	decoded, err := base64.StdEncoding.DecodeString(value)
 	if err != nil {
 		return nil
 	}
-	return &UserInfo{
-		UID:      uint(uid),
+	
+	// Parse JSON
+	var user UserInfo
+	if err := json.Unmarshal(decoded, &user); err != nil {
+		return nil
+	}
+	
+	return &user
+}
+
+// encodeUserCookie encodes user info to cookie value (base64 encoded JSON)
+func encodeUserCookie(userID string, vipLevel int, balance float64) string {
+	var uid uint
+	fmt.Sscanf(userID, "%d", &uid)
+	
+	user := UserInfo{
+		UserID:   uid,
 		VIPLevel: vipLevel,
 		Balance:  balance,
 	}
+	
+	jsonData, err := json.Marshal(user)
+	if err != nil {
+		return ""
+	}
+	
+	return base64.StdEncoding.EncodeToString(jsonData)
 }
 
 func renderError(w http.ResponseWriter, message string) {
@@ -335,15 +450,15 @@ const homeTemplate = `<!DOCTYPE html>
             <h2>✅ 登录成功</h2>
             <div class="info-item">
                 <span class="info-label">用户ID</span>
-                <span class="info-value">{{.User.UID}}</span>
+                <span class="info-value">{{.User.UserID}}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">余额</span>
+                <span class="info-value balance">¥{{printf "%.2f" .User.Balance}}</span>
             </div>
             <div class="info-item">
                 <span class="info-label">VIP等级</span>
                 <span class="info-value vip">{{if gt .User.VIPLevel 0}}VIP {{.User.VIPLevel}}{{else}}普通用户{{end}}</span>
-            </div>
-            <div class="info-item">
-                <span class="info-label">账户余额</span>
-                <span class="info-value balance">¥{{printf "%.2f" .User.Balance}}</span>
             </div>
         </div>
         <a href="/logout" class="btn btn-danger">退出登录</a>

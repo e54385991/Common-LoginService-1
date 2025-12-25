@@ -224,47 +224,201 @@
                     </div>
                 </div>
 
-                <!-- Gmail API Settings -->
+                <!-- Email Service Settings -->
                 <div class="card mb-4">
-                    <div class="card-header d-flex justify-content-between align-items-center">
+                    <div class="card-header">
                         <h5 class="mb-0">
-                            <i class="bi bi-envelope me-2"></i>Gmail API 设置
+                            <i class="bi bi-envelope me-2"></i>邮件服务设置
                         </h5>
-                        <div class="form-check form-switch mb-0">
-                            <input class="form-check-input" type="checkbox" id="gmail-api-enabled" {{if .config.GmailAPI.Enabled}}checked{{end}}>
-                            <label class="form-check-label" for="gmail-api-enabled">启用</label>
-                        </div>
                     </div>
                     <div class="card-body">
-                        <form id="gmail-api-form">
-                            <div class="mb-3">
-                                <label for="gmail-sender" class="form-label">发送邮箱</label>
-                                <input type="email" class="form-control" id="gmail-sender" value="{{.config.GmailAPI.SenderEmail}}" placeholder="用于发送邮件的 Gmail 地址">
+                        <!-- Email Provider Selection -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">选择邮件服务提供商</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="email-provider" id="email-provider-gmail" value="gmail_api" {{if eq .config.Email.Provider "gmail_api"}}checked{{end}}>
+                                <label class="btn btn-outline-primary" for="email-provider-gmail">
+                                    <i class="bi bi-google me-2"></i>Gmail API
+                                </label>
+                                <input type="radio" class="btn-check" name="email-provider" id="email-provider-smtp" value="smtp" {{if eq .config.Email.Provider "smtp"}}checked{{end}}>
+                                <label class="btn btn-outline-primary" for="email-provider-smtp">
+                                    <i class="bi bi-server me-2"></i>SMTP
+                                </label>
                             </div>
-                            <hr class="my-4">
-                            <h6 class="mb-3"><i class="bi bi-key me-2"></i>OAuth 2.0 凭据</h6>
-                            <div class="alert alert-info mb-3">
-                                <i class="bi bi-info-circle me-2"></i>
-                                您可以通过 OAuth 2.0 凭据直接配置 Gmail API，无需上传 credentials.json 文件。
-                                <br><small>请在 <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a> 创建 OAuth 2.0 凭据。</small>
-                            </div>
-                            <div class="mb-3">
-                                <label for="gmail-client-id" class="form-label">Client ID</label>
-                                <input type="text" class="form-control" id="gmail-client-id" value="{{.config.GmailAPI.ClientID}}" placeholder="OAuth 2.0 Client ID">
-                            </div>
-                            <div class="mb-3">
-                                <label for="gmail-client-secret" class="form-label">Client Secret</label>
-                                <input type="password" class="form-control" id="gmail-client-secret" placeholder="OAuth 2.0 Client Secret（留空则不修改）">
-                            </div>
-                            <div class="mb-3">
-                                <label for="gmail-refresh-token" class="form-label">Refresh Token</label>
-                                <input type="password" class="form-control" id="gmail-refresh-token" placeholder="OAuth 2.0 Refresh Token（留空则不修改）">
-                                <small class="text-muted">您可以使用 <a href="https://developers.google.com/oauthplayground/" target="_blank">OAuth 2.0 Playground</a> 获取 Refresh Token</small>
-                            </div>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-save me-2"></i>保存 Gmail API 设置
+                            <small class="text-muted d-block mt-2">选择后请点击下方"保存邮件服务提供商"按钮</small>
+                            <button type="button" class="btn btn-sm btn-primary mt-2" id="save-email-provider-btn">
+                                <i class="bi bi-save me-2"></i>保存邮件服务提供商
                             </button>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <!-- Gmail API Settings Panel -->
+                        <div id="gmail-api-panel" class="{{if eq .config.Email.Provider "smtp"}}d-none{{end}}">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0"><i class="bi bi-google me-2"></i>Gmail API 设置</h6>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" id="gmail-api-enabled" {{if .config.GmailAPI.Enabled}}checked{{end}}>
+                                    <label class="form-check-label" for="gmail-api-enabled">启用</label>
+                                </div>
+                            </div>
+                            <form id="gmail-api-form">
+                                <div class="mb-3">
+                                    <label for="gmail-sender" class="form-label">发送邮箱</label>
+                                    <input type="email" class="form-control" id="gmail-sender" value="{{.config.GmailAPI.SenderEmail}}" placeholder="用于发送邮件的 Gmail 地址">
+                                </div>
+                                <div class="alert alert-info mb-3">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    您可以通过 OAuth 2.0 凭据直接配置 Gmail API。
+                                    <br><small>请在 <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a> 创建 OAuth 2.0 凭据。</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="gmail-client-id" class="form-label">Client ID</label>
+                                    <input type="text" class="form-control" id="gmail-client-id" value="{{.config.GmailAPI.ClientID}}" placeholder="OAuth 2.0 Client ID">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="gmail-client-secret" class="form-label">Client Secret</label>
+                                    <input type="password" class="form-control" id="gmail-client-secret" placeholder="OAuth 2.0 Client Secret（留空则不修改）">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="gmail-refresh-token" class="form-label">Refresh Token</label>
+                                    <input type="password" class="form-control" id="gmail-refresh-token" placeholder="OAuth 2.0 Refresh Token（留空则不修改）">
+                                    <small class="text-muted">您可以使用 <a href="https://developers.google.com/oauthplayground/" target="_blank">OAuth 2.0 Playground</a> 获取 Refresh Token</small>
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-save me-2"></i>保存 Gmail API 设置
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- SMTP Settings Panel -->
+                        <div id="smtp-panel" class="{{if ne .config.Email.Provider "smtp"}}d-none{{end}}">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0"><i class="bi bi-server me-2"></i>SMTP 设置</h6>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" id="smtp-enabled" {{if .config.SMTP.Enabled}}checked{{end}}>
+                                    <label class="form-check-label" for="smtp-enabled">启用</label>
+                                </div>
+                            </div>
+                            <form id="smtp-form">
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <div class="mb-3">
+                                            <label for="smtp-host" class="form-label">SMTP 服务器</label>
+                                            <input type="text" class="form-control" id="smtp-host" value="{{.config.SMTP.Host}}" placeholder="例如: smtp.gmail.com">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="smtp-port" class="form-label">端口</label>
+                                            <input type="number" class="form-control" id="smtp-port" value="{{.config.SMTP.Port}}" placeholder="587">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="smtp-username" class="form-label">用户名</label>
+                                            <input type="text" class="form-control" id="smtp-username" value="{{.config.SMTP.Username}}" placeholder="SMTP 登录用户名">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="smtp-password" class="form-label">密码</label>
+                                            <input type="password" class="form-control" id="smtp-password" placeholder="SMTP 密码（留空则不修改）">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="smtp-sender-email" class="form-label">发送邮箱地址</label>
+                                            <input type="email" class="form-control" id="smtp-sender-email" value="{{.config.SMTP.SenderEmail}}" placeholder="noreply@example.com">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="smtp-sender-name" class="form-label">发送者名称</label>
+                                            <input type="text" class="form-control" id="smtp-sender-name" value="{{.config.SMTP.SenderName}}" placeholder="Common Login Service">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="smtp-use-tls" {{if .config.SMTP.UseTLS}}checked{{end}}>
+                                                <label class="form-check-label" for="smtp-use-tls">
+                                                    使用 TLS (STARTTLS, 端口 587)
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="smtp-use-ssl" {{if .config.SMTP.UseSSL}}checked{{end}}>
+                                                <label class="form-check-label" for="smtp-use-ssl">
+                                                    使用 SSL (隐式 SSL, 端口 465)
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="alert alert-info mb-3">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    <strong>常用 SMTP 服务器配置:</strong><br>
+                                    <small>
+                                    • Gmail: smtp.gmail.com:587 (TLS) - 需要应用专用密码<br>
+                                    • Outlook: smtp.office365.com:587 (TLS)<br>
+                                    • QQ邮箱: smtp.qq.com:465 (SSL) 或 587 (TLS)<br>
+                                    • 163邮箱: smtp.163.com:465 (SSL) 或 25
+                                    </small>
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-save me-2"></i>保存 SMTP 设置
+                                </button>
+                            </form>
+                        </div>
+
+                        <hr class="my-4">
+                        <h6 class="mb-3"><i class="bi bi-send me-2"></i>发送测试邮件</h6>
+                        <div class="alert alert-warning mb-3">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            发送测试邮件前，请先保存上方的邮件服务设置。
+                        </div>
+                        <form id="email-test-form">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <div class="mb-3">
+                                        <label for="email-test-address" class="form-label">测试收件邮箱</label>
+                                        <input type="email" class="form-control" id="email-test-address" placeholder="输入接收测试邮件的邮箱地址">
+                                    </div>
+                                </div>
+                                <div class="col-md-4 d-flex align-items-end">
+                                    <div class="mb-3 w-100">
+                                        <button type="submit" class="btn btn-success w-100" id="email-test-btn">
+                                            <i class="bi bi-send me-2"></i>发送测试邮件
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </form>
+                        
+                        <!-- Test Result Display -->
+                        <div id="email-test-result" class="d-none">
+                            <div class="card bg-light">
+                                <div class="card-header">
+                                    <h6 class="mb-0"><i class="bi bi-terminal me-2"></i>邮件服务返回内容</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="email-test-status" class="mb-3"></div>
+                                    <div id="email-test-response">
+                                        <pre class="mb-0 p-3 bg-dark text-light rounded" style="max-height: 300px; overflow-y: auto;"><code id="email-test-response-code"></code></pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -494,6 +648,46 @@
                             </div>
                             <button type="submit" class="btn btn-primary">
                                 <i class="bi bi-save me-2"></i>保存注册限制设置
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Password Reset Rate Limiting Settings -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-envelope-exclamation me-2"></i>密码重置限制设置
+                        </h5>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" id="password-reset-protection-enabled" {{if .config.PasswordResetProtection.Enabled}}checked{{end}}>
+                            <label class="form-check-label" for="password-reset-protection-enabled">启用</label>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <form id="password-reset-protection-form">
+                            <div class="alert alert-info mb-3">
+                                <i class="bi bi-info-circle me-2"></i>
+                                密码重置限制功能可以防止恶意请求密码重置邮件。当同一IP地址在指定时间窗口内请求次数超过阈值时，该IP将被临时禁止发送请求。
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="max-reset-requests" class="form-label">最大请求次数</label>
+                                        <input type="number" class="form-control" id="max-reset-requests" value="{{.config.PasswordResetProtection.MaxRequests}}" min="1" max="100">
+                                        <small class="text-muted">同一IP在时间窗口内允许的最大密码重置请求次数</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="reset-window-seconds" class="form-label">时间窗口（秒）</label>
+                                        <input type="number" class="form-control" id="reset-window-seconds" value="{{.config.PasswordResetProtection.WindowSeconds}}" min="1">
+                                        <small class="text-muted">统计请求次数的时间窗口（例如：300秒=5分钟）</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save me-2"></i>保存密码重置限制设置
                             </button>
                         </form>
                     </div>
@@ -778,6 +972,140 @@
             }
         });
 
+        // SMTP Form
+        document.getElementById('smtp-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const data = {
+                enabled: document.getElementById('smtp-enabled').checked,
+                host: document.getElementById('smtp-host').value,
+                port: parseInt(document.getElementById('smtp-port').value) || 587,
+                username: document.getElementById('smtp-username').value,
+                password: document.getElementById('smtp-password').value,
+                sender_email: document.getElementById('smtp-sender-email').value,
+                sender_name: document.getElementById('smtp-sender-name').value,
+                use_tls: document.getElementById('smtp-use-tls').checked,
+                use_ssl: document.getElementById('smtp-use-ssl').checked
+            };
+            
+            try {
+                const response = await fetch('/api/admin/settings/smtp', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                showModal(result.success ? 'success' : 'danger', result.message);
+            } catch (error) {
+                showModal('danger', '网络错误，请稍后重试');
+            }
+        });
+
+        // Email Provider Selection
+        document.querySelectorAll('input[name="email-provider"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                const provider = this.value;
+                if (provider === 'gmail_api') {
+                    document.getElementById('gmail-api-panel').classList.remove('d-none');
+                    document.getElementById('smtp-panel').classList.add('d-none');
+                } else {
+                    document.getElementById('gmail-api-panel').classList.add('d-none');
+                    document.getElementById('smtp-panel').classList.remove('d-none');
+                }
+            });
+        });
+
+        // Save Email Provider Button
+        document.getElementById('save-email-provider-btn').addEventListener('click', async function() {
+            const provider = document.querySelector('input[name="email-provider"]:checked').value;
+            
+            try {
+                const response = await fetch('/api/admin/settings/email-provider', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ provider: provider })
+                });
+                
+                const result = await response.json();
+                showModal(result.success ? 'success' : 'danger', result.message);
+            } catch (error) {
+                showModal('danger', '网络错误，请稍后重试');
+            }
+        });
+
+        // Email Test Form (unified for both Gmail API and SMTP)
+        document.getElementById('email-test-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const testEmail = document.getElementById('email-test-address').value;
+            if (!testEmail) {
+                showModal('warning', '请输入测试收件邮箱地址');
+                return;
+            }
+            
+            const testBtn = document.getElementById('email-test-btn');
+            const resultDiv = document.getElementById('email-test-result');
+            const statusDiv = document.getElementById('email-test-status');
+            const responseCode = document.getElementById('email-test-response-code');
+            
+            // Disable button and show loading state
+            testBtn.disabled = true;
+            testBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>发送中...';
+            
+            try {
+                const response = await fetch('/api/admin/settings/gmail-api/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ to_email: testEmail })
+                });
+                
+                const result = await response.json();
+                
+                // Show result section
+                resultDiv.classList.remove('d-none');
+                
+                // Helper function to escape HTML to prevent XSS
+                function escapeHtml(text) {
+                    const div = document.createElement('div');
+                    div.textContent = text;
+                    return div.innerHTML;
+                }
+                
+                // Update status with provider info
+                const providerLabel = result.provider === 'smtp' ? 'SMTP' : 'Gmail API';
+                if (result.success) {
+                    statusDiv.innerHTML = '<div class="alert alert-success mb-0"><i class="bi bi-check-circle me-2"></i>' + escapeHtml(result.message) + ' <span class="badge bg-primary">' + providerLabel + '</span></div>';
+                } else {
+                    let errorHtml = '<div class="alert alert-danger mb-0"><i class="bi bi-x-circle me-2"></i>' + escapeHtml(result.message);
+                    if (result.error) {
+                        errorHtml += '<br><small class="text-muted">错误详情: ' + escapeHtml(result.error) + '</small>';
+                    }
+                    errorHtml += ' <span class="badge bg-secondary">' + providerLabel + '</span></div>';
+                    statusDiv.innerHTML = errorHtml;
+                }
+                
+                // Format and display API response
+                const apiResponse = {
+                    success: result.success,
+                    message: result.message,
+                    provider: result.provider,
+                    error: result.error || null,
+                    api_response: result.api_response || {}
+                };
+                responseCode.textContent = JSON.stringify(apiResponse, null, 2);
+                
+            } catch (error) {
+                resultDiv.classList.remove('d-none');
+                statusDiv.innerHTML = '<div class="alert alert-danger mb-0"><i class="bi bi-x-circle me-2"></i>网络错误，请稍后重试</div>';
+                responseCode.textContent = JSON.stringify({ error: error.message }, null, 2);
+            } finally {
+                // Reset button state
+                testBtn.disabled = false;
+                testBtn.innerHTML = '<i class="bi bi-send me-2"></i>发送测试邮件';
+            }
+        });
+
         // JWT Form
         document.getElementById('jwt-form').addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -868,6 +1196,30 @@
             
             try {
                 const response = await fetch('/api/admin/settings/registration-protection', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                showModal(result.success ? 'success' : 'danger', result.message);
+            } catch (error) {
+                showModal('danger', '网络错误，请稍后重试');
+            }
+        });
+
+        // Password Reset Protection Form
+        document.getElementById('password-reset-protection-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const data = {
+                enabled: document.getElementById('password-reset-protection-enabled').checked,
+                max_requests: parseInt(document.getElementById('max-reset-requests').value) || 2,
+                window_seconds: parseInt(document.getElementById('reset-window-seconds').value) || 300
+            };
+            
+            try {
+                const response = await fetch('/api/admin/settings/password-reset-protection', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)

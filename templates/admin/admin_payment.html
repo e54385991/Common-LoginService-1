@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>支付与充值配置 - {{.config.Site.Title}} 管理后台</title>
+    <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="/static/css/admin.css" rel="stylesheet">
+</head>
+<body>
+    <div class="admin-wrapper">
+        {{template "admin_sidebar" .}}
+
+        <!-- Main Content -->
+        <main class="admin-main">
+            <header class="admin-header">
+                <h1 class="page-title"><i class="bi bi-credit-card me-2"></i>支付与充值配置</h1>
+            </header>
+
+            <div class="admin-content">
+                <div id="alert-container"></div>
+
+                <!-- Payment Settings -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-credit-card me-2"></i>支付设置 (PyPay)</h5>
+                        <div class="d-flex gap-3">
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="payment-demo-mode" {{if .config.Payment.DemoMode}}checked{{end}}>
+                                <label class="form-check-label" for="payment-demo-mode">演示模式</label>
+                            </div>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="payment-enabled" {{if .config.Payment.Enabled}}checked{{end}}>
+                                <label class="form-check-label" for="payment-enabled">启用支付</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info mb-3">
+                            <i class="bi bi-info-circle me-2"></i>
+                            使用 <a href="https://pypay.meilanyv.cn/docs" target="_blank">PyPay</a> 支付系统处理充值和VIP购买。
+                            <strong>演示模式</strong>开启时，支付将模拟进行而不会实际跳转到支付页面。
+                        </div>
+                        <form id="payment-form">
+                            <div class="mb-3">
+                                <label for="payment-api-url" class="form-label">API URL</label>
+                                <input type="text" class="form-control" id="payment-api-url" value="{{.config.Payment.ApiURL}}" placeholder="https://pypay.meilanyv.cn/api/">
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="payment-merchant-id" class="form-label">商户ID</label>
+                                    <input type="text" class="form-control" id="payment-merchant-id" value="{{.config.Payment.MerchantID}}" placeholder="输入商户ID">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="payment-api-key" class="form-label">API Key</label>
+                                    <input type="password" class="form-control" id="payment-api-key" placeholder="输入 API Key（留空则不修改）">
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="payment-notify-url" class="form-label">异步通知 URL</label>
+                                    <input type="text" class="form-control" id="payment-notify-url" value="{{.config.Payment.NotifyURL}}" placeholder="https://your-domain.com/api/payment/notify">
+                                    <small class="text-muted">支付系统（PyPay）异步通知本系统支付结果的回调地址，需填写本站可被外网访问的完整URL，路由固定为 <code>/api/payment/notify</code></small>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="payment-return-url" class="form-label">同步跳转 URL</label>
+                                    <input type="text" class="form-control" id="payment-return-url" value="{{.config.Payment.ReturnURL}}" placeholder="https://your-domain.com/payment/result">
+                                    <small class="text-muted">用户支付完成后，浏览器跳转回本站的页面地址</small>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save me-2"></i>保存支付设置
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Recharge Settings -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-wallet2 me-2"></i>充值设置</h5>
+                        <button type="button" class="btn btn-success btn-sm" onclick="addRechargeOption()">
+                            <i class="bi bi-plus-lg me-1"></i>添加充值选项
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info mb-3">
+                            <i class="bi bi-info-circle me-2"></i>
+                            配置前台充值页面的充值选项，包括金额和赠送金额。赠送金额在支付成功后自动添加到用户余额。
+                        </div>
+                        <form id="recharge-form">
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <label for="recharge-min-amount" class="form-label">最小充值金额 (¥)</label>
+                                    <input type="number" step="0.01" min="0" class="form-control" id="recharge-min-amount" value="1" placeholder="0 = 无限制">
+                                    <small class="text-muted">用户自定义充值的最小金额限制</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="recharge-max-amount" class="form-label">最大充值金额 (¥)</label>
+                                    <input type="number" step="0.01" min="0" class="form-control" id="recharge-max-amount" value="0" placeholder="0 = 无限制">
+                                    <small class="text-muted">用户自定义充值的最大金额限制，0表示不限制</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">&nbsp;</label>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="recharge-custom-enable" checked>
+                                        <label class="form-check-label" for="recharge-custom-enable">允许自定义金额</label>
+                                    </div>
+                                    <small class="text-muted">是否允许用户输入自定义充值金额</small>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">充值选项</label>
+                                <div class="table-responsive">
+                                    <table class="table table-bordered mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 40%">充值金额 (¥)</th>
+                                                <th style="width: 40%">赠送金额 (¥)</th>
+                                                <th style="width: 20%">操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="recharge-options-container">
+                                            <!-- Recharge options will be rendered here -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save me-2"></i>保存充值设置
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast for notifications -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="notificationToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <i class="bi bi-bell me-2"></i>
+                <strong class="me-auto">通知</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body" id="toastMessage"></div>
+        </div>
+    </div>
+
+    <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+    <script>
+        let rechargeSettings = {
+            min_amount: 1,
+            max_amount: 0,
+            custom_amount_enable: true,
+            options: []
+        };
+        let notificationToast;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            notificationToast = new bootstrap.Toast(document.getElementById('notificationToast'));
+            loadRechargeSettings();
+        });
+
+        function showAlert(type, message) {
+            const container = document.getElementById('alert-container');
+            container.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>`;
+        }
+
+        function showModal(type, message) {
+            const iconMap = {
+                'success': 'bi-check-circle-fill',
+                'danger': 'bi-exclamation-circle-fill',
+                'warning': 'bi-exclamation-triangle-fill'
+            };
+            const colorMap = {
+                'success': '#28a745',
+                'danger': '#dc3545',
+                'warning': '#ffc107'
+            };
+            const titleMap = {
+                'success': '保存成功',
+                'danger': '保存失败',
+                'warning': '警告'
+            };
+            
+            // Remove existing modal
+            const existingModal = document.getElementById('resultModal');
+            if (existingModal) existingModal.remove();
+            
+            const modalHtml = `
+                <div class="modal fade" id="resultModal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-body text-center py-5">
+                                <i class="bi ${iconMap[type]} display-1 mb-3" style="color: ${colorMap[type]}"></i>
+                                <h4 class="mb-3">${titleMap[type]}</h4>
+                                <p class="text-muted mb-0">${message}</p>
+                            </div>
+                            <div class="modal-footer justify-content-center border-0 pt-0">
+                                <button type="button" class="btn btn-primary px-4" data-bs-dismiss="modal">确定</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            const modal = new bootstrap.Modal(document.getElementById('resultModal'));
+            modal.show();
+        }
+
+        // Payment Settings Form
+        document.getElementById('payment-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const data = {
+                enabled: document.getElementById('payment-enabled').checked,
+                demo_mode: document.getElementById('payment-demo-mode').checked,
+                api_url: document.getElementById('payment-api-url').value,
+                merchant_id: document.getElementById('payment-merchant-id').value,
+                api_key: document.getElementById('payment-api-key').value,
+                notify_url: document.getElementById('payment-notify-url').value,
+                return_url: document.getElementById('payment-return-url').value
+            };
+            
+            try {
+                const response = await fetch('/api/admin/settings/payment', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                showModal(result.success ? 'success' : 'danger', result.message);
+            } catch (error) {
+                showModal('danger', '网络错误，请稍后重试');
+            }
+        });
+
+        // ==================== Recharge Settings Functions ====================
+        
+        async function loadRechargeSettings() {
+            try {
+                const response = await fetch('/api/admin/settings/recharge');
+                const result = await response.json();
+                if (result.success && result.data) {
+                    rechargeSettings = result.data;
+                    document.getElementById('recharge-min-amount').value = rechargeSettings.min_amount || 0;
+                    document.getElementById('recharge-max-amount').value = rechargeSettings.max_amount || 0;
+                    document.getElementById('recharge-custom-enable').checked = rechargeSettings.custom_amount_enable !== false;
+                    renderRechargeOptions();
+                }
+            } catch (error) {
+                console.error('Failed to load recharge settings:', error);
+            }
+        }
+        
+        function renderRechargeOptions() {
+            const container = document.getElementById('recharge-options-container');
+            if (!container) return;
+            
+            if (!rechargeSettings.options || rechargeSettings.options.length === 0) {
+                container.innerHTML = '<tr><td colspan="3" class="text-center text-muted">暂无充值选项，点击上方按钮添加</td></tr>';
+                return;
+            }
+            
+            container.innerHTML = rechargeSettings.options.map((opt, index) => `
+                <tr>
+                    <td>
+                        <input type="number" step="0.01" min="0" class="form-control" value="${opt.amount}" 
+                            onchange="updateRechargeOption(${index}, 'amount', parseFloat(this.value))">
+                    </td>
+                    <td>
+                        <input type="number" step="0.01" min="0" class="form-control" value="${opt.bonus}" 
+                            onchange="updateRechargeOption(${index}, 'bonus', parseFloat(this.value))"
+                            placeholder="0 = 无赠送">
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-danger btn-sm" onclick="removeRechargeOption(${index})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        function addRechargeOption() {
+            if (!rechargeSettings.options) {
+                rechargeSettings.options = [];
+            }
+            rechargeSettings.options.push({ amount: 0, bonus: 0 });
+            renderRechargeOptions();
+        }
+        
+        function updateRechargeOption(index, field, value) {
+            if (rechargeSettings.options && rechargeSettings.options[index]) {
+                rechargeSettings.options[index][field] = value;
+            }
+        }
+        
+        function removeRechargeOption(index) {
+            if (rechargeSettings.options) {
+                rechargeSettings.options.splice(index, 1);
+                renderRechargeOptions();
+            }
+        }
+        
+        // Recharge Settings Form
+        document.getElementById('recharge-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const data = {
+                min_amount: parseFloat(document.getElementById('recharge-min-amount').value) || 0,
+                max_amount: parseFloat(document.getElementById('recharge-max-amount').value) || 0,
+                custom_amount_enable: document.getElementById('recharge-custom-enable').checked,
+                options: rechargeSettings.options || []
+            };
+            
+            try {
+                const response = await fetch('/api/admin/settings/recharge', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                showModal(result.success ? 'success' : 'danger', result.message);
+            } catch (error) {
+                showModal('danger', '网络错误，请稍后重试');
+            }
+        });
+    </script>
+</body>
+</html>

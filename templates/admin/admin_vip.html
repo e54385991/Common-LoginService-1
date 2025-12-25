@@ -98,61 +98,6 @@
                     </div>
                 </div>
 
-                <!-- Payment Settings -->
-                <div class="card mb-4">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="bi bi-credit-card me-2"></i>支付设置 (PyPay)</h5>
-                        <div class="d-flex gap-3">
-                            <div class="form-check form-switch mb-0">
-                                <input class="form-check-input" type="checkbox" id="payment-demo-mode" {{if .config.Payment.DemoMode}}checked{{end}}>
-                                <label class="form-check-label" for="payment-demo-mode">演示模式</label>
-                            </div>
-                            <div class="form-check form-switch mb-0">
-                                <input class="form-check-input" type="checkbox" id="payment-enabled" {{if .config.Payment.Enabled}}checked{{end}}>
-                                <label class="form-check-label" for="payment-enabled">启用支付</label>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div class="alert alert-info mb-3">
-                            <i class="bi bi-info-circle me-2"></i>
-                            使用 <a href="https://pypay.meilanyv.cn/docs" target="_blank">PyPay</a> 支付系统处理充值和VIP购买。
-                            <strong>演示模式</strong>开启时，支付将模拟进行而不会实际跳转到支付页面。
-                        </div>
-                        <form id="payment-form">
-                            <div class="mb-3">
-                                <label for="payment-api-url" class="form-label">API URL</label>
-                                <input type="text" class="form-control" id="payment-api-url" value="{{.config.Payment.ApiURL}}" placeholder="https://pypay.meilanyv.cn/api/">
-                            </div>
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="payment-merchant-id" class="form-label">商户ID</label>
-                                    <input type="text" class="form-control" id="payment-merchant-id" value="{{.config.Payment.MerchantID}}" placeholder="输入商户ID">
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="payment-api-key" class="form-label">API Key</label>
-                                    <input type="password" class="form-control" id="payment-api-key" placeholder="输入 API Key（留空则不修改）">
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="payment-notify-url" class="form-label">异步通知 URL</label>
-                                    <input type="text" class="form-control" id="payment-notify-url" value="{{.config.Payment.NotifyURL}}" placeholder="https://your-domain.com/api/payment/notify">
-                                    <small class="text-muted">支付系统（PyPay）异步通知本系统支付结果的回调地址，需填写本站可被外网访问的完整URL，路由固定为 <code>/api/payment/notify</code></small>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="payment-return-url" class="form-label">同步跳转 URL</label>
-                                    <input type="text" class="form-control" id="payment-return-url" value="{{.config.Payment.ReturnURL}}" placeholder="https://your-domain.com/payment/result">
-                                    <small class="text-muted">用户支付完成后，浏览器跳转回本站的页面地址</small>
-                                </div>
-                            </div>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-save me-2"></i>保存支付设置
-                            </button>
-                        </form>
-                    </div>
-                </div>
-
                 <!-- VIP Levels Configuration -->
                 <div class="card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
@@ -168,6 +113,30 @@
                             </div>
                             <button type="submit" class="btn btn-primary mt-3">
                                 <i class="bi bi-save me-2"></i>保存VIP配置
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Comparison Benefits Configuration -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-table me-2"></i>会员权益对比配置</h5>
+                        <button type="button" class="btn btn-success btn-sm" onclick="addComparisonBenefit()">
+                            <i class="bi bi-plus-lg me-1"></i>添加权益
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info mb-3">
+                            <i class="bi bi-info-circle me-2"></i>
+                            配置会员权益对比表，用于在前台VIP页面展示不同等级的权益差异。支持中英文双语配置。
+                        </div>
+                        <form id="comparison-benefits-form">
+                            <div id="comparison-benefits-container">
+                                <!-- Comparison benefits will be rendered here -->
+                            </div>
+                            <button type="submit" class="btn btn-primary mt-3">
+                                <i class="bi bi-save me-2"></i>保存权益对比配置
                             </button>
                         </form>
                     </div>
@@ -191,11 +160,13 @@
     <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
     <script>
         let vipLevels = [];
+        let comparisonBenefits = [];
         let notificationToast;
 
         document.addEventListener('DOMContentLoaded', function() {
             notificationToast = new bootstrap.Toast(document.getElementById('notificationToast'));
             loadVIPLevels();
+            loadComparisonBenefits();
         });
 
         function showAlert(type, message) {
@@ -301,9 +272,19 @@
                                     <input type="number" class="form-control" value="${level.level}" onchange="updateVIPLevel(${index}, 'level', parseInt(this.value))">
                                 </div>
                                 <div class="col-md-3 mb-3">
-                                    <label class="form-label">名称</label>
+                                    <label class="form-label">名称 (默认)</label>
                                     <input type="text" class="form-control" value="${level.name}" onchange="updateVIPLevel(${index}, 'name', this.value)">
                                 </div>
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label">名称 (English)</label>
+                                    <input type="text" class="form-control" value="${level.name_i18n?.en || ''}" onchange="updateVIPLevelI18n(${index}, 'name_i18n', 'en', this.value)" placeholder="English name">
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label">名称 (中文)</label>
+                                    <input type="text" class="form-control" value="${level.name_i18n?.zh || ''}" onchange="updateVIPLevelI18n(${index}, 'name_i18n', 'zh', this.value)" placeholder="中文名称">
+                                </div>
+                            </div>
+                            <div class="row">
                                 <div class="col-md-3 mb-3">
                                     <label class="form-label">原价 (¥)</label>
                                     <input type="number" step="0.01" class="form-control" value="${level.price}" onchange="updateVIPLevel(${index}, 'price', parseFloat(this.value))">
@@ -311,12 +292,6 @@
                                 <div class="col-md-3 mb-3">
                                     <label class="form-label">有效期 (天)</label>
                                     <input type="number" class="form-control" value="${level.duration}" onchange="updateVIPLevel(${index}, 'duration', parseInt(this.value))" placeholder="0 = 永久">
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">描述 <small class="text-muted">(支持HTML代码)</small></label>
-                                    <textarea class="form-control" rows="3" onchange="updateVIPLevel(${index}, 'description', this.value)" placeholder="支持HTML标签，如 &lt;b&gt;加粗&lt;/b&gt;、&lt;br&gt;换行等">${escapeHtml(level.description)}</textarea>
                                 </div>
                                 <div class="col-md-3 mb-3">
                                     <label class="form-label">图标 (Bootstrap Icons)</label>
@@ -331,7 +306,21 @@
                                 </div>
                             </div>
                             <div class="row">
-                                <div class="col-md-6 mb-3">
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">描述 (默认) <small class="text-muted">(支持HTML代码)</small></label>
+                                    <textarea class="form-control" rows="3" onchange="updateVIPLevel(${index}, 'description', this.value)" placeholder="支持HTML标签，如 &lt;b&gt;加粗&lt;/b&gt;、&lt;br&gt;换行等">${escapeHtml(level.description)}</textarea>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">描述 (English)</label>
+                                    <textarea class="form-control" rows="3" onchange="updateVIPLevelI18n(${index}, 'description_i18n', 'en', this.value)" placeholder="English description">${escapeHtml(level.description_i18n?.en || '')}</textarea>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">描述 (中文)</label>
+                                    <textarea class="form-control" rows="3" onchange="updateVIPLevelI18n(${index}, 'description_i18n', 'zh', this.value)" placeholder="中文描述">${escapeHtml(level.description_i18n?.zh || '')}</textarea>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
                                     <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" id="allow-renewal-${index}" 
                                                ${level.allow_renewal ? 'checked' : ''} 
@@ -342,7 +331,14 @@
                                         </label>
                                     </div>
                                 </div>
-                                <div class="col-md-6 mb-3">
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label"><i class="bi bi-percent me-1"></i>续期折扣</label>
+                                    <input type="number" step="0.01" min="0" max="0.99" class="form-control" value="${level.renewal_discount || ''}" 
+                                        onchange="updateVIPLevel(${index}, 'renewal_discount', this.value ? parseFloat(this.value) : 0)"
+                                        placeholder="例如: 0.2 表示8折（优惠20%）">
+                                    <small class="text-muted">续期折扣率。0.2表示优惠20%（即8折，付80%原价），0表示无折扣。</small>
+                                </div>
+                                <div class="col-md-4 mb-3">
                                     <label class="form-label"><i class="bi bi-calculator me-1"></i>升级系数</label>
                                     <input type="number" step="0.01" min="0" max="1" class="form-control" value="${level.upgrade_coefficient || ''}" 
                                         onchange="updateVIPLevel(${index}, 'upgrade_coefficient', this.value ? parseFloat(this.value) : 0)"
@@ -473,6 +469,22 @@
             renderVIPPreview();
         }
 
+        function updateVIPLevelI18n(index, field, lang, value) {
+            if (!vipLevels[index][field]) {
+                vipLevels[index][field] = {};
+            }
+            if (value) {
+                vipLevels[index][field][lang] = value;
+            } else {
+                delete vipLevels[index][field][lang];
+                // Clean up empty i18n object
+                if (Object.keys(vipLevels[index][field]).length === 0) {
+                    delete vipLevels[index][field];
+                }
+            }
+            renderVIPPreview();
+        }
+
         function addVIPLevel() {
             const maxLevel = vipLevels.length > 0 ? Math.max(...vipLevels.map(l => l.level)) : 0;
             vipLevels.push({
@@ -494,34 +506,6 @@
             renderVIPPreview();
         }
 
-        // Payment Settings Form
-        document.getElementById('payment-form').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const data = {
-                enabled: document.getElementById('payment-enabled').checked,
-                demo_mode: document.getElementById('payment-demo-mode').checked,
-                api_url: document.getElementById('payment-api-url').value,
-                merchant_id: document.getElementById('payment-merchant-id').value,
-                api_key: document.getElementById('payment-api-key').value,
-                notify_url: document.getElementById('payment-notify-url').value,
-                return_url: document.getElementById('payment-return-url').value
-            };
-            
-            try {
-                const response = await fetch('/api/admin/settings/payment', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                
-                const result = await response.json();
-                showModal(result.success ? 'success' : 'danger', result.message);
-            } catch (error) {
-                showModal('danger', '网络错误，请稍后重试');
-            }
-        });
-
         // VIP Levels Form
         document.getElementById('vip-levels-form').addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -531,6 +515,157 @@
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ vip_levels: vipLevels })
+                });
+                
+                const result = await response.json();
+                showModal(result.success ? 'success' : 'danger', result.message);
+            } catch (error) {
+                showModal('danger', '网络错误，请稍后重试');
+            }
+        });
+
+        // Comparison Benefits Functions
+        async function loadComparisonBenefits() {
+            try {
+                const response = await fetch('/api/admin/settings/comparison-benefits');
+                const result = await response.json();
+                if (result.success) {
+                    comparisonBenefits = result.data || [];
+                    renderComparisonBenefits();
+                }
+            } catch (error) {
+                console.error('Error loading comparison benefits:', error);
+            }
+        }
+
+        function renderComparisonBenefits() {
+            const container = document.getElementById('comparison-benefits-container');
+            container.innerHTML = '';
+            
+            comparisonBenefits.sort((a, b) => a.order - b.order);
+            
+            comparisonBenefits.forEach((benefit, index) => {
+                const benefitCard = document.createElement('div');
+                benefitCard.className = 'card mb-3';
+                benefitCard.innerHTML = `
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">权益 ${index + 1}: ${benefit.name}</h6>
+                        <button type="button" class="btn btn-danger btn-sm" onclick="removeComparisonBenefit(${index})">
+                            <i class="bi bi-trash"></i> 删除
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">权益ID (唯一标识)</label>
+                                <input type="text" class="form-control" value="${benefit.id}" 
+                                    onchange="updateComparisonBenefit(${index}, 'id', this.value)">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">排序</label>
+                                <input type="number" class="form-control" value="${benefit.order}" 
+                                    onchange="updateComparisonBenefit(${index}, 'order', parseInt(this.value))">
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">权益名称 (中文)</label>
+                                <input type="text" class="form-control" value="${benefit.name}" 
+                                    onchange="updateComparisonBenefit(${index}, 'name', this.value)">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">权益名称 (英文)</label>
+                                <input type="text" class="form-control" value="${benefit.name_i18n && benefit.name_i18n.en ? benefit.name_i18n.en : ''}" 
+                                    onchange="updateComparisonBenefitI18n(${index}, 'en', this.value)">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">普通用户</label>
+                            <input type="text" class="form-control" value="${benefit.regular_user}" 
+                                placeholder="例如: ✓, ✗, 1x, -" 
+                                onchange="updateComparisonBenefit(${index}, 'regular_user', this.value)">
+                            <small class="text-muted">可以使用: ✓ (有), ✗ (无), 数值, 或其他描述</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">VIP等级权益值</label>
+                            <div class="row">
+                                ${renderVIPLevelInputs(index, benefit)}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(benefitCard);
+            });
+        }
+
+        function renderVIPLevelInputs(benefitIndex, benefit) {
+            const inputs = vipLevels.map(level => {
+                const value = benefit.vip_levels && benefit.vip_levels[level.level.toString()] ? benefit.vip_levels[level.level.toString()] : '';
+                return `
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label">VIP ${level.level}</label>
+                        <input type="text" class="form-control" value="${value}" 
+                            placeholder="例如: ✓, ✗, 2x" 
+                            onchange="updateComparisonBenefitVIPLevel(${benefitIndex}, '${level.level}', this.value)">
+                    </div>
+                `;
+            }).join('');
+            return inputs || '<div class="col-12"><small class="text-muted">请先配置VIP等级</small></div>';
+        }
+
+        function addComparisonBenefit() {
+            const newBenefit = {
+                id: `benefit_${Date.now()}`,
+                name: '新权益',
+                name_i18n: { en: 'New Benefit', zh: '新权益' },
+                regular_user: '✗',
+                vip_levels: {},
+                order: comparisonBenefits.length + 1
+            };
+            
+            // Initialize VIP levels
+            vipLevels.forEach(level => {
+                newBenefit.vip_levels[level.level.toString()] = '✓';
+            });
+            
+            comparisonBenefits.push(newBenefit);
+            renderComparisonBenefits();
+        }
+
+        function removeComparisonBenefit(index) {
+            if (confirm('确定要删除这个权益吗？')) {
+                comparisonBenefits.splice(index, 1);
+                renderComparisonBenefits();
+            }
+        }
+
+        function updateComparisonBenefit(index, field, value) {
+            comparisonBenefits[index][field] = value;
+        }
+
+        function updateComparisonBenefitI18n(index, lang, value) {
+            if (!comparisonBenefits[index].name_i18n) {
+                comparisonBenefits[index].name_i18n = {};
+            }
+            comparisonBenefits[index].name_i18n[lang] = value;
+        }
+
+        function updateComparisonBenefitVIPLevel(index, level, value) {
+            if (!comparisonBenefits[index].vip_levels) {
+                comparisonBenefits[index].vip_levels = {};
+            }
+            comparisonBenefits[index].vip_levels[level] = value;
+        }
+
+        // Comparison Benefits Form
+        document.getElementById('comparison-benefits-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            try {
+                const response = await fetch('/api/admin/settings/comparison-benefits', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ comparison_benefits: comparisonBenefits })
                 });
                 
                 const result = await response.json();

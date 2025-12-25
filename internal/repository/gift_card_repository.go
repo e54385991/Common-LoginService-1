@@ -104,7 +104,7 @@ func (r *GiftCardRepository) Delete(id uint) error {
 }
 
 // BatchCreate creates multiple gift cards at once
-func (r *GiftCardRepository) BatchCreate(amount float64, count int, expiresAt *time.Time, description string, vipLevel int, vipDays int) ([]model.GiftCard, error) {
+func (r *GiftCardRepository) BatchCreate(amount float64, count int, expiresAt *time.Time, description string, vipLevel int, vipDays int, vipHours int) ([]model.GiftCard, error) {
 	cards := make([]model.GiftCard, count)
 	for i := 0; i < count; i++ {
 		cards[i] = model.GiftCard{
@@ -114,6 +114,7 @@ func (r *GiftCardRepository) BatchCreate(amount float64, count int, expiresAt *t
 			Description: description,
 			VIPLevel:    vipLevel,
 			VIPDays:     vipDays,
+			VIPHours:    vipHours,
 		}
 	}
 
@@ -138,4 +139,56 @@ func (r *GiftCardRepository) BatchDelete(ids []uint) (int64, error) {
 	}
 	result := r.db.Where("id IN ?", ids).Delete(&model.GiftCard{})
 	return result.RowsAffected, result.Error
+}
+
+// GiftCardBatchTaskRepository handles gift card batch task database operations
+type GiftCardBatchTaskRepository struct {
+	db *gorm.DB
+}
+
+// NewGiftCardBatchTaskRepository creates a new GiftCardBatchTaskRepository
+func NewGiftCardBatchTaskRepository(db *gorm.DB) *GiftCardBatchTaskRepository {
+	return &GiftCardBatchTaskRepository{db: db}
+}
+
+// Create creates a new batch task
+func (r *GiftCardBatchTaskRepository) Create(task *model.GiftCardBatchTask) error {
+	return r.db.Create(task).Error
+}
+
+// FindByID finds a batch task by ID
+func (r *GiftCardBatchTaskRepository) FindByID(id uint) (*model.GiftCardBatchTask, error) {
+	var task model.GiftCardBatchTask
+	err := r.db.First(&task, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &task, nil
+}
+
+// List lists all batch tasks with pagination
+func (r *GiftCardBatchTaskRepository) List(page, pageSize int) ([]model.GiftCardBatchTask, int64, error) {
+	var tasks []model.GiftCardBatchTask
+	var total int64
+
+	r.db.Model(&model.GiftCardBatchTask{}).Count(&total)
+
+	offset := (page - 1) * pageSize
+	err := r.db.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&tasks).Error
+
+	return tasks, total, err
+}
+
+// UpdateProgress updates the progress of a batch task
+func (r *GiftCardBatchTaskRepository) UpdateProgress(id uint, sentCount, failedCount int, status string) error {
+	updates := map[string]interface{}{
+		"sent_count":   sentCount,
+		"failed_count": failedCount,
+		"status":       status,
+	}
+	if status == "completed" || status == "failed" {
+		now := time.Now()
+		updates["completed_at"] = &now
+	}
+	return r.db.Model(&model.GiftCardBatchTask{}).Where("id = ?", id).Updates(updates).Error
 }

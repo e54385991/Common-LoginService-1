@@ -303,6 +303,67 @@
             font-size: 2.2rem;
             margin-bottom: 10px;
         }
+        .payment-method.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .payment-method.disabled:hover {
+            border-color: #dee2e6;
+        }
+        [data-theme="dark"] .payment-method.disabled:hover {
+            border-color: #444;
+        }
+        /* Payment Type Selection (Balance vs Online) */
+        .payment-type-selector {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .payment-type-option {
+            flex: 1;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+        .payment-type-option:hover:not(.disabled) {
+            border-color: #6366F1;
+        }
+        .payment-type-option.selected {
+            border-color: #6366F1;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(99, 102, 241, 0.05) 100%);
+        }
+        .payment-type-option.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .payment-type-option i {
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+        }
+        .payment-type-option .balance-info {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 4px;
+        }
+        .payment-type-option.selected .balance-info {
+            color: #6366F1;
+        }
+        [data-theme="dark"] .payment-type-option {
+            border-color: #444;
+            background: #2a2a2a;
+        }
+        [data-theme="dark"] .payment-type-option:hover:not(.disabled) {
+            border-color: #6366F1;
+        }
+        [data-theme="dark"] .payment-type-option.selected {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(99, 102, 241, 0.1) 100%);
+        }
+        [data-theme="dark"] .payment-type-option .balance-info {
+            color: #a0a0a0;
+        }
         .not-logged-in-section {
             padding: 120px 0;
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
@@ -727,27 +788,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td>{{t .lang "vip.comparison_basic_content"}}</td>
-                            <td class="text-center"><i class="bi bi-check-circle-fill text-success"></i></td>
-                            <!-- VIP level data will be added by JavaScript -->
-                        </tr>
-                        <tr>
-                            <td>{{t .lang "vip.comparison_premium_content"}}</td>
-                            <td class="text-center"><i class="bi bi-x-circle-fill text-danger"></i></td>
-                        </tr>
-                        <tr>
-                            <td>{{t .lang "vip.comparison_support"}}</td>
-                            <td class="text-center"><i class="bi bi-x-circle-fill text-danger"></i></td>
-                        </tr>
-                        <tr>
-                            <td>{{t .lang "vip.comparison_points_rate"}}</td>
-                            <td class="text-center">1x</td>
-                        </tr>
-                        <tr>
-                            <td>{{t .lang "vip.comparison_discount"}}</td>
-                            <td class="text-center">-</td>
-                        </tr>
+                        <!-- Comparison data will be rendered by JavaScript -->
                     </tbody>
                 </table>
             </div>
@@ -921,6 +962,10 @@
             days: "{{t .lang "vip.days"}}",
             permanent: "{{t .lang "vip.permanent"}}",
             upgradeDiscount: "{{t .lang "vip.upgrade_discount"}}",
+            renewalDiscount: "{{t .lang "vip.renewal_discount"}}",
+            proratedCredit: "{{t .lang "vip.prorated_credit"}}",
+            upgradeSaving: "{{t .lang "vip.upgrade_saving"}}",
+            renewalSaving: "{{t .lang "vip.renewal_saving"}}",
             balancePurchase: "{{t .lang "vip.balance_purchase"}}",
             balanceUpgrade: "{{t .lang "vip.balance_upgrade"}}",
             insufficientBalance: "{{t .lang "vip.insufficient_balance"}}",
@@ -957,6 +1002,15 @@
             renewConfirm: "{{t .lang "vip.renew_confirm"}}",
             renewSuccessTitle: "{{t .lang "vip.renew_success_title"}}",
             renewSuccessMsg: "{{t .lang "vip.renew_success_msg"}}",
+            buyBtn: "{{t .lang "vip.buy_btn"}}",
+            renewBtn: "{{t .lang "vip.renew_btn"}}",
+            upgradeBtn: "{{t .lang "vip.upgrade_btn"}}",
+            selectPaymentMethod: "{{t .lang "vip.select_payment_method"}}",
+            payWithBalance: "{{t .lang "vip.pay_with_balance"}}",
+            payWithOnline: "{{t .lang "vip.pay_with_online"}}",
+            balanceAvailable: "{{t .lang "vip.balance_available"}}",
+            balanceInsufficientHint: "{{t .lang "vip.balance_insufficient_hint"}}",
+            paymentAmountLabel: "{{t .lang "vip.payment_amount"}}",
             paymentTitle: "{{t .lang "payment.title"}}",
             paymentProductName: "{{t .lang "payment.product_name"}}",
             paymentAmount: "{{t .lang "payment.amount"}}",
@@ -1191,13 +1245,32 @@
                 const result = await response.json();
                 if (result.success) {
                     vipLevels = result.data || [];
+                    // Load user VIP info first (needed for daily price calculation)
+                    await loadUserVIPInfo();
+                    // Now render VIP cards with correct pricing
                     renderVIPCards();
+                    // Load comparison benefits and then render table
+                    await loadComparisonBenefits();
                     renderComparisonTable();
-                    // Load user VIP info after VIP levels are loaded (needed for daily price calculation)
-                    loadUserVIPInfo();
                 }
             } catch (error) {
                 console.error('Failed to load VIP levels:', error);
+            }
+        }
+
+        let comparisonBenefits = [];
+
+        async function loadComparisonBenefits() {
+            try {
+                const response = await fetch('/api/comparison-benefits');
+                const result = await response.json();
+                if (result.success) {
+                    comparisonBenefits = result.data || [];
+                    // Sort by order
+                    comparisonBenefits.sort((a, b) => a.order - b.order);
+                }
+            } catch (error) {
+                console.error('Failed to load comparison benefits:', error);
             }
         }
 
@@ -1208,6 +1281,11 @@
             const thead = table.querySelector('thead tr');
             const tbody = table.querySelector('tbody');
             
+            // Clear existing VIP columns
+            while (thead.children.length > 2) {
+                thead.removeChild(thead.lastChild);
+            }
+            
             // Add VIP level headers
             vipLevels.forEach(level => {
                 const th = document.createElement('th');
@@ -1217,39 +1295,52 @@
                 thead.appendChild(th);
             });
             
-            // Update tbody rows with VIP level data
-            const rows = tbody.querySelectorAll('tr');
-            rows.forEach((row, rowIndex) => {
-                vipLevels.forEach((level, levelIndex) => {
-                    const td = document.createElement('td');
-                    td.className = 'text-center';
-                    
-                    // Determine content based on row
-                    switch(rowIndex) {
-                        case 0: // Basic content - all have it
-                            td.innerHTML = '<i class="bi bi-check-circle-fill text-success"></i>';
-                            break;
-                        case 1: // Premium content - all VIP have it
-                            td.innerHTML = '<i class="bi bi-check-circle-fill text-success"></i>';
-                            break;
-                        case 2: // Dedicated support - higher levels
-                            td.innerHTML = level.level >= 2 
-                                ? '<i class="bi bi-check-circle-fill text-success"></i>' 
-                                : '<i class="bi bi-x-circle-fill text-danger"></i>';
-                            break;
-                        case 3: // Points rate
-                            const rate = level.level === 1 ? '1.5x' : level.level === 2 ? '2x' : '3x';
-                            td.textContent = rate;
-                            break;
-                        case 4: // Discount
-                            const discount = level.level === 1 ? '9.5折' : level.level === 2 ? '9折' : '8折';
-                            const discountEn = level.level === 1 ? '5%' : level.level === 2 ? '10%' : '20%';
-                            td.textContent = document.documentElement.lang === 'zh' ? discount : discountEn;
-                            break;
-                    }
-                    row.appendChild(td);
+            // Clear tbody
+            tbody.innerHTML = '';
+            
+            // Render comparison benefits
+            const lang = document.documentElement.lang || 'zh';
+            comparisonBenefits.forEach(benefit => {
+                const tr = document.createElement('tr');
+                
+                // Benefit name
+                const nameTd = document.createElement('td');
+                const benefitName = benefit.name_i18n && benefit.name_i18n[lang] 
+                    ? benefit.name_i18n[lang] 
+                    : benefit.name;
+                nameTd.textContent = benefitName;
+                tr.appendChild(nameTd);
+                
+                // Regular user value
+                const regularTd = document.createElement('td');
+                regularTd.className = 'text-center';
+                regularTd.innerHTML = formatBenefitValue(benefit.regular_user);
+                tr.appendChild(regularTd);
+                
+                // VIP level values
+                vipLevels.forEach(level => {
+                    const vipTd = document.createElement('td');
+                    vipTd.className = 'text-center';
+                    const value = benefit.vip_levels && benefit.vip_levels[level.level.toString()] 
+                        ? benefit.vip_levels[level.level.toString()] 
+                        : '-';
+                    vipTd.innerHTML = formatBenefitValue(value);
+                    tr.appendChild(vipTd);
                 });
+                
+                tbody.appendChild(tr);
             });
+        }
+
+        function formatBenefitValue(value) {
+            // Ensure value is a string
+            const strValue = String(value || '');
+            if (strValue === '✓' || strValue.toLowerCase() === 'yes' || strValue === '有') {
+                return '<i class="bi bi-check-circle-fill text-success"></i>';
+            } else if (strValue === '✗' || strValue.toLowerCase() === 'no' || strValue === '无') {
+                return '<i class="bi bi-x-circle-fill text-danger"></i>';
+            }
+            return strValue;
         }
 
         function adjustColor(color, amount) {
@@ -1276,6 +1367,9 @@
                 const isDowngrade = level.level <= currentUserVIPLevel;
                 const isUpgrade = currentUserVIPLevel > 0 && level.level > currentUserVIPLevel;
                 
+                // Get card color early for button styling
+                const cardColor = level.color || '#ffd700';
+                
                 // Check if this level has multiple specifications
                 const hasSpecs = level.specifications && level.specifications.length > 0;
                 
@@ -1284,6 +1378,7 @@
                 let displayDuration = level.duration;
                 let priceDisplay = `¥${level.price}`;
                 let upgradeLabel = '';
+                let discountReason = '';
                 
                 if (hasSpecs) {
                     // Find the lowest price specification
@@ -1295,11 +1390,59 @@
                 
                 // Use string key for upgrade_prices lookup (JSON uses string keys)
                 const currentLevelKey = String(currentUserVIPLevel);
-                if (isUpgrade && !hasSpecs && level.upgrade_prices && level.upgrade_prices[currentLevelKey]) {
-                    const upgradePrice = level.upgrade_prices[currentLevelKey];
-                    priceDisplay = `<s class="text-light opacity-50 small">¥${level.price}</s> ¥${upgradePrice}`;
-                    displayPrice = upgradePrice;
-                    upgradeLabel = `<span class="upgrade-badge">${i18n.upgradeDiscount}</span>`;
+                
+                // Check for prorated upgrade based on upgrade_coefficient
+                const upgradeCoefficient = typeof level.upgrade_coefficient === 'number' && 
+                                           !isNaN(level.upgrade_coefficient) && 
+                                           level.upgrade_coefficient > 0 && 
+                                           level.upgrade_coefficient <= 1 
+                                           ? level.upgrade_coefficient : 0;
+                
+                if (isUpgrade && !hasSpecs) {
+                    let originalPrice = displayPrice;
+                    
+                    // First check for prorated upgrade pricing
+                    if (upgradeCoefficient > 0 && currentUserRemainingDays > 0 && currentUserVIPDailyPrice > 0) {
+                        // Calculate prorated upgrade price = new price - (remaining days * old daily price * coefficient)
+                        const credit = currentUserRemainingDays * currentUserVIPDailyPrice * upgradeCoefficient;
+                        displayPrice = Math.max(0, displayPrice - credit);
+                        displayPrice = Math.round(displayPrice * 100) / 100;
+                        priceDisplay = `<s class="text-light opacity-50 small">¥${originalPrice.toFixed(2)}</s> ¥${displayPrice.toFixed(2)}`;
+                        upgradeLabel = `<span class="upgrade-badge">${i18n.upgradeDiscount}</span>`;
+                        // Show discount reason: remaining days converted to savings
+                        const savedAmount = Math.round(credit * 100) / 100;
+                        discountReason = `<small class="text-success d-block mt-1"><i class="bi bi-info-circle me-1"></i>${i18n.proratedCredit} -¥${savedAmount.toFixed(2)}</small>`;
+                    } 
+                    // Fall back to fixed upgrade prices if set
+                    else if (level.upgrade_prices && level.upgrade_prices[currentLevelKey]) {
+                        const upgradePrice = level.upgrade_prices[currentLevelKey];
+                        priceDisplay = `<s class="text-light opacity-50 small">¥${originalPrice}</s> ¥${upgradePrice}`;
+                        displayPrice = upgradePrice;
+                        upgradeLabel = `<span class="upgrade-badge">${i18n.upgradeDiscount}</span>`;
+                        const savedAmount = Math.round((originalPrice - upgradePrice) * 100) / 100;
+                        if (savedAmount > 0) {
+                            discountReason = `<small class="text-success d-block mt-1"><i class="bi bi-info-circle me-1"></i>${i18n.upgradeSaving} -¥${savedAmount.toFixed(2)}</small>`;
+                        }
+                    }
+                }
+                
+                // Check for renewal discount
+                const isSameLevel = level.level === currentUserVIPLevel;
+                const allowRenewal = level.allow_renewal === true;
+                const renewalDiscount = level.renewal_discount || 0;
+                let renewalLabel = '';
+                
+                // Apply renewal discount to display price when applicable
+                if (isSameLevel && allowRenewal && renewalDiscount > 0 && renewalDiscount < 1) {
+                    const originalPrice = displayPrice;
+                    displayPrice = displayPrice * (1 - renewalDiscount);
+                    // Round to 2 decimal places
+                    displayPrice = Math.round(displayPrice * 100) / 100;
+                    const discountPercentage = Math.round(renewalDiscount * 100);
+                    priceDisplay = `<s class="text-light opacity-50 small">¥${originalPrice}</s> ¥${displayPrice.toFixed(2)}`;
+                    renewalLabel = `<span class="badge bg-success ms-2">${i18n.renewalDiscount}</span>`;
+                    const savedAmount = Math.round((originalPrice - displayPrice) * 100) / 100;
+                    discountReason = `<small class="text-success d-block mt-1"><i class="bi bi-info-circle me-1"></i>${i18n.renewalSaving} -¥${savedAmount.toFixed(2)}</small>`;
                 }
                 
                 const canAfford = userBalance >= displayPrice;
@@ -1307,69 +1450,42 @@
                 // Duration text
                 const durationText = displayDuration > 0 ? `${displayDuration} ${i18n.days}` : i18n.permanent;
                 
-                // Check if this is the same level as current user's VIP and renewal is allowed
-                const isSameLevel = level.level === currentUserVIPLevel;
-                const allowRenewal = level.allow_renewal === true;
-                
-                // Determine button states
-                let balanceButtonHtml, paymentButtonHtml;
+                // Determine single button configuration
+                let buttonHtml;
                 
                 if (isSameLevel && allowRenewal) {
-                    // Same level and renewal is allowed - show renewal button
-                    balanceButtonHtml = `
-                        <button class="btn ${canAfford ? 'btn-info' : 'btn-outline-secondary'} vip-select-btn" 
-                                onclick="event.stopPropagation(); ${hasSpecs ? `showSpecificationModal(${level.level}, 'renew')` : `renewVIPWithBalance(${level.level}, ${level.duration})`}"
-                                ${!canAfford ? 'disabled' : ''}>
-                            <i class="bi bi-arrow-repeat me-2"></i>${canAfford ? i18n.balanceRenew : i18n.insufficientBalance}
-                        </button>
-                    `;
-                    // When balance is insufficient, show online payment button for renewal instead of "Owned"
-                    paymentButtonHtml = canAfford ? `
-                        <button class="btn btn-outline-secondary vip-select-btn" disabled>
-                            <i class="bi bi-check-circle me-2"></i>${i18n.owned}
-                        </button>
-                    ` : `
-                        <button class="btn btn-outline-warning vip-select-btn" onclick="event.stopPropagation(); ${hasSpecs ? `showSpecificationModal(${level.level}, 'online')` : `openVIPPayment(${level.level}, ${level.duration})`}">
-                            <i class="bi bi-credit-card me-2"></i>${i18n.onlinePayment}
+                    // Same level and renewal is allowed - show renewal button (check this BEFORE isDowngrade)
+                    buttonHtml = `
+                        <button class="btn btn-info vip-select-btn" 
+                                onclick="event.stopPropagation(); ${hasSpecs ? `showSpecificationModal(${level.level}, 'renew')` : `openPaymentMethodModal(${level.level}, ${level.duration}, 'renew')`}">
+                            <i class="bi bi-arrow-repeat me-2"></i>${i18n.renewBtn}
                         </button>
                     `;
                 } else if (isDowngrade) {
-                    // Already have this level or higher - disable buttons
-                    balanceButtonHtml = `
+                    // Already have this level or higher (and renewal not allowed) - show owned
+                    buttonHtml = `
                         <button class="btn btn-outline-secondary vip-select-btn" disabled>
                             <i class="bi bi-check-circle me-2"></i>${i18n.owned}
-                        </button>
-                    `;
-                    paymentButtonHtml = `
-                        <button class="btn btn-outline-secondary vip-select-btn" disabled>
-                            <i class="bi bi-ban me-2"></i>${i18n.cannotPurchase}
                         </button>
                     `;
                 } else if (hasSpecs) {
                     // Has multiple specifications - show selection modal
-                    balanceButtonHtml = `
-                        <button class="btn btn-success vip-select-btn" 
-                                onclick="event.stopPropagation(); showSpecificationModal(${level.level}, 'balance')">
-                            <i class="bi bi-wallet2 me-2"></i>${isUpgrade ? i18n.balanceUpgrade : i18n.balancePurchase}
-                        </button>
-                    `;
-                    paymentButtonHtml = `
-                        <button class="btn btn-outline-warning vip-select-btn" onclick="event.stopPropagation(); showSpecificationModal(${level.level}, 'online')">
-                            <i class="bi bi-credit-card me-2"></i>${isUpgrade ? i18n.onlineUpgrade : i18n.onlinePayment}
+                    // Pass the correct purchase type based on whether this is an upgrade
+                    const specPurchaseType = isUpgrade ? 'upgrade' : 'purchase';
+                    buttonHtml = `
+                        <button class="btn btn-primary vip-select-btn" 
+                                style="background: ${getGradientStyle(cardColor)}; border: none;"
+                                onclick="event.stopPropagation(); showSpecificationModal(${level.level}, '${specPurchaseType}')">
+                            <i class="bi bi-cart-plus me-2"></i>${isUpgrade ? i18n.upgradeBtn : i18n.buyBtn}
                         </button>
                     `;
                 } else {
                     // Can purchase or upgrade (no specs)
-                    balanceButtonHtml = `
-                        <button class="btn ${canAfford ? 'btn-success' : 'btn-outline-secondary'} vip-select-btn" 
-                                onclick="event.stopPropagation(); purchaseVIPWithBalance(${level.level}, ${level.duration})"
-                                ${!canAfford ? 'disabled' : ''}>
-                            <i class="bi bi-wallet2 me-2"></i>${canAfford ? (isUpgrade ? i18n.balanceUpgrade : i18n.balancePurchase) : i18n.insufficientBalance}
-                        </button>
-                    `;
-                    paymentButtonHtml = `
-                        <button class="btn btn-outline-warning vip-select-btn" onclick="event.stopPropagation(); openVIPPayment(${level.level}, ${level.duration})">
-                            <i class="bi bi-credit-card me-2"></i>${isUpgrade ? i18n.onlineUpgrade : i18n.onlinePayment}
+                    buttonHtml = `
+                        <button class="btn btn-primary vip-select-btn" 
+                                style="background: ${getGradientStyle(cardColor)}; border: none;"
+                                onclick="event.stopPropagation(); openPaymentMethodModal(${level.level}, ${level.duration}, '${isUpgrade ? 'upgrade' : 'purchase'}')">
+                            <i class="bi bi-cart-plus me-2"></i>${isUpgrade ? i18n.upgradeBtn : i18n.buyBtn}
                         </button>
                     `;
                 }
@@ -1387,7 +1503,6 @@
                     return '#' + (0x1000000 + R*0x10000 + G*0x100 + B).toString(16).slice(1);
                 };
                 
-                const cardColor = level.color || '#ffd700';
                 // Create semi-transparent background for icon wrapper
                 // Using rgba for better compatibility
                 const hexToRgba = (hex, alpha) => {
@@ -1428,10 +1543,11 @@
                                 <div class="vip-icon-wrapper" style="background: ${iconBgColor};">
                                     <i class="${level.icon || 'bi-star'}" style="color: ${cardColor};"></i>
                                 </div>
-                                <div class="vip-name" style="color: ${cardColor};">${level.name}${upgradeLabel}</div>
+                                <div class="vip-name" style="color: ${cardColor};">${level.name}${upgradeLabel}${renewalLabel}</div>
                                 <div class="vip-price">
                                     ${priceDisplay}
                                     <small>${displayDuration > 0 ? '/' + i18n.month + i18n.startingFrom : '/' + i18n.permanent}</small>
+                                    ${discountReason}
                                 </div>
                             </div>
                             <div class="vip-body">
@@ -1442,8 +1558,7 @@
                                     ${multiOptionsBadge}
                                 </div>
                                 <div class="d-grid gap-2">
-                                    ${balanceButtonHtml}
-                                    ${paymentButtonHtml}
+                                    ${buttonHtml}
                                 </div>
                             </div>
                         </div>
@@ -1464,19 +1579,18 @@
         // Show specification selection modal with member type tabs (like demovip.html)
         let modalCurrentMember = null;
         let modalCurrentPeriod = 1;
-        let modalPurchaseType = 'online';
+        let modalPurchaseType = 'select';
 
         function showSpecificationModal(level, purchaseType) {
             const vip = vipLevels.find(v => v.level === level);
             if (!vip) return;
             
-            // If no specifications, fallback to direct purchase
+            // If no specifications, fallback to direct payment method modal
             if (!vip.specifications || vip.specifications.length === 0) {
-                if (purchaseType === 'balance') {
-                    purchaseVIPWithBalance(level, vip.duration);
-                } else {
-                    openVIPPayment(level, vip.duration);
-                }
+                const isSameLevel = level === currentUserVIPLevel;
+                const isUpgrade = currentUserVIPLevel > 0 && level > currentUserVIPLevel;
+                const actionType = isSameLevel ? 'renew' : (isUpgrade ? 'upgrade' : 'purchase');
+                openPaymentMethodModal(level, vip.duration, actionType);
                 return;
             }
             
@@ -1486,7 +1600,11 @@
             
             // Build member type tabs HTML
             let memberTabsHtml = '';
-            const availableVips = vipLevels.filter(v => v.level > currentUserVIPLevel && v.specifications && v.specifications.length > 0);
+            // Include same level if renewal is allowed
+            const availableVips = vipLevels.filter(v => {
+                if (v.level === currentUserVIPLevel && v.allow_renewal) return true;
+                return v.level > currentUserVIPLevel && v.specifications && v.specifications.length > 0;
+            });
             
             availableVips.forEach((v) => {
                 const isActive = v.level === level;
@@ -1571,6 +1689,7 @@
         function buildDurationOptionsHtml(vip) {
             const userBalance = parseFloat(document.getElementById('user-balance')?.textContent || '0');
             const isUpgrade = currentUserVIPLevel > 0 && vip.level > currentUserVIPLevel;
+            const isRenewal = modalPurchaseType === 'renew' && vip.level === currentUserVIPLevel;
             const currentLevelKey = String(currentUserVIPLevel);
             
             // Get upgrade coefficient for prorated pricing (validate it's a valid number between 0 and 1)
@@ -1580,14 +1699,27 @@
                                        vip.upgrade_coefficient <= 1 
                                        ? vip.upgrade_coefficient : 0;
             
+            // Get renewal discount (validate it's a valid number between 0 and 1)
+            const renewalDiscount = typeof vip.renewal_discount === 'number' &&
+                                    !isNaN(vip.renewal_discount) &&
+                                    vip.renewal_discount > 0 &&
+                                    vip.renewal_discount < 1
+                                    ? vip.renewal_discount : 0;
+            
             let html = '';
             vip.specifications.forEach((spec, index) => {
                 // Ensure spec.price is a valid number
                 let specPrice = typeof spec.price === 'number' && !isNaN(spec.price) ? spec.price : 0;
                 let originalPrice = specPrice;
                 
+                // Apply renewal discount if this is a renewal
+                if (isRenewal && renewalDiscount > 0) {
+                    specPrice = specPrice * (1 - renewalDiscount);
+                    // Round to 2 decimal places
+                    specPrice = Math.round(specPrice * 100) / 100;
+                }
                 // Calculate upgrade price based on remaining days if coefficient is set
-                if (isUpgrade && upgradeCoefficient > 0 && currentUserRemainingDays > 0 && currentUserVIPDailyPrice > 0) {
+                else if (isUpgrade && upgradeCoefficient > 0 && currentUserRemainingDays > 0 && currentUserVIPDailyPrice > 0) {
                     // Prorated upgrade price = new price - (remaining days * old daily price * coefficient)
                     const credit = currentUserRemainingDays * currentUserVIPDailyPrice * upgradeCoefficient;
                     specPrice = Math.max(0, specPrice - credit);
@@ -1602,20 +1734,24 @@
                 }
                 
                 const durationText = spec.duration > 0 ? `${spec.duration} ${i18n.days}` : i18n.permanent;
-                const canAfford = modalPurchaseType === 'balance' ? userBalance >= specPrice : true;
                 const isSelected = index === 0;
+                
+                // Show original price if there's a discount
+                const showDiscount = (isRenewal && renewalDiscount > 0) || (specPrice !== originalPrice);
+                const priceDisplay = showDiscount 
+                    ? `<s class="text-muted small">¥${originalPrice.toFixed(2)}</s><br>¥${specPrice.toFixed(2)}`
+                    : `¥${specPrice.toFixed(2)}`;
                 
                 html += `
                     <div class="col-4">
-                        <div class="duration-item p-3 border rounded-3 text-center ${isSelected ? 'selected' : ''} ${!canAfford && modalPurchaseType === 'balance' ? 'opacity-50' : ''}"
+                        <div class="duration-item p-3 border rounded-3 text-center ${isSelected ? 'selected' : ''}"
                              data-duration="${spec.duration}" 
                              data-price="${specPrice}" 
                              data-original-price="${originalPrice}"
-                             onclick="${canAfford || modalPurchaseType !== 'balance' ? 'selectDurationOption(this)' : ''}"
-                             style="cursor: ${canAfford || modalPurchaseType !== 'balance' ? 'pointer' : 'not-allowed'}; transition: all 0.2s;">
+                             onclick="selectDurationOption(this)"
+                             style="cursor: pointer; transition: all 0.2s;">
                             <span class="d-block fw-medium">${durationText}</span>
-                            <span class="d-block fw-bold" style="color: ${vip.color || '#6366F1'}">¥${specPrice.toFixed(2)}</span>
-                            ${!canAfford && modalPurchaseType === 'balance' ? `<small class="text-danger d-block">${i18n.insufficientBalance}</small>` : ''}
+                            <span class="d-block fw-bold" style="color: ${vip.color || '#6366F1'}">${priceDisplay}</span>
                         </div>
                     </div>
                 `;
@@ -1646,6 +1782,17 @@
             if (!vip) return;
             
             modalCurrentMember = level;
+            
+            // Update modalPurchaseType based on the newly selected level
+            const isSameLevel = level === currentUserVIPLevel;
+            const isUpgrade = currentUserVIPLevel > 0 && level > currentUserVIPLevel;
+            if (isSameLevel && vip.allow_renewal) {
+                modalPurchaseType = 'renew';
+            } else if (isUpgrade) {
+                modalPurchaseType = 'upgrade';
+            } else {
+                modalPurchaseType = 'purchase';
+            }
             
             // Update tabs
             document.querySelectorAll('#member-type-tabs .vip-tab-btn').forEach(btn => {
@@ -1747,14 +1894,231 @@
             const specModal = bootstrap.Modal.getInstance(document.getElementById('specificationModal'));
             if (specModal) specModal.hide();
             
-            // Process purchase or renewal
+            // Determine action type based on comparison between target level and current VIP level
+            const vip = vipLevels.find(v => v.level === level);
+            const isSameLevel = vip && level === currentUserVIPLevel;
+            const isUpgrade = currentUserVIPLevel > 0 && level > currentUserVIPLevel;
+            
+            // Always open the unified payment method selection modal
+            // This ensures users can choose between balance and online payment
             setTimeout(() => {
-                if (purchaseType === 'balance') {
-                    purchaseVIPWithBalance(level, duration);
-                } else if (purchaseType === 'renew') {
-                    renewVIPWithBalance(level, duration);
+                const actionType = isSameLevel ? 'renew' : (isUpgrade ? 'upgrade' : 'purchase');
+                openPaymentMethodModal(level, duration, actionType);
+            }, 300);
+        }
+
+        // Open unified payment method selection modal (Balance + Online)
+        function openPaymentMethodModal(level, duration, actionType) {
+            const vip = vipLevels.find(v => v.level === level);
+            if (!vip) return;
+            
+            selectedVIPLevel = level;
+            selectedDuration = duration;
+            
+            const userBalance = parseFloat(document.getElementById('user-balance')?.textContent || '0');
+            const isUpgrade = actionType === 'upgrade';
+            const isRenewal = actionType === 'renew';
+            
+            // Calculate actual price with all applicable discounts
+            let actualPrice = vip.price;
+            let originalPrice = vip.price;
+            let actualDuration = vip.duration;
+            
+            // If duration is specified and specifications exist, find matching spec
+            if (duration > 0 && vip.specifications && vip.specifications.length > 0) {
+                const spec = vip.specifications.find(s => s.duration === duration);
+                if (spec) {
+                    actualPrice = spec.price;
+                    originalPrice = spec.price;
+                    actualDuration = spec.duration;
+                    
+                    // Check for upgrade price in specification
+                    const currentLevelKey = String(currentUserVIPLevel);
+                    if (isUpgrade && spec.upgrade_prices && spec.upgrade_prices[currentLevelKey]) {
+                        actualPrice = spec.upgrade_prices[currentLevelKey];
+                    }
+                }
+            }
+            
+            // Calculate discount reason for display
+            let discountReason = '';
+            let savedAmount = 0;
+            
+            // Apply renewal discount
+            if (isRenewal && vip.renewal_discount > 0 && vip.renewal_discount < 1) {
+                savedAmount = actualPrice * vip.renewal_discount;
+                actualPrice = actualPrice * (1 - vip.renewal_discount);
+                actualPrice = Math.round(actualPrice * 100) / 100;
+                savedAmount = Math.round(savedAmount * 100) / 100;
+                discountReason = `<small class="text-success"><i class="bi bi-info-circle me-1"></i>${i18n.renewalSaving} -¥${savedAmount.toFixed(2)}</small>`;
+            }
+            // Apply upgrade discount (prorated)
+            else if (isUpgrade && vip.upgrade_coefficient > 0 && currentUserRemainingDays > 0 && currentUserVIPDailyPrice > 0) {
+                const credit = currentUserRemainingDays * currentUserVIPDailyPrice * vip.upgrade_coefficient;
+                savedAmount = Math.round(credit * 100) / 100;
+                actualPrice = Math.max(0, actualPrice - credit);
+                actualPrice = Math.round(actualPrice * 100) / 100;
+                discountReason = `<small class="text-success"><i class="bi bi-info-circle me-1"></i>${i18n.proratedCredit} -¥${savedAmount.toFixed(2)}</small>`;
+            } else if (isUpgrade && !duration && vip.upgrade_prices) {
+                const currentLevelKey = String(currentUserVIPLevel);
+                if (vip.upgrade_prices[currentLevelKey]) {
+                    savedAmount = originalPrice - vip.upgrade_prices[currentLevelKey];
+                    actualPrice = vip.upgrade_prices[currentLevelKey];
+                    if (savedAmount > 0) {
+                        savedAmount = Math.round(savedAmount * 100) / 100;
+                        discountReason = `<small class="text-success"><i class="bi bi-info-circle me-1"></i>${i18n.upgradeSaving} -¥${savedAmount.toFixed(2)}</small>`;
+                    }
+                }
+            }
+            
+            const canAfford = userBalance >= actualPrice;
+            const durationText = actualDuration > 0 ? `${actualDuration}${i18n.days}` : i18n.permanent;
+            const productName = `${vip.name} - ${durationText}`;
+            
+            // Determine button text based on action type
+            let buttonText = i18n.buyBtn;
+            let modalTitle = i18n.selectPaymentMethod;
+            if (isRenewal) {
+                buttonText = i18n.renewBtn;
+            } else if (isUpgrade) {
+                buttonText = i18n.upgradeBtn;
+            }
+            
+            // Build payment type options (Balance vs Online)
+            const balanceOptionClass = canAfford ? '' : 'disabled';
+            const defaultSelected = canAfford ? 'balance' : 'online';
+            
+            const modalHtml = `
+                <div class="modal fade payment-modal" id="paymentMethodModal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content" style="border-radius: 16px; overflow: hidden;">
+                            <div class="modal-header" style="background: ${getGradientStyle(vip.color || '#6366F1')}; color: white;">
+                                <h5 class="modal-title"><i class="bi bi-credit-card me-2"></i>${modalTitle}</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body p-4">
+                                <!-- Product Info -->
+                                <div class="payment-info mb-4">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">${i18n.paymentProductName}</span>
+                                        <span class="fw-medium">${productName}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">${i18n.paymentAmountLabel}</span>
+                                        <span class="fw-bold fs-4" style="color: ${vip.color || '#6366F1'}">¥${actualPrice.toFixed(2)}</span>
+                                    </div>
+                                    ${actualPrice !== originalPrice ? `
+                                    <div class="d-flex justify-content-between align-items-center mt-1">
+                                        <span>${discountReason}</span>
+                                        <small class="text-muted text-decoration-line-through">¥${originalPrice.toFixed(2)}</small>
+                                    </div>
+                                    ` : ''}
+                                </div>
+                                
+                                <!-- Payment Type Selection -->
+                                <p class="text-muted small mb-3">${i18n.selectPaymentMethod}</p>
+                                <div class="payment-type-selector" id="payment-type-selector">
+                                    <div class="payment-type-option ${defaultSelected === 'balance' ? 'selected' : ''} ${balanceOptionClass}" 
+                                         data-type="balance" onclick="selectPaymentType(this, ${!canAfford})">
+                                        <i class="bi bi-wallet2 d-block" style="color: #28a745;"></i>
+                                        <div class="fw-medium">${i18n.payWithBalance}</div>
+                                        <div class="balance-info">
+                                            ${i18n.balanceAvailable}: ¥${userBalance.toFixed(2)}
+                                            ${!canAfford ? `<br><span class="text-danger small">${i18n.balanceInsufficientHint}</span>` : ''}
+                                        </div>
+                                    </div>
+                                    <div class="payment-type-option ${defaultSelected === 'online' ? 'selected' : ''}" 
+                                         data-type="online" onclick="selectPaymentType(this, false)">
+                                        <i class="bi bi-globe d-block" style="color: #6366F1;"></i>
+                                        <div class="fw-medium">${i18n.payWithOnline}</div>
+                                        <div class="balance-info">${i18n.paymentAlipay} / ${i18n.paymentWechat}</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Online Payment Method Selection (shown when online is selected) -->
+                                <div id="online-payment-methods" style="display: ${defaultSelected === 'online' ? 'block' : 'none'};">
+                                    <div class="payment-methods">
+                                        <div class="payment-method selected" data-method="alipay" onclick="selectOnlinePaymentMethod(this)">
+                                            <i class="bi bi-alipay text-primary d-block"></i>
+                                            <small>${i18n.paymentAlipay}</small>
+                                        </div>
+                                        <div class="payment-method" data-method="wechat" onclick="selectOnlinePaymentMethod(this)">
+                                            <i class="bi bi-wechat text-success d-block"></i>
+                                            <small>${i18n.paymentWechat}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Submit Button -->
+                                <button class="btn w-100 py-3 fw-bold" id="payment-method-submit-btn"
+                                        style="background: ${getGradientStyle(vip.color || '#6366F1')}; color: white;"
+                                        onclick="submitUnifiedPayment(${level}, ${actualDuration}, '${actionType}')">
+                                    <i class="bi bi-check-lg me-2"></i>${buttonText}
+                                </button>
+                                
+                                <p class="text-center text-muted small mt-3 mb-0">
+                                    <i class="bi bi-lock me-1"></i>${i18n.paymentSecureNote}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Remove existing modal if present
+            const existing = document.getElementById('paymentMethodModal');
+            if (existing) existing.remove();
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            new bootstrap.Modal(document.getElementById('paymentMethodModal')).show();
+        }
+        
+        // Select payment type (balance or online)
+        function selectPaymentType(element, isDisabled) {
+            if (isDisabled) return;
+            
+            document.querySelectorAll('#payment-type-selector .payment-type-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            element.classList.add('selected');
+            
+            // Show/hide online payment methods based on selection
+            const isOnline = element.dataset.type === 'online';
+            const onlineMethods = document.getElementById('online-payment-methods');
+            if (onlineMethods) {
+                onlineMethods.style.display = isOnline ? 'block' : 'none';
+            }
+        }
+        
+        // Select online payment method (alipay or wechat)
+        function selectOnlinePaymentMethod(element) {
+            document.querySelectorAll('#online-payment-methods .payment-method').forEach(m => {
+                m.classList.remove('selected');
+            });
+            element.classList.add('selected');
+            paymentMethod = element.dataset.method;
+        }
+        
+        // Submit unified payment (balance or online)
+        async function submitUnifiedPayment(level, duration, actionType) {
+            const selectedType = document.querySelector('#payment-type-selector .payment-type-option.selected');
+            const isBalancePayment = selectedType && selectedType.dataset.type === 'balance';
+            
+            // Close the modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('paymentMethodModal'));
+            if (modal) modal.hide();
+            
+            setTimeout(async () => {
+                if (isBalancePayment) {
+                    // Use balance payment
+                    if (actionType === 'renew') {
+                        await renewVIPWithBalance(level, duration);
+                    } else {
+                        await purchaseVIPWithBalance(level, duration);
+                    }
                 } else {
-                    openVIPPayment(level, duration);
+                    // Use online payment - pass actionType to preserve discount info
+                    openVIPPayment(level, duration, actionType);
                 }
             }, 300);
         }
@@ -1779,7 +2143,7 @@
             });
         }
 
-        function openVIPPayment(level, duration = 0) {
+        function openVIPPayment(level, duration = 0, actionType = '') {
             const vip = vipLevels.find(v => v.level === level);
             if (!vip) return;
             
@@ -1787,7 +2151,8 @@
             selectedDuration = duration;
             
             // Calculate actual price for display (check for upgrade price)
-            const isUpgrade = currentUserVIPLevel > 0 && level > currentUserVIPLevel;
+            const isUpgrade = actionType === 'upgrade' || (currentUserVIPLevel > 0 && level > currentUserVIPLevel);
+            const isRenewal = actionType === 'renew';
             let displayPrice = vip.price;
             let displayDuration = vip.duration;
             let productName = vip.name;
@@ -1813,7 +2178,19 @@
                 }
             }
             
-            if (isUpgrade) {
+            // Apply renewal discount
+            if (isRenewal && vip.renewal_discount > 0 && vip.renewal_discount < 1) {
+                displayPrice = displayPrice * (1 - vip.renewal_discount);
+                displayPrice = Math.round(displayPrice * 100) / 100;
+                productName = vip.name + ' (' + i18n.renewalDiscount + ')';
+            }
+            // Apply upgrade discount (prorated)
+            else if (isUpgrade && vip.upgrade_coefficient > 0 && currentUserRemainingDays > 0 && currentUserVIPDailyPrice > 0) {
+                const credit = currentUserRemainingDays * currentUserVIPDailyPrice * vip.upgrade_coefficient;
+                displayPrice = Math.max(0, displayPrice - credit);
+                displayPrice = Math.round(displayPrice * 100) / 100;
+                productName = vip.name + ' (' + i18n.upgradeDiscount + ')';
+            } else if (isUpgrade) {
                 productName = vip.name + ' (' + i18n.upgradeDiscount + ')';
             }
             
@@ -1876,6 +2253,7 @@
                     body: JSON.stringify({
                         product_type: 'vip',
                         product_id: selectedVIPLevel,
+                        duration: duration, // Pass the selected VIP duration
                         amount: amount,
                         payment_method: paymentMethod
                     })
@@ -2212,6 +2590,7 @@
 
             // Calculate actual price and duration
             let actualPrice = vip.price;
+            let originalPrice = vip.price;
             let actualDuration = vip.duration;
             
             // If duration is specified and specifications exist, find matching spec
@@ -2219,13 +2598,23 @@
                 const spec = vip.specifications.find(s => s.duration === duration);
                 if (spec) {
                     actualPrice = spec.price;
+                    originalPrice = spec.price;
                     actualDuration = spec.duration;
                 }
+            }
+            
+            // Apply renewal discount if configured
+            const renewalDiscount = vip.renewal_discount || 0;
+            if (renewalDiscount > 0 && renewalDiscount < 1) {
+                actualPrice = actualPrice * (1 - renewalDiscount);
+                // Round to 2 decimal places
+                actualPrice = Math.round(actualPrice * 100) / 100;
             }
 
             const durationText = actualDuration > 0 ? `${actualDuration}${i18n.days}` : i18n.permanent;
             const confirmMsg = i18n.renewConfirm.replace('%s', `${vip.name} (${durationText})`);
-            const priceText = `${i18n.priceLabel}：¥${actualPrice.toFixed(2)}`;
+            const discountInfo = renewalDiscount > 0 ? `\n${i18n.originalPrice}：¥${originalPrice.toFixed(2)}\n${i18n.renewalDiscount}：${Math.round(renewalDiscount * 100)}%` : '';
+            const priceText = `${i18n.priceLabel}：¥${actualPrice.toFixed(2)}${discountInfo}`;
 
             const confirmed = await showConfirmModal(`${confirmMsg}\n\n${priceText}`, '', {
                 confirmBtnClass: 'btn-info',

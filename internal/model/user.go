@@ -92,7 +92,32 @@ type GiftCard struct {
 	ExpiresAt   *time.Time     `json:"expires_at"`
 	Description string         `gorm:"size:255" json:"description"`
 	VIPLevel    int            `gorm:"default:0" json:"vip_level"`  // VIP level to grant (0 = no VIP)
-	VIPDays     int            `gorm:"default:0" json:"vip_days"`   // VIP duration in days (0 = permanent)
+	VIPDays     int            `gorm:"default:0" json:"vip_days"`   // VIP duration in days (0 = permanent, use VIPHours for finer control)
+	VIPHours    int            `gorm:"default:0" json:"vip_hours"`  // VIP duration in hours (0 = use VIPDays, takes precedence over VIPDays if set)
+}
+
+// GiftCardBatchTask represents a batch gift card distribution task
+type GiftCardBatchTask struct {
+	ID          uint           `gorm:"primarykey" json:"id"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+	// Gift card configuration
+	Amount      float64        `gorm:"default:0" json:"amount"`       // Balance amount to give
+	VIPLevel    int            `gorm:"default:0" json:"vip_level"`    // VIP level to give
+	VIPDays     int            `gorm:"default:0" json:"vip_days"`     // VIP days to give
+	VIPHours    int            `gorm:"default:0" json:"vip_hours"`    // VIP hours to give
+	ExpiresIn   int            `gorm:"default:0" json:"expires_in"`   // Card expires in N days (0 = never)
+	Description string         `gorm:"size:255" json:"description"`   // Card description
+	// Filter criteria (JSON stored)
+	FilterCriteria string      `gorm:"type:text" json:"filter_criteria"` // JSON of filter criteria
+	// Progress tracking
+	TotalUsers   int           `gorm:"default:0" json:"total_users"`   // Total users to distribute to
+	SentCount    int           `gorm:"default:0" json:"sent_count"`    // Number of cards distributed
+	FailedCount  int           `gorm:"default:0" json:"failed_count"`  // Number of failures
+	Status       string        `gorm:"size:32;default:pending;index" json:"status"` // pending, running, completed, failed
+	CreatedBy    *uint         `gorm:"index" json:"created_by"`        // Admin user ID
+	CompletedAt  *time.Time    `json:"completed_at"`                   // When task completed
 }
 
 // PaymentOrder represents a payment order
@@ -106,6 +131,7 @@ type PaymentOrder struct {
 	Amount      float64        `gorm:"not null" json:"amount"`
 	ProductType string         `gorm:"size:32" json:"product_type"` // "vip" or "recharge"
 	ProductID   int            `json:"product_id"`                  // VIP level for vip type
+	Duration    int            `json:"duration"`                    // VIP duration in days (for vip type)
 	Status      string         `gorm:"size:32;default:pending" json:"status"` // pending, success, fail
 	PaidAt      *time.Time     `json:"paid_at"`
 }
@@ -155,4 +181,12 @@ type RegistrationLog struct {
 	IP        string    `gorm:"size:45;index:idx_registration_logs_rate_limit,priority:1" json:"ip"` // IP address of the registration attempt
 	UserID    *uint     `gorm:"index" json:"user_id"`                                               // User ID if registration was successful
 	Success   bool      `gorm:"default:false;index:idx_registration_logs_rate_limit,priority:2" json:"success"` // Whether registration was successful
+}
+
+// PasswordResetLog represents a password reset request log entry (for rate limiting)
+type PasswordResetLog struct {
+	ID        uint      `gorm:"primarykey" json:"id"`
+	CreatedAt time.Time `gorm:"index:idx_password_reset_logs_rate_limit,priority:2" json:"created_at"`
+	IP        string    `gorm:"size:45;index:idx_password_reset_logs_rate_limit,priority:1" json:"ip"` // IP address of the password reset request
+	Email     string    `gorm:"size:255;index" json:"email"` // Email address requested
 }

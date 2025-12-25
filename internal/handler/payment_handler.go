@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"net/url"
 	"sort"
@@ -19,6 +20,9 @@ import (
 	"github.com/e54385991/Common-LoginService/internal/repository"
 	"github.com/gin-gonic/gin"
 )
+
+// DefaultVIPDurationDays is the default VIP duration in days if not configured
+const DefaultVIPDurationDays = 30
 
 // PaymentHandler handles payment requests
 type PaymentHandler struct {
@@ -38,10 +42,27 @@ func NewPaymentHandler(cfg *config.Config, paymentOrderRepo *repository.PaymentO
 	}
 }
 
+// roundToTwoDecimals rounds a float64 to two decimal places
+func roundToTwoDecimals(amount float64) float64 {
+	return math.Round(amount*100) / 100
+}
+
+// isValidRechargeOption checks if the given amount matches a predefined recharge option
+func (h *PaymentHandler) isValidRechargeOption(amount float64) bool {
+	roundedAmount := roundToTwoDecimals(amount)
+	for _, opt := range h.cfg.Recharge.Options {
+		if roundToTwoDecimals(opt.Amount) == roundedAmount {
+			return true
+		}
+	}
+	return false
+}
+
 // CreatePaymentRequest represents a payment creation request
 type CreatePaymentRequest struct {
 	ProductType   string  `json:"product_type" binding:"required"` // "vip" or "recharge"
 	ProductID     int     `json:"product_id"`                       // VIP level (for vip type)
+	Duration      int     `json:"duration"`                         // VIP duration in days (for vip type, 0 = use default)
 	Amount        float64 `json:"amount" binding:"required"`        // Payment amount
 	PaymentMethod string  `json:"payment_method" binding:"required"` // "alipay" or "wechat"
 }
@@ -101,6 +122,34 @@ func (h *PaymentHandler) CreatePayment(c *gin.Context) {
 			"message": "支付金额必须大于0",
 		})
 		return
+	}
+
+	// Validate recharge amount limits
+	if input.ProductType == "recharge" {
+		if h.cfg.Recharge.MinAmount > 0 && input.Amount < h.cfg.Recharge.MinAmount {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": fmt.Sprintf("充值金额不能小于 %.2f 元", h.cfg.Recharge.MinAmount),
+			})
+			return
+		}
+		if h.cfg.Recharge.MaxAmount > 0 && input.Amount > h.cfg.Recharge.MaxAmount {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": fmt.Sprintf("充值金额不能大于 %.2f 元", h.cfg.Recharge.MaxAmount),
+			})
+			return
+		}
+		// If custom amount is disabled, validate against predefined options
+		if !h.cfg.Recharge.CustomAmountEnable && len(h.cfg.Recharge.Options) > 0 {
+			if !h.isValidRechargeOption(input.Amount) {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"success": false,
+					"message": "自定义充值金额未启用，请选择预设金额",
+				})
+				return
+			}
+		}
 	}
 
 	// Check if payment is enabled
@@ -172,7 +221,9 @@ func (h *PaymentHandler) CreatePayment(c *gin.Context) {
 		return
 	}
 
-	// For VIP purchases, validate that user is not trying to purchase a lower or equal level
+	// For VIP purchases, validate that user is not trying to purchase a lower level
+	// Allow same-level purchase if renewal is enabled for that level
+	// Also recalculate price with discounts for online payment
 	if input.ProductType == "vip" {
 		currentUser, err := h.userRepo.FindByID(userIDUint)
 		if err != nil {
@@ -183,16 +234,141 @@ func (h *PaymentHandler) CreatePayment(c *gin.Context) {
 			return
 		}
 
-		if input.ProductID <= currentUser.VIPLevel {
+		// Check if trying to purchase a lower level (always blocked)
+		if input.ProductID < currentUser.VIPLevel {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"success": false,
-				"message": "您已是该等级或更高等级的VIP，无法购买更低等级",
+				"message": "您已是更高等级的VIP，无法购买更低等级",
 				"data": gin.H{
 					"current_level":   currentUser.VIPLevel,
 					"requested_level": input.ProductID,
 				},
 			})
 			return
+		}
+
+		// Find the VIP level config
+		var vipConfig *config.VIPLevelConfig
+		for _, v := range h.cfg.VIPLevels {
+			if v.Level == input.ProductID {
+				vipConfig = &v
+				break
+			}
+		}
+
+		if vipConfig == nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "VIP等级不存在",
+			})
+			return
+		}
+
+		// Validate price against backend configuration
+		expectedPrice := vipConfig.Price
+		expectedDuration := vipConfig.Duration
+
+		// If duration is specified, find matching specification
+		if input.Duration > 0 && len(vipConfig.Specifications) > 0 {
+			found := false
+			for _, spec := range vipConfig.Specifications {
+				if spec.Duration == input.Duration {
+					expectedPrice = spec.Price
+					expectedDuration = spec.Duration
+					found = true
+					break
+				}
+			}
+			if !found {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"success": false,
+					"message": "指定的VIP时长规格不存在",
+					"data": gin.H{
+						"requested_duration": input.Duration,
+					},
+				})
+				return
+			}
+		} else if input.Duration == 0 && len(vipConfig.Specifications) > 0 {
+			// Find default duration in specifications
+			for _, spec := range vipConfig.Specifications {
+				if spec.Duration == vipConfig.Duration {
+					expectedPrice = spec.Price
+					expectedDuration = spec.Duration
+					break
+				}
+			}
+		}
+
+		// Check if trying to purchase same level (renewal)
+		if input.ProductID == currentUser.VIPLevel {
+			if !vipConfig.AllowRenewal {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"success": false,
+					"message": "您已是该等级的VIP，该等级不支持续期",
+					"data": gin.H{
+						"current_level":   currentUser.VIPLevel,
+						"requested_level": input.ProductID,
+					},
+				})
+				return
+			}
+			
+			// Apply renewal discount for online payment - use expected price from backend
+			if vipConfig.RenewalDiscount > 0 && vipConfig.RenewalDiscount < 1 {
+				expectedPrice = roundToTwoDecimals(expectedPrice * (1 - vipConfig.RenewalDiscount))
+			}
+			input.Amount = expectedPrice
+			input.Duration = expectedDuration
+		} else if input.ProductID > currentUser.VIPLevel && currentUser.VIPLevel > 0 {
+			// Upgrade scenario: Apply upgrade coefficient discount for online payment
+			// Use backend expected price instead of client provided amount
+			if vipConfig.UpgradeCoefficient > 0 && vipConfig.UpgradeCoefficient <= 1 {
+				// Find old VIP config
+				var oldVIPConfig *config.VIPLevelConfig
+				for _, v := range h.cfg.VIPLevels {
+					if v.Level == currentUser.VIPLevel {
+						oldVIPConfig = &v
+						break
+					}
+				}
+				
+				if oldVIPConfig != nil {
+					// Calculate remaining days from current VIP
+					remainingDays := 0.0
+					if currentUser.VIPExpireAt != nil && currentUser.VIPExpireAt.After(time.Now()) {
+						remainingDuration := currentUser.VIPExpireAt.Sub(time.Now())
+						remainingDays = remainingDuration.Hours() / 24
+					}
+					
+					if remainingDays > 0 {
+						// Calculate old VIP's daily price
+						oldDuration := float64(oldVIPConfig.Duration)
+						if oldDuration <= 0 {
+							oldDuration = DefaultVIPDurationDays
+						}
+						oldDailyPrice := oldVIPConfig.Price / oldDuration
+						
+						// Prorated upgrade price = new price - (remaining days * old daily price * coefficient)
+						credit := remainingDays * oldDailyPrice * vipConfig.UpgradeCoefficient
+						expectedPrice = expectedPrice - credit
+						if expectedPrice < 0 {
+							expectedPrice = 0
+						}
+					}
+				}
+			}
+			input.Amount = roundToTwoDecimals(expectedPrice)
+			input.Duration = expectedDuration
+		} else {
+			// New VIP purchase - use backend prices
+			input.Amount = expectedPrice
+			input.Duration = expectedDuration
+		}
+
+		// Ensure minimum payment amount is 1 for online payment (if amount > 0 but < 1)
+		if input.Amount > 0 && input.Amount < 1 {
+			input.Amount = 1
 		}
 	}
 
@@ -217,6 +393,7 @@ func (h *PaymentHandler) CreatePayment(c *gin.Context) {
 		Amount:      input.Amount,
 		ProductType: input.ProductType,
 		ProductID:   input.ProductID,
+		Duration:    input.Duration, // Store the selected VIP duration
 		Status:      "pending",
 	}
 	if err := h.paymentOrderRepo.Create(order); err != nil {
@@ -477,23 +654,45 @@ func (h *PaymentHandler) PaymentNotify(c *gin.Context) {
 				balanceBefore = userBefore.Balance
 			}
 
-			// Update user balance
-			updatedUser, processErr := h.userRepo.UpdateBalance(order.UserID, order.Amount)
+			// Calculate bonus amount based on recharge options
+			// Use tolerance-based comparison for floating-point values
+			var bonusAmount float64
+			const tolerance = 0.001 // 0.1 cent tolerance for floating-point comparison
+			for _, option := range h.cfg.Recharge.Options {
+				if math.Abs(option.Amount-order.Amount) < tolerance && option.Bonus > 0 {
+					bonusAmount = option.Bonus
+					break
+				}
+			}
+
+			// Total amount to add = recharge amount + bonus
+			totalAmount := order.Amount + bonusAmount
+
+			// Update user balance with total amount (including bonus)
+			updatedUser, processErr := h.userRepo.UpdateBalance(order.UserID, totalAmount)
 			if processErr != nil {
 				log.Printf("Payment notify: failed to update balance for user %d, order %s: %v", order.UserID, outTradeNo, processErr)
 			} else {
-				log.Printf("Payment notify: successfully recharged %.2f for user %d, order %s", order.Amount, order.UserID, outTradeNo)
+				if bonusAmount > 0 {
+					log.Printf("Payment notify: successfully recharged %.2f (bonus: %.2f, total: %.2f) for user %d, order %s", order.Amount, bonusAmount, totalAmount, order.UserID, outTradeNo)
+				} else {
+					log.Printf("Payment notify: successfully recharged %.2f for user %d, order %s", order.Amount, order.UserID, outTradeNo)
+				}
 				
 				// Create balance log for payment recharge
 				if h.balanceLogRepo != nil && updatedUser != nil {
 					relatedID := order.ID
+					reason := "在线充值"
+					if bonusAmount > 0 {
+						reason = fmt.Sprintf("在线充值 (赠送 %.2f)", bonusAmount)
+					}
 					balanceLog := &model.BalanceLog{
 						UserID:        order.UserID,
-						Amount:        order.Amount,
+						Amount:        totalAmount,
 						BalanceBefore: balanceBefore,
 						BalanceAfter:  updatedUser.Balance,
 						Type:          "payment",
-						Reason:        "在线充值",
+						Reason:        reason,
 						OperatorType:  "system",
 						RelatedID:     &relatedID,
 					}
@@ -501,23 +700,69 @@ func (h *PaymentHandler) PaymentNotify(c *gin.Context) {
 				}
 			}
 		case "vip":
-			// Update user VIP level (only allow upgrade, prevent downgrade)
+			// Update user VIP level
 			currentUser, findErr := h.userRepo.FindByID(order.UserID)
 			if findErr != nil {
 				log.Printf("Payment notify: failed to find user %d for order %s: %v", order.UserID, outTradeNo, findErr)
 				processErr = findErr
-			} else if currentUser.VIPLevel >= order.ProductID {
-				// User already has equal or higher VIP level - this is not an error, but we should log it
-				log.Printf("Payment notify: user %d already has VIP level %d (>= requested %d), skipping upgrade for order %s", 
+			} else if currentUser.VIPLevel > order.ProductID {
+				// User already has higher VIP level - cannot downgrade
+				log.Printf("Payment notify: user %d already has VIP level %d (> requested %d), skipping for order %s", 
 					order.UserID, currentUser.VIPLevel, order.ProductID, outTradeNo)
-				// No error - order is successful but no upgrade needed
+				// No error - order is successful but no change needed (should not happen normally)
+			} else if currentUser.VIPLevel == order.ProductID {
+				// Same level - check if renewal is allowed and process renewal
+				var vipConfig *config.VIPLevelConfig
+				for i := range h.cfg.VIPLevels {
+					if h.cfg.VIPLevels[i].Level == order.ProductID {
+						vipConfig = &h.cfg.VIPLevels[i]
+						break
+					}
+				}
+
+				if vipConfig == nil || !vipConfig.AllowRenewal {
+					// Renewal not allowed - just log it
+					log.Printf("Payment notify: user %d already has VIP level %d and renewal not allowed, skipping for order %s", 
+						order.UserID, currentUser.VIPLevel, outTradeNo)
+				} else {
+					// Renewal is allowed - extend VIP duration
+					// Use the duration stored in the order first, then fall back to config
+					duration := order.Duration
+					if duration <= 0 {
+						// Fall back to VIP config duration
+						duration = vipConfig.Duration
+					}
+					if duration <= 0 {
+						duration = DefaultVIPDurationDays // Default to 30 days if still not set
+					}
+					_, processErr = h.userRepo.RenewVIPLevel(order.UserID, order.ProductID, duration)
+					if processErr != nil {
+						log.Printf("Payment notify: failed to renew VIP level %d for user %d, order %s: %v", order.ProductID, order.UserID, outTradeNo, processErr)
+					} else {
+						log.Printf("Payment notify: successfully renewed VIP level %d for user %d (duration: %d days), order %s", order.ProductID, order.UserID, duration, outTradeNo)
+					}
+				}
 			} else {
-				// Proceed with VIP upgrade
-				_, processErr = h.userRepo.SetVIPLevel(order.UserID, order.ProductID)
+				// Proceed with VIP upgrade or new purchase
+				// Use the duration stored in the order first, then fall back to config
+				duration := order.Duration
+				if duration <= 0 {
+					// Fall back to VIP config duration
+					for i := range h.cfg.VIPLevels {
+						if h.cfg.VIPLevels[i].Level == order.ProductID {
+							duration = h.cfg.VIPLevels[i].Duration
+							break
+						}
+					}
+				}
+				if duration <= 0 {
+					duration = DefaultVIPDurationDays // Default to 30 days if still not set
+				}
+				_, processErr = h.userRepo.SetVIPLevelWithDuration(order.UserID, order.ProductID, duration)
 				if processErr != nil {
 					log.Printf("Payment notify: failed to set VIP level %d for user %d, order %s: %v", order.ProductID, order.UserID, outTradeNo, processErr)
 				} else {
-					log.Printf("Payment notify: successfully upgraded user %d from VIP level %d to %d, order %s", order.UserID, currentUser.VIPLevel, order.ProductID, outTradeNo)
+					log.Printf("Payment notify: successfully upgraded user %d from VIP level %d to %d (duration: %d days), order %s", order.UserID, currentUser.VIPLevel, order.ProductID, duration, outTradeNo)
 				}
 			}
 		default:

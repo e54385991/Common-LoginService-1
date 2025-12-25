@@ -342,6 +342,10 @@ var translations = map[string]map[string]string{
 		"vip.days":                             "days",
 		"vip.permanent":                        "Permanent",
 		"vip.upgrade_discount":                 "Upgrade Discount",
+		"vip.renewal_discount":                 "Renewal Discount",
+		"vip.prorated_credit":                  "Remaining days credit",
+		"vip.upgrade_saving":                   "Upgrade discount",
+		"vip.renewal_saving":                   "Renewal discount",
 		"vip.balance_purchase":                 "Pay with Balance",
 		"vip.balance_upgrade":                  "Upgrade with Balance",
 		"vip.insufficient_balance":             "Insufficient Balance",
@@ -386,7 +390,7 @@ var translations = map[string]map[string]string{
 		"vip.comparison_subtitle":              "Scroll to see full benefits and choose the best plan for you",
 		"vip.comparison_benefit":               "Benefit",
 		"vip.comparison_regular":               "Regular User",
-		"vip.comparison_basic_content":         "Basic Content Access",
+		"vip.comparison_preview_video":         "Preview video",
 		"vip.comparison_premium_content":       "Premium Content Unlock",
 		"vip.comparison_support":               "Dedicated Support",
 		"vip.comparison_points_rate":           "Points Rate",
@@ -406,6 +410,15 @@ var translations = map[string]map[string]string{
 		"vip.renew_confirm":                    "Confirm to renew %s with balance?",
 		"vip.renew_success_title":              "Renewal Successful",
 		"vip.renew_success_msg":                "You have successfully renewed",
+		"vip.buy_btn":                          "Buy",
+		"vip.renew_btn":                        "Renew",
+		"vip.upgrade_btn":                      "Upgrade",
+		"vip.select_payment_method":            "Select Payment Method",
+		"vip.pay_with_balance":                 "Balance",
+		"vip.pay_with_online":                  "Online Payment",
+		"vip.balance_available":                "Available",
+		"vip.balance_insufficient_hint":        "Insufficient balance, please use online payment",
+		"vip.payment_amount":                   "Amount to Pay",
 
 		// Payment
 		"payment.title":                        "Confirm Payment",
@@ -855,6 +868,10 @@ var translations = map[string]map[string]string{
 		"vip.days":                             "天",
 		"vip.permanent":                        "永久",
 		"vip.upgrade_discount":                 "升级优惠",
+		"vip.renewal_discount":                 "续期折扣",
+		"vip.prorated_credit":                  "剩余天数抵扣",
+		"vip.upgrade_saving":                   "升级优惠",
+		"vip.renewal_saving":                   "续费优惠",
 		"vip.balance_purchase":                 "余额购买",
 		"vip.balance_upgrade":                  "余额升级",
 		"vip.insufficient_balance":             "余额不足",
@@ -899,7 +916,7 @@ var translations = map[string]map[string]string{
 		"vip.comparison_subtitle":              "滑动查看完整权益，选择最适合您的会员方案",
 		"vip.comparison_benefit":               "会员权益",
 		"vip.comparison_regular":               "普通用户",
-		"vip.comparison_basic_content":         "基础内容访问",
+		"vip.comparison_preview_video":         "预览视频",
 		"vip.comparison_premium_content":       "高级内容解锁",
 		"vip.comparison_support":               "专属客服",
 		"vip.comparison_points_rate":           "积分倍率",
@@ -919,6 +936,15 @@ var translations = map[string]map[string]string{
 		"vip.renew_confirm":                    "确定使用余额续期 %s？",
 		"vip.renew_success_title":              "续期成功",
 		"vip.renew_success_msg":                "您已成功续期",
+		"vip.buy_btn":                          "购买",
+		"vip.renew_btn":                        "续期",
+		"vip.upgrade_btn":                      "升级",
+		"vip.select_payment_method":            "选择支付方式",
+		"vip.pay_with_balance":                 "余额支付",
+		"vip.pay_with_online":                  "在线支付",
+		"vip.balance_available":                "可用",
+		"vip.balance_insufficient_hint":        "余额不足，请使用在线支付",
+		"vip.payment_amount":                   "支付金额",
 
 		// Payment
 		"payment.title":                        "确认支付",
@@ -1123,3 +1149,5 @@ func SupportedLanguages() []string {
 	}
 	return langs
 }
+
+
